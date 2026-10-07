@@ -343,8 +343,10 @@ def validate_verified_flow_proof(doc: Any) -> dict:
         "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
         "evidence_kind", "evidence_chain", "boot_verified", "rules", "binding_sha256",
     }
+    version = doc.get("version") if isinstance(doc, dict) else None
     if not isinstance(doc, dict) or set(doc) != root_keys or doc.get("format") != FLOW_FORMAT \
-            or doc.get("version") != FLOW_VERSION or doc.get("boot_verified") is not True:
+            or isinstance(version, bool) or not isinstance(version, int) or version != FLOW_VERSION \
+            or doc.get("boot_verified") is not True:
         raise InspectionError("invalid verified-flow proof")
     if doc.get("evidence_kind") != "independent-original-runtime":
         raise InspectionError("verified-flow proof requires independent original-runtime evidence")

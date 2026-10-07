@@ -121,6 +121,9 @@ class VerticalSliceTests(unittest.TestCase):
         self.assertEqual(proof['binding_sha256'],digest({k:v for k,v in proof.items() if k!='binding_sha256'}))
         legacy=json.loads(json.dumps(proof)); legacy['version']=1
         with self.assertRaises(InspectionError): validate_verified_flow_proof(legacy)
+        fractional_version=json.loads(json.dumps(proof)); fractional_version['version']=2.0
+        fractional_version['binding_sha256']=digest({k:v for k,v in fractional_version.items() if k!='binding_sha256'})
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(fractional_version)
         missing=json.loads(json.dumps(proof)); del missing['evidence_chain']
         with self.assertRaises(InspectionError): validate_verified_flow_proof(missing)
         extra=json.loads(json.dumps(proof)); extra['unexpected']=True

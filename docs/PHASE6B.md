@@ -72,3 +72,6 @@ Android v2 parsing now requires `version` and every `not_before_ms` to be actual
 The app repository and runtime gate also independently require every proof rule that enters `SCENE` to reference a scene ID present in the active, hash-bound scenario. This closes the remaining gap where a proof could be structurally valid, package/scenario-hash bound and correctly re-hashed while still naming a nonexistent scene.
 
 No v1 migration was added because reconstructing the missing v2 evidence chain would reduce the fail-closed guarantee.
+
+
+Python and Android now share the same strict numeric interpretation for the proof version: `version: 2.0` is rejected even if its binding digest is recomputed. This prevents cross-language acceptance differences at the `.crflow` trust boundary.
