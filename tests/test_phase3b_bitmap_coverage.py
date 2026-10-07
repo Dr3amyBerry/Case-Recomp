@@ -69,7 +69,7 @@ class Phase3BBitmapCoverage(unittest.TestCase):
     def test_indexed_indices_and_truecolor_refusal(self):
         info = BitmapCastInfo(3, 1, 4, 2, 0, 0, -102)
         indices, meta = decode_bitd_indices(bytes((0x12, 0x30)), info)
-        self.assertEqual(indices, bytes((1, 2, 3)))
+        self.assertEqual(indices, bytes((17, 34, 51)))
         self.assertTrue(meta["palette_indices_verified"])
         self.assertFalse(meta["palette_rgb_resolved"])
         with self.assertRaises(InspectionError):
@@ -106,12 +106,13 @@ class Phase3BBitmapCoverage(unittest.TestCase):
             src = root / "indexed.cct"
             out = root / "out"
             src.write_bytes(media_cast(
-                assets=[("CASt", cast_bitmap(8, 2, 1, 2), 1), ("BITD", b"\0\1", 1)],
+                assets=[("CASt", cast_bitmap(8, 2, 1, 2), 1), ("BITD", b"\x00\x13", 1)],
                 keys=[(101, 100, "BITD")],
             ))
             result = convert_local(src, out, decode_bitd=True)
-            self.assertEqual(result["asset_count"], 0)
-            self.assertEqual(result["skipped"]["indexed_BITD_requires_palette"], 1)
+            self.assertEqual(result["asset_count"], 1)
+            self.assertTrue(result["assets"][0]["palette_rgb_resolved"])
+            self.assertEqual(verify_export(out)["verified_files"], 1)
 
     def test_packbits_bounds(self):
         with self.assertRaises(InspectionError):
