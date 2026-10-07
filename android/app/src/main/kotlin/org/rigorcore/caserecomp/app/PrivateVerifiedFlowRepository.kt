@@ -1,6 +1,7 @@
 package org.rigorcore.caserecomp.app
 
 import android.content.Context
+import org.rigorcore.caserecomp.MiniJson
 import org.rigorcore.caserecomp.VerifiedFlowProofParser
 import org.rigorcore.caserecomp.VerifiedFlowProofV2
 import java.io.File
@@ -14,24 +15,49 @@ class PrivateVerifiedFlowRepository(context: Context) {
 
     fun importProof(input: InputStream, content: LoadedPrivateContent): VerifiedFlowProofV2 {
         val bytes = readBounded(input)
-        val proof = VerifiedFlowProofParser.parse(bytes.toString(Charsets.UTF_8))
+        val text = bytes.toString(Charsets.UTF_8)
+        val proof = VerifiedFlowProofParser.parse(text)
         requireBound(proof, content)
+
+        // Persist only the validated canonical document, never caller-controlled
+        // whitespace/ordering/encoding bytes that happened to parse equivalently.
+        val canonical = MiniJson.canonical(MiniJson.parse(text).jsonObject("verified-flow")) + "\n"
+        val canonicalBytes = canonical.toByteArray(Charsets.UTF_8)
+        require(canonicalBytes.size <= MAX_FLOW_PROOF_BYTES) { "canonical verified flow exceeds size cap" }
+
         val target = fileFor(content)
+        recoverInterruptedCommit(target, content)
         val temp = File(directory, target.name + ".tmp")
-        FileOutputStream(temp).use { out -> out.write(bytes); out.fd.sync() }
         val backup = File(directory, target.name + ".bak")
-        if (backup.exists()) backup.delete()
-        if (target.exists()) require(target.renameTo(backup)) { "cannot stage previous verified flow" }
-        if (!temp.renameTo(target)) {
-            if (backup.exists()) backup.renameTo(target)
-            error("cannot commit verified flow")
+        require(!temp.exists() || temp.delete()) { "cannot clear stale verified-flow staging file" }
+
+        try {
+            FileOutputStream(temp).use { out -> out.write(canonicalBytes); out.fd.sync() }
+            require(!backup.exists() || backup.delete()) { "cannot clear stale verified-flow backup" }
+            if (target.exists()) require(target.renameTo(backup)) { "cannot stage previous verified flow" }
+            if (!temp.renameTo(target)) {
+                if (backup.exists()) require(backup.renameTo(target)) { "cannot restore previous verified flow" }
+                error("cannot commit verified flow")
+            }
+            require(!backup.exists() || backup.delete()) { "cannot clear committed verified-flow backup" }
+            return proof
+        } finally {
+            if (temp.exists()) temp.delete()
         }
-        backup.delete()
-        return proof
     }
 
     fun loadFor(content: LoadedPrivateContent): VerifiedFlowProofV2? {
         val file = fileFor(content)
+        recoverInterruptedCommit(file, content)
+        return parseBoundFile(file, content)
+    }
+
+    fun clearFor(content: LoadedPrivateContent): Boolean {
+        val file = fileFor(content)
+        return !file.exists() || file.delete()
+    }
+
+    private fun parseBoundFile(file: File, content: LoadedPrivateContent): VerifiedFlowProofV2? {
         if (!file.isFile || file.length() !in 1..MAX_FLOW_PROOF_BYTES.toLong()) return null
         return runCatching {
             val proof = VerifiedFlowProofParser.parse(file.readText(Charsets.UTF_8))
@@ -40,9 +66,23 @@ class PrivateVerifiedFlowRepository(context: Context) {
         }.getOrNull()
     }
 
-    fun clearFor(content: LoadedPrivateContent): Boolean {
-        val file = fileFor(content)
-        return !file.exists() || file.delete()
+    private fun recoverInterruptedCommit(target: File, content: LoadedPrivateContent) {
+        val temp = File(directory, target.name + ".tmp")
+        val backup = File(directory, target.name + ".bak")
+        if (temp.exists()) temp.delete()
+
+        if (target.exists()) {
+            if (backup.exists()) backup.delete()
+            return
+        }
+        if (!backup.exists()) return
+
+        // A backup is recoverable only after full parser + package/scenario binding.
+        if (parseBoundFile(backup, content) == null) {
+            backup.delete()
+            return
+        }
+        if (!backup.renameTo(target)) backup.delete()
     }
 
     private fun requireBound(proof: VerifiedFlowProofV2, content: LoadedPrivateContent) {

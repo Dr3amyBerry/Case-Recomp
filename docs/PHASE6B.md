@@ -47,3 +47,17 @@ No real Huntsville capture trial has been added to the repository; original rule
 The Python proof emitted after this chain is now `.crflow` v2 and requires the target private-content `package_id`. Android independently validates the complete `evidence_chain`, package/scenario bindings and a canonical `binding_sha256` covering the whole v2 proof before persistence and again on load. The digest detects stale or partially edited proofs but is not remote attestation or a signature.
 
 Legacy v1 proofs are intentionally not migrated. They do not contain enough information to recreate the v2 chain without weakening the fail-closed guarantee. Re-run the private evidence pipeline and explicitly generate a v2 proof instead.
+
+
+### Canonical Android persistence and interrupted-import recovery
+
+The Android repository now persists only the canonical UTF-8 representation of a proof **after** v2 parsing, binding-hash validation and package/scenario checks. Equivalent caller-controlled JSON whitespace or key ordering is not retained.
+
+The `.tmp`/`.bak` commit path is also fail-closed across interruption:
+
+- stale `.tmp` files are never promoted,
+- if the active `.crflow` is missing but a `.bak` remains, the backup is restored only after full v2 parser validation and active package/scenario binding,
+- malformed or cross-package backups are deleted rather than recovered,
+- a failed replacement leaves the previous valid proof recoverable.
+
+This is crash-consistency hardening only; it does not turn the local evidence chain into remote attestation.

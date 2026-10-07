@@ -148,6 +148,35 @@ class VerifiedFlowInstrumentationTest {
         assertNull(repository.loadFor(loaded))
     }
 
+    @Test fun import_persists_canonical_v2_and_recovers_only_valid_interrupted_backup() {
+        val loaded = loaded()
+        val repository = PrivateVerifiedFlowRepository(context)
+        val valid = proofText()
+        val nonCanonical = "\n  " + valid + "  \n"
+        repository.importProof(ByteArrayInputStream(nonCanonical.toByteArray()), loaded)
+
+        val directory = File(context.filesDir, "private-flow")
+        val target = File(directory, packageId + ".crflow")
+        val expectedCanonical = MiniJson.canonical(MiniJson.parse(valid).jsonObject("proof")) + "\n"
+        assertEquals(expectedCanonical, target.readText(Charsets.UTF_8))
+
+        // Simulate process death after target -> .bak but before .tmp -> target.
+        val backup = File(directory, target.name + ".bak")
+        assertTrue(target.renameTo(backup))
+        File(directory, target.name + ".tmp").writeText("untrusted-staging", Charsets.UTF_8)
+        assertNotNull(repository.loadFor(loaded))
+        assertTrue(target.isFile)
+        assertTrue(!backup.exists())
+        assertTrue(!File(directory, target.name + ".tmp").exists())
+
+        // Invalid backup must never be promoted.
+        assertTrue(target.delete())
+        backup.writeText("{\"format\":\"case-recomp-verified-flow\",\"version\":1}", Charsets.UTF_8)
+        assertNull(repository.loadFor(loaded))
+        assertTrue(!target.exists())
+        assertTrue(!backup.exists())
+    }
+
     @Test fun same_scenario_in_different_package_cannot_reuse_proof() {
         val repository = PrivateVerifiedFlowRepository(context)
         val other = loaded("9".repeat(64))
