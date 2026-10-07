@@ -10,7 +10,8 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **4 —** close indexed BITD fidelity, parse Score/cast/timeline structure, define scenario-v1, add fail-closed private behavior traces and expand the deterministic Kotlin runtime.
 - [x] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests.
 - [~] **6 —** boot/menu/map/scene is structurally mapped and Phase 6B adds repeated native-projector screenshot/timing capture; `.crflow` remains fail-closed until those independent observations match.
-- [ ] **7–8 —** device QA, performance and controlled APK packaging.
+- [x] **7 —** API 26/33/36 emulator QA, lifecycle/persistence, corruption/migration, low-memory/audio interruption and deterministic performance guardrails.
+- [ ] **8 —** real-device regression/performance and controlled APK packaging.
 
 ## Install
 

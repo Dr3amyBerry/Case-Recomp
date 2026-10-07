@@ -43,3 +43,7 @@ The app can import a user-created `.crcontent` ZIP through Android's document pi
 ## Phase 6 verified-flow gate
 
 Private imported content is fail-closed: without an app-private `.crflow` proof bound to the scenario SHA-256, navigation remains on MENU. A proof produced from independently observed original-runtime evidence unlocks only MENU→MAP and MAP→one SCENE, with optional controlled timing thresholds. Synthetic content continues to use the unrestricted test gate. Object-finding and other original rules remain blocked until separately verified.
+
+## Phase 7 QA
+
+Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recreation, persisted-slot recovery, historical save migration, corrupt-save fallback, multiple aspect ratios, low-memory bitmap eviction, private package/proof removal and Android audio-focus interruption handling. JVM tests also execute fixed deterministic performance guardrails. Private original-game content remains gated by `.crflow` and no game assets are bundled.

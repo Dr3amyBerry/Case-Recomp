@@ -16,7 +16,7 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 4:** bounded DRCF/CAS*/CASt/VWSC/VWLB parser, scenario-v1, indexed BITD closure, private trace-plan/compare gate, synthetic trace promotion and deterministic Kotlin replay are implemented. No original rule is promoted without an independent observable trace.
 - [x] **Phase 5:** private `.crcontent` import, SHA-256 catalog, app-private storage, v0→v1 manifest migration, private bitmap/audio ports, save slots, runtime-draft observer and emulator instrumentation are implemented.
 - [~] **Phase 6:** the first boot/menu/map/scene path is structurally fingerprinted; Phase 6B adds a native-projector screenshot/timing capture consensus and `.crflow` proof gate. Static validation found ranges 1–67, 68–92, 93–97 and 98–102. **0 original rules are promoted in CI** because no native Windows projector run is available there.
-- [ ] **Phase 7:** execute the prepared QA matrix across min/mid/target Android APIs, device aspect ratios, lifecycle/recreation, performance budgets and private-import corruption cases; keep >=90% coverage.
+- [x] **Phase 7:** API 26/33/36 emulator matrix, lifecycle/runtime recreation, save migration/corruption, private content/proof removal, low-memory bitmap eviction, audio-focus interruption handling, aspect-ratio rendering and deterministic performance guardrails are implemented and green. Literal OS process-kill testing and real-device performance budgets remain for Phase 8.
 - [ ] **Phase 8:** debug APK via controlled CI; review signing, licensing, production distribution and any store requirements separately.
 
 ## Verified baseline (2026-10-06)
