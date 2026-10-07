@@ -12,6 +12,8 @@ from caserecomp.inspector import InspectionError
 from caserecomp.__main__ import main
 
 
+SOURCE_HASH = "1" * 64
+
 SCENARIO = {
     "format": "case-recomp-scenario", "version": 1, "id": "private-synthetic",
     "design": {"width": 64, "height": 48},
@@ -29,7 +31,10 @@ def _manifest(root: Path, assets: list[tuple[str, bytes, str]]) -> None:
         rows.append({"archive_index": 0, "resource_id": i + 1, "tag": "ediM", "format": fmt,
                      "file": rel, "bytes": len(data), "sha256": sha256(data).hexdigest()})
         total += len(data)
-    doc = {"schema_version": 1, "source_archives": [], "asset_count": len(rows), "bytes": total,
+    doc = {"schema_version": 1,
+           "source_archives": [{"index": 0, "name": "synthetic.dcr", "sha256": SOURCE_HASH,
+                                "director_version": "synthetic", "kind": "movie"}],
+           "asset_count": len(rows), "bytes": total,
            "assets": rows, "skipped": {}, "relationship_maps": [], "resource_tags": {}, "warnings": []}
     (root / "manifest.json").write_text(json.dumps(doc), encoding="utf-8")
 
@@ -102,10 +107,12 @@ class PrivateContentBundleTests(unittest.TestCase):
         plan = self.base / "trace.json"
         plan.write_text(json.dumps({
             "format":"case-recomp-behavior-trace","version":1,"kind":"private-plan",
-            "source_sha256":"1"*64,
+            "source_sha256":SOURCE_HASH,
             "steps":[{"frame":1,"sprite_count":0,"behavior_count":0,"script_count":0,
                       "sprite_sha256":"2"*64,"handler_set_sha256":"3"*64}],
-            "observation_contract":{"required":[],"optional":[]},
+            "observation_contract":{"required":["frame","sprite_count","sprite_sha256",
+                                                   "handler_set_sha256","observable_state_sha256"],
+                                    "optional":["input_kind","event_kind"]},
         }),encoding="utf-8")
         out=self.base/"trace.crcontent"
         result=build_private_content_bundle(self.export,self.scenario,out,trace_plan_path=plan)
@@ -115,6 +122,36 @@ class PrivateContentBundleTests(unittest.TestCase):
         cli=self.base/"cli.crcontent"
         self.assertEqual(main(["private-content-package",str(self.export),str(self.scenario),"--output",str(cli)]),0)
         self.assertTrue(cli.is_file())
+
+    def test_trace_plan_must_match_conversion_source_and_exact_contract(self):
+        def write_plan(path: Path, source: str = SOURCE_HASH, *, extra: bool = False) -> None:
+            doc = {
+                "format":"case-recomp-behavior-trace","version":1,"kind":"private-plan",
+                "source_sha256":source,
+                "steps":[{"frame":1,"sprite_count":0,"behavior_count":0,"script_count":0,
+                          "sprite_sha256":"2"*64,"handler_set_sha256":"3"*64}],
+                "observation_contract":{"required":["frame","sprite_count","sprite_sha256",
+                                                       "handler_set_sha256","observable_state_sha256"],
+                                        "optional":["input_kind","event_kind"]},
+            }
+            if extra:
+                doc["unexpected"] = True
+            path.write_text(json.dumps(doc), encoding="utf-8")
+
+        wrong = self.base/"wrong-source.json"; write_plan(wrong, "9"*64)
+        with self.assertRaises(InspectionError):
+            build_private_content_bundle(self.export,self.scenario,self.base/"wrong-source.crcontent",trace_plan_path=wrong)
+
+        extra = self.base/"extra-plan.json"; write_plan(extra, extra=True)
+        with self.assertRaises(InspectionError):
+            build_private_content_bundle(self.export,self.scenario,self.base/"extra-plan.crcontent",trace_plan_path=extra)
+
+        manifest = json.loads((self.export/"manifest.json").read_text(encoding="utf-8"))
+        manifest["source_archives"] = []
+        (self.export/"manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        matching = self.base/"matching.json"; write_plan(matching)
+        with self.assertRaises(InspectionError):
+            build_private_content_bundle(self.export,self.scenario,self.base/"no-provenance.crcontent",trace_plan_path=matching)
 
     def test_more_binding_fail_closed_cases(self):
         payloads = [

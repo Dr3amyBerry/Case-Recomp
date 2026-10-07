@@ -58,6 +58,25 @@ def _media_type(record: dict) -> str | None:
     return None
 
 
+def _conversion_source_hashes(manifest: dict) -> set[str]:
+    rows = manifest.get("source_archives")
+    if not isinstance(rows, list) or not rows:
+        raise InspectionError("conversion manifest lacks source archive provenance")
+    result: set[str] = set()
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict) or not {"index", "name", "sha256", "director_version", "kind"} <= set(row):
+            raise InspectionError("invalid conversion source archive descriptor")
+        if isinstance(row.get("index"), bool) or not isinstance(row.get("index"), int) or row["index"] != index:
+            raise InspectionError("invalid conversion source archive index")
+        if not isinstance(row.get("name"), str) or not row["name"] or not isinstance(row.get("kind"), str) or not row["kind"]:
+            raise InspectionError("invalid conversion source archive identity")
+        digest = _hex(row.get("sha256"))
+        if digest in result:
+            raise InspectionError("duplicate conversion source archive digest")
+        result.add(digest)
+    return result
+
+
 def _load_bindings(path: Path | None, known_files: dict[str, str], scenario: dict) -> dict:
     empty = {"scene_backgrounds": {}, "targets": {}, "audio": {}}
     if path is None:
@@ -177,6 +196,8 @@ def build_private_content_bundle(conversion_dir: Path, scenario_path: Path, outp
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise InspectionError("cannot read private trace plan") from exc
         validate_private_plan(trace_doc)
+        if trace_doc["source_sha256"] not in _conversion_source_hashes(conversion_manifest):
+            raise InspectionError("private trace plan source is not present in conversion manifest")
         trace_bytes = _canonical_json(trace_doc)
         trace_info = {"path": "trace-plan.json", "sha256": sha256(trace_bytes).hexdigest()}
 

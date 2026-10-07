@@ -74,3 +74,10 @@ The emulator test creates a wholly synthetic `.crcontent` ZIP at runtime. It ver
 - fail-closed rejection after an asset-hash mismatch.
 
 GitHub CI also keeps JVM tests and `assembleDebug`. No private package or resulting APK is uploaded as an artifact.
+
+
+## Trace-plan source binding
+
+When a `.crcontent` includes `trace-plan.json`, packaging now requires that the plan's `source_sha256` exactly match one of the existing `source_archives[].sha256` records produced by `convert-local`. The packager does not invent provenance: it reuses the conversion manifest's already-recorded source archive digest and rejects a plan from any other source.
+
+The private trace-plan schema is also validated exactly before packaging, including the generated observation contract and per-step fields. Packages without a trace plan remain valid content packages, but they cannot provide an independent source binding for a verified-flow proof.

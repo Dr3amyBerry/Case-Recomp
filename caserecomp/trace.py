@@ -114,19 +114,32 @@ def build_private_trace_plan(path: Path, frames: Iterable[int] | None = None) ->
 
 
 def validate_private_plan(doc: dict) -> dict:
-    if not isinstance(doc, dict) or doc.get("format") != FORMAT or doc.get("version") != VERSION \
-            or doc.get("kind") != "private-plan" or not _hash(doc.get("source_sha256")):
+    root_keys = {"format", "version", "kind", "source_sha256", "steps", "observation_contract"}
+    if not isinstance(doc, dict) or set(doc) != root_keys or doc.get("format") != FORMAT \
+            or isinstance(doc.get("version"), bool) or not isinstance(doc.get("version"), int) \
+            or doc.get("version") != VERSION or doc.get("kind") != "private-plan" \
+            or not _hash(doc.get("source_sha256")):
         raise InspectionError("invalid private trace plan")
+    contract = doc.get("observation_contract")
+    if not isinstance(contract, dict) or set(contract) != {"required", "optional"} \
+            or contract.get("required") != ["frame", "sprite_count", "sprite_sha256",
+                                            "handler_set_sha256", "observable_state_sha256"] \
+            or contract.get("optional") != ["input_kind", "event_kind"]:
+        raise InspectionError("invalid private trace observation contract")
     steps = doc.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_STEPS:
         raise InspectionError("invalid private trace plan steps")
     seen = set()
+    step_keys = {"frame", "sprite_count", "sprite_sha256", "behavior_count", "script_count", "handler_set_sha256"}
     for row in steps:
-        frame = row.get("frame") if isinstance(row, dict) else None
-        if not isinstance(frame, int) or frame < 1 or frame in seen:
+        if not isinstance(row, dict) or set(row) != step_keys:
+            raise InspectionError("invalid private trace plan step")
+        frame = row.get("frame")
+        if isinstance(frame, bool) or not isinstance(frame, int) or frame < 1 or frame in seen:
             raise InspectionError("invalid private trace plan frame")
         seen.add(frame)
-        if any(not isinstance(row.get(k), int) or row[k] < 0 for k in ("sprite_count", "behavior_count", "script_count")):
+        if any(isinstance(row.get(k), bool) or not isinstance(row.get(k), int) or row[k] < 0
+               for k in ("sprite_count", "behavior_count", "script_count")):
             raise InspectionError("invalid private trace plan count")
         if any(not _hash(row.get(k)) for k in ("sprite_sha256", "handler_set_sha256")):
             raise InspectionError("invalid private trace plan digest")

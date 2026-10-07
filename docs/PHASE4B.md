@@ -92,3 +92,8 @@ Kotlin tests cover:
 - synthetic scenario completion.
 
 GitHub Android CI installs the required SDK, runs JVM unit tests for `:engine` and `:app`, then assembles a debug APK that contains only synthetic content. The debug APK is a **shell**, not a playable Huntsville port and not a distribution artifact for the commercial game.
+
+
+## Post-Phase-8 source provenance link
+
+A private trace plan is now accepted into a `.crcontent` package only when its `source_sha256` is present in the verified `convert-local` manifest's `source_archives` metadata. Both values originate from SHA-256 over the local Director source bytes. This creates a deterministic integrity link from conversion input to the packaged trace plan without publishing the private source or adding synthetic provenance.
