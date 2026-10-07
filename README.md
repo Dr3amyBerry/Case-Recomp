@@ -7,7 +7,8 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **1 —** inspect PE32/projector, classify Director/XFIR containers, create reproducible source-only CI.
 - [x] **2 —** parse 39 Afterburner movie/cast archives, map and verify raw/zlib resources and initial load segment (ILS), expose create-only raw extraction.
 - [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests, KEY* cast/alpha relationships, verified raw/PackBits ALFA composition, true-color BITD decoding, explicit third-party recovery adapters and reproducible tests.
-- [ ] **4–8 —** reconstruct the gameplay state machine, implement Android rendering/touch/audio, import individually licensed user data locally, test on devices and build the APK.
+- [~] **4 —** verified indexed BITD palette subset, bounded Score/cast/timeline structure, public scenario-v1 contract and deterministic Kotlin frame/event replay.
+- [ ] **5–8 —** Android UI/runtime, licensed local asset import, device QA, packaging and distribution review.
 
 ## Install
 
@@ -33,6 +34,8 @@ python -m caserecomp extract-resources /private/game/MysteryCaseFiles.exe --tag 
 python -m caserecomp convert-local /private/game/MysteryCaseFiles.exe --output /private/converted --image-format png --include-bytecode
 python -m caserecomp verify-export /private/converted
 python -m caserecomp fidelity-file /private/reference.png /private/candidate.png --kind png
+python -m caserecomp score-structure /private/game/MysteryCaseFiles.exe --output /private/score-structure.json
+python -m caserecomp scenario-check fixtures/synthetic-scenario-v1.json
 
 # Optional independently installed tooling; launches native code only with explicit command
 python -m caserecomp external-export /private/movie.dcr --backend libreshockwave --binary /tools/libreshockwave_asset_extractor --output /private/ls-output
@@ -43,7 +46,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ### Conversion scope and limitations
 
-* `ediM` JPEG images are decoded/validated with Pillow. `KEY*` ownership links `CASt`/`ediM`/`ALFA`; 1,988 linked masks are validated as raw or PackBits 8-bit planes and can be composed into RGBA PNG. `BITD` 16/32-bit true-color rendering is implemented; indexed BITD exposes verified palette indices but does not invent RGB until its palette is resolved.
+* `ediM` JPEG images are decoded/validated with Pillow. `KEY*` ownership links `CASt`/`ediM`/`ALFA`; 1,988 linked masks are validated as raw or PackBits 8-bit planes and can be composed into RGBA PNG. `BITD` 16/32-bit rendering is implemented. The five indexed members used by the main movie resolve through an independently corroborated Director System-Windows `-102` subset and are verified pixel-for-pixel against LibreShockwave.
 * `ediM` resources starting `ID3` can be real MP3 streams; `mutagen` checks MPEG audio metadata and the original bytes are preserved. This is not an exhaustive frame-by-frame decoder validation.
 * `snd ` members using SWA remain unsupported by the generic Director decoder, but an explicit local FFmpeg path can decode their validated MPEG payload to WAV. All 29 private resources were cross-checked against LibreShockwave payload extraction; historical loop/timing equivalence remains open.
 * `Lscr` contains **compiled bytecode**, not readable Lingo. The `--include-bytecode` flag exports the source bytes as `.lscr`. Use separately vetted ProjectorRays or LibreShockwave for decompilation and gameplay reconstruction.
@@ -52,6 +55,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Phase 4 — palette closure, Score structure, scenario-v1 and Kotlin engine](docs/PHASE4.md)
 - [Phase 3 — conversion, Lingo recovery, external-tool evaluation, test matrix](docs/PHASE3.md)
 - [Phase 3B.1 — KEY* cast-member associations and validation](docs/PHASE3B_RELATIONSHIPS.md)
 - [Phase 3B.4 — cross-tool fidelity evidence and Phase 4 test contract](docs/PHASE3B_FIDELITY.md)
@@ -78,6 +82,6 @@ python -m caserecomp compare-lingo /private/pr-dumps /private/ls-dumps \
 ```
 
 Use `--alpha-mode strict` to stop and rollback on an unsupported paired mask.
-**This is not a complete Director renderer**: all linked ALFA planes now decode, but five indexed BITD members still require a verified System-Windows RGB palette and original-game Lingo semantics remain open. See
+**This is not a complete Director renderer**: all linked ALFA planes and all 21 BITD members found across the private installation now have verified decode paths for the formats exercised by this title; Score/runtime behavior, ink effects and original-game Lingo semantics remain open. See
 [Phase 3B media research](docs/PHASE3B_MEDIA.md) and the
 [Android engine prototype](android/README.md).

@@ -186,7 +186,8 @@ def decode_bitd_indices(payload: bytes, info: BitmapCastInfo) -> tuple[bytes, di
             shift = 8 - depth - (bit % 8)
             if shift < 0 or row + byte_index >= len(raw):
                 raise InspectionError("indexed BITD row geometry is inconsistent")
-            result[y * info.width + x] = (raw[row + byte_index] >> shift) & mask
+            sample = (raw[row + byte_index] >> shift) & mask
+            result[y * info.width + x] = sample if depth == 8 else (sample * 255 // mask)
     return bytes(result), {"width": info.width, "height": info.height,
                            "bit_depth": info.bit_depth, "pitch": info.pitch,
                            "palette_id": info.palette_id, "bitmap_codec": codec,
@@ -251,6 +252,47 @@ def decode_bitd_truecolor(payload: bytes, info: BitmapCastInfo) -> tuple[bytes, 
                       "reg_x": info.reg_x, "reg_y": info.reg_y,
                      "palette_id": info.palette_id, "bitmap_codec": codec,
                      "pixel_roundtrip_verified": True, "palette_required": False}
+
+
+DIRECTOR_SYSTEM_WINDOWS_D5 = -102
+
+# Only entries exercised by this title are embedded.  They were independently
+# corroborated against maintained Director implementations before publication.
+_WIN_D5_VERIFIED = {
+    0: (255, 255, 255),
+    19: (255, 153, 0),
+    119: (102, 204, 0),
+    136: (102, 51, 51),
+    255: (0, 0, 0),
+}
+
+
+def director_system_windows_color(index: int) -> tuple[int, int, int]:
+    try:
+        return _WIN_D5_VERIFIED[index]
+    except KeyError as exc:
+        raise InspectionError("unverified Director System Windows -102 palette index") from exc
+
+
+def decode_bitd_indexed(payload: bytes, info: BitmapCastInfo) -> tuple[bytes, dict]:
+    """Decode the independently verified -102 indexed BITD subset to PNG."""
+    if info.palette_id != DIRECTOR_SYSTEM_WINDOWS_D5:
+        raise InspectionError("indexed BITD palette is not independently verified")
+    indices, meta = decode_bitd_indices(payload, info)
+    rgb = bytearray()
+    for index in indices:
+        rgb.extend(director_system_windows_color(index))
+    image = Image.frombytes("RGB", (info.width, info.height), bytes(rgb))
+    out = BytesIO()
+    image.save(out, format="PNG", optimize=True)
+    encoded = out.getvalue()
+    with Image.open(BytesIO(encoded)) as check:
+        check.load()
+        if check.mode != "RGB" or check.size != image.size or check.tobytes() != image.tobytes():
+            raise InspectionError("indexed BITD PNG round-trip fidelity check failed")
+    return encoded, {**meta, "format": "png", "palette_rgb_resolved": True,
+                     "palette_source": "Director System Windows -102 verified subset",
+                     "pixel_roundtrip_verified": True, "palette_required": True}
 
 
 def probe_bitd(data: bytes, *, max_bytes: int = 8 * 1024 * 1024) -> dict:

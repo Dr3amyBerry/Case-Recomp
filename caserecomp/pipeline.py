@@ -249,14 +249,10 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                         cast_data = archive.get_resource(relationship["cast_member_id"])
                         info = parse_bitmap_cast_member(cast_data)
                         if info.indexed:
-                            from .bitmap import decode_bitd_indices
-                            # Validate geometry/PackBits and index unpacking, but do not invent RGB
-                            # while the Director palette is unresolved.
-                            decode_bitd_indices(archive.get_resource(entry.id), info)
-                            skipped["indexed_BITD_indices_verified"] += 1
-                            skipped["indexed_BITD_requires_palette"] += 1
-                            continue
-                        data, extra = decode_bitd_truecolor(archive.get_resource(entry.id), info)
+                            from .bitmap import decode_bitd_indexed
+                            data, extra = decode_bitd_indexed(archive.get_resource(entry.id), info)
+                        else:
+                            data, extra = decode_bitd_truecolor(archive.get_resource(entry.id), info)
                     except InspectionError:
                         skipped["invalid_BITD"] += 1
                         continue

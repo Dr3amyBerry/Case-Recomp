@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caserecomp-static"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local and offline static Director/Afterburner game asset research"
 readme = "README.md"
 requires-python = ">=3.11"

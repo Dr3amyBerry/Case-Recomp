@@ -1,0 +1,31 @@
+{
+  "format": "case-recomp-scenario",
+  "version": 1,
+  "id": "synthetic-phase4",
+  "design": {"width": 640, "height": 480},
+  "scenes": [
+    {
+      "id": "room-a",
+      "frame_start": 1,
+      "frame_end": 30,
+      "targets": [
+        {"id": "shape-a", "rect": [20, 30, 100, 120], "z": 1},
+        {"id": "shape-b", "rect": [70, 60, 150, 150], "z": 2}
+      ]
+    },
+    {
+      "id": "room-b",
+      "frame_start": 31,
+      "frame_end": 60,
+      "targets": [
+        {"id": "shape-c", "rect": [200, 100, 300, 200], "z": 1}
+      ]
+    }
+  ],
+  "events": [
+    {"id": "a-mid", "kind": "frame-reached", "scene": "room-a", "frame": 15},
+    {"id": "a-found", "kind": "target-found", "scene": "room-a", "target": "shape-a"},
+    {"id": "a-to-b", "kind": "leave", "scene": "room-a", "to_scene": "room-b"},
+    {"id": "done", "kind": "scenario-complete"}
+  ]
+}

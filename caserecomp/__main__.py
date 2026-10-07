@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     convert.add_argument("--decode-swa", action="store_true", help="Opt-in local FFmpeg WAV decode of SWA MPEG payloads")
     convert.add_argument("--ffmpeg", type=Path, help="Trusted local FFmpeg executable, used only with --decode-swa")
     convert.add_argument("--decode-bitd", action="store_true",
-                         help="Decode KEY*-owned 16/32-bit BITD; indexed BITD stays pending")
+                         help="Decode KEY*-owned verified BITD, including supported -102 indexed members")
 
     script_index = cmd.add_parser("lingo-index", help="Recover Lnam/LctX/Lscr handler names and bytecode boundaries")
     script_index.add_argument("source", type=Path)
@@ -80,6 +80,13 @@ def main(argv: list[str] | None = None) -> int:
     fidelity.add_argument("left", type=Path)
     fidelity.add_argument("right", type=Path)
     fidelity.add_argument("--kind", choices=("png", "wav"), required=True)
+
+    score = cmd.add_parser("score-structure", help="Private redacted Score/cast/timeline structural report")
+    score.add_argument("source", type=Path, help="Local owned Director movie/projector")
+    score.add_argument("--output", required=True, type=Path, help="Create-only private JSON report")
+
+    scenario = cmd.add_parser("scenario-check", help="Validate public case-recomp-scenario v1 JSON")
+    scenario.add_argument("source", type=Path)
 
     args = parser.parse_args(argv)
     try:
@@ -145,6 +152,24 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "fidelity-file":
             from .fidelity import compare_png, compare_wav
             record = compare_png(args.left, args.right) if args.kind == "png" else compare_wav(args.left, args.right)
+        elif args.command == "score-structure":
+            from .score import analyze_movie_structure
+            from .director import exclusive_write
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            record = analyze_movie_structure(args.source)
+            exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
+            print(json.dumps({"schema_version": record["schema_version"], "stage": record["stage"],
+                              "score": record["score"], "cast": record["cast"], "lingo": record["lingo"]},
+                             ensure_ascii=False, sort_keys=True, indent=2))
+            return 0
+        elif args.command == "scenario-check":
+            from .scenario import load_scenario, scenario_fingerprint
+            document = load_scenario(args.source)
+            record = {"format": document["format"], "version": document["version"],
+                      "id": document["id"], "scene_count": len(document["scenes"]),
+                      "event_count": len(document["events"]),
+                      "fingerprint_sha256": scenario_fingerprint(document)}
         elif args.command == "extract-resources":
             if any(len(tag) != 4 for tag in args.tag):
                 raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")

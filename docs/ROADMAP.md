@@ -12,8 +12,8 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 3B.1:** read KEY* allocated/used table records and associate CASt/ediM/ALFA without guessing by adjacent resource IDs; publish synthetic tests and reproducible proof.
 - [x] **Phase 3B.2:** 1,988/1,988 linked JPEG+ALFA masks decode; 29 SWA payloads match LibreShockwave extraction after the 82-byte wrapper and decode locally; 16 true-color BITD images are pixel-identical to LibreShockwave. Five indexed BITD palettes remain RGB-pending.
 - [x] **Phase 3B.3:** verified 80 compiled Lscr scripts, 1,608 Lnam names, 527 handler spans (287 distinct); ProjectorRays and LibreShockwave both recover 527 handlers / 287 names and match the original name index.
-- [ ] **Phase 3B remaining:** independently resolve System-Windows palette -102 for 5 indexed BITD members and establish original-runtime scene/audio/gameplay fidelity. Lingo semantic equivalence remains unproven.
-- [~] **Phase 4:** started with a pure-Kotlin deterministic reducer, aspect-fit touch mapping, synthetic hit regions and deterministic replay. Actual level/puzzle rules must be promoted only from verified traces/data.
+- [x] **Phase 3B.3 (remaining media):** independently corroborate the System-Windows `-102` entries exercised by the title and verify all five indexed BITD members pixel-for-pixel against LibreShockwave. Runtime behavior semantics remain a Phase 4/5 task.
+- [~] **Phase 4:** bounded DRCF/CAS*/CASt/VWSC/VWLB structural parser, anonymous timeline segmentation, versioned `case-recomp-scenario` v1, synthetic fixtures and Kotlin frame/event replay are implemented. Actual puzzle/state-machine rules still require private reference traces before porting.
 - [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
 - [ ] **Phase 7:** integration, device and regression QA, performance, safety; target >90% coverage for maintainable new code.
@@ -33,7 +33,7 @@ Source game: Mystery Case Files: Huntsville, Spanish, RealNetworks version 1.0. 
 
 See [PHASE3.md](PHASE3.md). Real main-movie conversion: 165 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 251 outputs verified; 29 SWA and one unknown `ediM` remain unconverted. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
 
-Phase 3B.1 validated all 39 `KEY*` maps and 1,988 unambiguous image-to-alpha references; see [PHASE3B_RELATIONSHIPS.md](PHASE3B_RELATIONSHIPS.md). The decoder still does not apply alpha.
+Phase 3B.1 validated all 39 `KEY*` maps and 1,988 unambiguous image-to-alpha references; see [PHASE3B_RELATIONSHIPS.md](PHASE3B_RELATIONSHIPS.md). All linked ALFA planes now decode, and Phase 4 closes the five indexed BITD members used by the main movie.
 
 ## Parallel nonblocking tracks
 
@@ -55,3 +55,8 @@ See [PHASE3B_MEDIA.md](PHASE3B_MEDIA.md). Real-game private output (39 container
 ## Phase 3B.3 handler index (additional verified result)
 
 Read-only `lingo-index` analyses the original embedded Director movie without executing it. Real-file validation: 1,608 Lnam symbols, 92 LctX entries, 80 Lscr scripts, 527 compiled handler spans, and 287 unique casefolded names (27 repeated names). Bytecode not decompiled into Lingo; see [PHASE3B_LINGO_INDEX.md](PHASE3B_LINGO_INDEX.md). `compare-lingo --reference-movie` provides structural name recall checks for future *local* decompiler outputs only.
+
+
+## Phase 4 structural baseline
+
+See [PHASE4.md](PHASE4.md). Private validation identifies 203 Score frames, 120 displayed channels, 387 CASt resources, 643 logical CAS* slots, 28 markers and 29 anonymous marker-delimited segments. CAS* resolution links 2,086 structural Score behavior references to 38 compiled script resources. These are structural facts only; game-rule semantics still require reference traces.

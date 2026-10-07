@@ -13,7 +13,9 @@ from PIL import Image
 
 from caserecomp.audio import decode_swa, resolve_ffmpeg, swa_encoded_resource
 from caserecomp.bitmap import (BitmapCastInfo, compose_jpeg_alpha, decode_alpha_plane,
-    decode_bitd_indices, probe_bitd, unpack_packbits)
+                               decode_bitd_truecolor, decode_bitd_indices, decode_bitd_indexed,
+                               director_system_windows_color, parse_bitmap_cast_member,
+                               probe_bitd, unpack_packbits)
 from caserecomp.director import DirectorArchive
 from caserecomp.inspector import InspectionError
 from caserecomp.pipeline import convert_local, verify_export
@@ -202,16 +204,66 @@ class SwaDecodeTests(TestCase):
             self.assertFalse(out.exists())
 
 
-class RawAlphaAndIndexedBitdTests(TestCase):
-    def test_exact_size_raw_alpha_with_odd_width_padding(self):
-        plane, codec = decode_alpha_plane(bytes([1,2,3,0,4,5,6,0]), 3, 2, with_codec=True)
-        self.assertEqual(plane, bytes([1,2,3,4,5,6]))
-        self.assertEqual(codec, "director-raw-gray8")
 
-    def test_four_bit_indices_are_unpacked_without_inventing_palette(self):
+class BitdPipelineTests(TestCase):
+    def test_truecolor_bitd_pipeline_and_indexed_skip(self):
+        import struct
+        def cast(depth, width, height, pitch):
+            specific=bytearray(28)
+            struct.pack_into(">Hhhhh",specific,0,0x8000|pitch,0,0,height,width)
+            struct.pack_into(">hh",specific,18,height//2,width//2)
+            specific[23]=depth
+            struct.pack_into(">h",specific,26,-3)
+            return struct.pack(">iii",1,0,28)+specific
+        with TemporaryDirectory() as d:
+            root=Path(d); src=root/"bitd.cct"; out=root/"out"
+            raw=bytes((255,10,20,30,128,40,50,60))
+            src.write_bytes(media_cast(assets=[("CASt",cast(32,2,1,8),1),("BITD",raw,1)],
+                                       keys=[(101,100,"BITD")]))
+            result=convert_local(src,out,decode_bitd=True)
+            self.assertEqual(result["asset_count"],1)
+            self.assertEqual(result["assets"][0]["bit_depth"],32)
+            self.assertEqual(result["assets"][0]["cast_member_id"],100)
+            self.assertEqual(verify_export(out)["verified_files"],1)
+        with TemporaryDirectory() as d:
+            root=Path(d); src=root/"indexed.cct"; out=root/"out"
+            indexed_cast = bytearray(cast(8,2,1,2))
+            struct.pack_into(">h", indexed_cast, 12 + 26, -101)
+            src.write_bytes(media_cast(assets=[("CASt",bytes(indexed_cast),1),("BITD",b"\x00\x13",1)],
+                                       keys=[(101,100,"BITD")]))
+            result=convert_local(src,out,decode_bitd=True)
+            self.assertEqual(result["asset_count"],1)
+            self.assertTrue(result["assets"][0]["palette_rgb_resolved"])
+            self.assertEqual(verify_export(out)["verified_files"],1)
+
+    def test_indexed_bitd_exposes_indices_without_inventing_palette(self):
         info = BitmapCastInfo(width=3, height=1, bit_depth=4, pitch=2, reg_x=0, reg_y=0, palette_id=-102)
-        indices, meta = decode_bitd_indices(bytes([0x12,0x30]), info)
-        self.assertEqual(indices, bytes([1,2,3]))
+        indices, meta = decode_bitd_indices(bytes([0x12, 0x30]), info)
+        self.assertEqual(indices, bytes([17,34,51]))
+        self.assertEqual(meta["palette_id"], -102)
         self.assertTrue(meta["palette_indices_verified"])
         self.assertFalse(meta["palette_rgb_resolved"])
-        self.assertEqual(meta["palette_id"], -102)
+
+    def test_system_windows_palette_and_indexed_png(self):
+        self.assertEqual(director_system_windows_color(0), (255,255,255))
+        self.assertEqual(director_system_windows_color(119), (102,204,0))
+        self.assertEqual(director_system_windows_color(136), (102,51,51))
+        self.assertEqual(director_system_windows_color(19), (255,153,0))
+        self.assertEqual(director_system_windows_color(255), (0,0,0))
+        with self.assertRaises(InspectionError):
+            director_system_windows_color(42)
+        info = BitmapCastInfo(3, 1, 4, 2, 0, 0, -102)
+        png, meta = decode_bitd_indexed(bytes((0x07, 0x80)), info)
+        self.assertTrue(meta["palette_rgb_resolved"])
+        with Image.open(BytesIO(png)) as image:
+            self.assertEqual(list(image.convert("RGB").getdata()),
+                             [(255,255,255),(102,204,0),(102,51,51)])
+        with self.assertRaises(InspectionError):
+            decode_bitd_indexed(bytes((0x00,)), BitmapCastInfo(1,1,8,1,0,0,-1))
+        with self.assertRaises(InspectionError):
+            decode_bitd_indexed(bytes((42,)), BitmapCastInfo(1,1,8,1,0,0,-102))
+
+    def test_indexed_bitd_rejects_truecolor_info(self):
+        info = BitmapCastInfo(width=1, height=1, bit_depth=16, pitch=2, reg_x=0, reg_y=0, palette_id=-102)
+        with self.assertRaises(InspectionError):
+            decode_bitd_indices(b"\x00\x00", info)
