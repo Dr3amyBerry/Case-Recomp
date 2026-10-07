@@ -100,6 +100,46 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.assertEqual((row["width"],row["height"]),(4,3))
         with self.assertRaises(InspectionError): capture_desktop_png(out)
 
+    def test_validation_error_branches_and_timing_tolerance(self):
+        with self.assertRaises(InspectionError): _validate_capture_input({})
+        bad=self.input(); bad["runtime_kind"]="other"
+        with self.assertRaises(InspectionError): _validate_capture_input(bad)
+        bad=self.input(); bad["trial_id"]=""
+        with self.assertRaises(InspectionError): _validate_capture_input(bad)
+        bad=self.input(); bad["stages"]=bad["stages"][:-1]
+        with self.assertRaises(InspectionError): _validate_capture_input(bad)
+        bad=self.input(); bad["transitions"][1]["gate_probe"]={"rejected_before_ms":10,"accepted_at_ms":10}
+        with self.assertRaises(InspectionError): _validate_capture_input(bad)
+
+        a=build_capture_trial(self.plan,self.input("one"),self.binary)
+        bad_trial=dict(a); bad_trial["runtime_kind"]="other"
+        with self.assertRaises(InspectionError): validate_capture_trial(bad_trial)
+        bad_trial=json.loads(json.dumps(a)); bad_trial["stages"][1]["width"]=0
+        with self.assertRaises(InspectionError): validate_capture_trial(bad_trial)
+
+        b=build_capture_trial(self.plan,self.input("two"),self.binary)
+        b["transitions"][1]["gate_probe"]["accepted_at_ms"]=100
+        obs=finalize_capture_trials(self.plan,[a,b],timing_tolerance_ms=1)
+        self.assertFalse(obs["controlled_timing"])
+        with self.assertRaises(InspectionError): finalize_capture_trials(self.plan,[a])
+
+    def test_load_and_capture_failure_branches(self):
+        missing=self.root/"missing.json"
+        with self.assertRaises(InspectionError): _load(missing)
+        scalar=self.root/"scalar.json"; scalar.write_text("[]",encoding="utf-8")
+        with self.assertRaises(InspectionError): _load(scalar)
+        bad_out=self.root/"bad.txt"
+        with self.assertRaises(InspectionError): capture_desktop_png(bad_out)
+        with self.assertRaises(InspectionError): capture_desktop_png(self.root/"box.png",(0,0,0,2))
+        with patch("PIL.ImageGrab.grab",side_effect=RuntimeError("no desktop")):
+            with self.assertRaises(InspectionError): capture_desktop_png(self.root/"fail.png")
+
+    def test_cli_capture_screen_branch(self):
+        out=self.root/"cli-screen.png"
+        with patch("caserecomp.runtime_capture.capture_desktop_png",return_value={"width":4,"height":3,"png_sha256":H1,"pixel_sha256":H2}) as mocked:
+            self.assertEqual(main(["slice-capture-screen","--output",str(out),"--bbox","0","0","4","3"]),0)
+            mocked.assert_called_once()
+
     def test_cli_trial_finalize_and_compare(self):
         plan_path=self.root/"plan.json"; plan_path.write_text(json.dumps(self.plan),encoding="utf-8")
         inputs=[]; trials=[]
