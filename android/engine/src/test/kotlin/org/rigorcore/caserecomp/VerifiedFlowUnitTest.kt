@@ -68,8 +68,13 @@ class VerifiedFlowUnitTest {
     }
 
     @Test fun parser_and_default_deny_are_fail_closed() {
-        val text = "{"boot_verified":true,"evidence_kind":"independent-original-runtime","format":"case-recomp-verified-flow","rules":[{"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":0,"scene_id":null,"to_screen":"MAP"},{"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":0,"scene_id":"room","to_screen":"SCENE"}],"scenario_id":"flow","scenario_sha256":"" +
-            scenarioHash + "","source_sha256":"" + "b".repeat(64) + "","version":1}"
+        val text = """
+            {"boot_verified":true,"evidence_kind":"independent-original-runtime","format":"case-recomp-verified-flow",
+             "rules":[
+               {"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":0,"scene_id":null,"to_screen":"MAP"},
+               {"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":0,"scene_id":"room","to_screen":"SCENE"}],
+             "scenario_id":"flow","scenario_sha256":"SCENARIO_HASH","source_sha256":"SOURCE_HASH","version":1}
+        """.trimIndent().replace("SCENARIO_HASH", scenarioHash).replace("SOURCE_HASH", "b".repeat(64))
         assertTrue(VerifiedFlowProofParser.parse(text).bootVerified)
         assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("independent-original-runtime", "synthetic-test")) }.isFailure)
         assertTrue(runCatching { VerifiedFlowGate(proof(), "flow", "c".repeat(64)) }.isFailure)

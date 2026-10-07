@@ -53,10 +53,15 @@ class VerifiedFlowInstrumentationTest {
             bindings = ContentBindingsV1(), conversionManifestSha256 = "e".repeat(64),
         )
         val loaded = LoadedPrivateContent(manifest, scenario, context.filesDir)
-        val proof = "{"boot_verified":true,"evidence_kind":"independent-original-runtime","format":"case-recomp-verified-flow","rules":[{"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":100,"scene_id":null,"to_screen":"MAP"},{"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":50,"scene_id":"room","to_screen":"SCENE"}],"scenario_id":"instrumented-flow","scenario_sha256":"" +
-            scenarioHash + "","source_sha256":"" + "f".repeat(64) + "","version":1}"
+        val proofText = """
+            {"boot_verified":true,"evidence_kind":"independent-original-runtime","format":"case-recomp-verified-flow",
+             "rules":[
+               {"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":100,"scene_id":null,"to_screen":"MAP"},
+               {"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":50,"scene_id":"room","to_screen":"SCENE"}],
+             "scenario_id":"instrumented-flow","scenario_sha256":"SCENARIO_HASH","source_sha256":"SOURCE_HASH","version":1}
+        """.trimIndent().replace("SCENARIO_HASH", scenarioHash).replace("SOURCE_HASH", "f".repeat(64))
         val repository = PrivateVerifiedFlowRepository(context)
-        val imported = repository.importProof(ByteArrayInputStream(proof.toByteArray()), loaded)
+        val imported = repository.importProof(ByteArrayInputStream(proofText.toByteArray()), loaded)
         assertNotNull(repository.loadFor(loaded))
 
         val clock = DeterministicClock()
