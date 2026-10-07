@@ -8,7 +8,7 @@ The artifact bundle contains the debug APK, SHA-256 checksum, build provenance, 
 
 ## External emulator QA
 
-An API 36 external ADB harness runs outside the instrumentation process. It measures cold start, captures meminfo/gfxinfo, force-stops and relaunches the app to verify process-kill persistence, performs an in-place `adb install -r` upgrade and verifies the synthetic save remains, and performs a deliberate save-slot-only backup/restore using `run-as`.
+An API 33 external ADB harness runs outside the instrumentation process. It measures cold start, captures meminfo/gfxinfo, force-stops and relaunches the app to verify process-kill persistence, performs an in-place `adb install -r` upgrade and verifies the synthetic save remains, and performs a deliberate save-slot-only backup/restore using `run-as`.
 
 OS/cloud backup intentionally remains disabled because app-private imports can contain locally owned commercial game media. The backup/restore test therefore covers only the synthetic save-slot file.
 
