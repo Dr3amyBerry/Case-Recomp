@@ -139,11 +139,14 @@ object SessionSnapshotCodecV1 {
             rows += "found.${esc(scene)}=$ids"
         }
         val body = rows.joinToString("\n")
-        return "$body\nsha256=${sha256(body)}\n"
+        return "$body\nsha256=${sha256(body)}"
     }
 
     fun decode(encoded: String): SessionSnapshotV1? {
-        val normalized = encoded.removeSuffix("\n")
+        // SharedPreferences XML may preserve serializer indentation after a legacy
+        // trailing newline. Encoded fields are URL-escaped and the checksum is the
+        // final row, so trailing ASCII whitespace is never semantic.
+        val normalized = encoded.trimEnd(' ', '\\t', '\\r', '\\n')
         val lines = normalized.lines()
         val header = lines.firstOrNull() ?: return null
         val legacy = header == LEGACY_HEADER
