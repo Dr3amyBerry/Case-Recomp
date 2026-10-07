@@ -56,6 +56,12 @@ def _load(path: Path) -> dict:
 
 
 def _pixel_fingerprint(path: Path) -> dict:
+    fingerprint, _ = _decoded_fingerprint(path)
+    return fingerprint
+
+
+def _decoded_fingerprint(path: Path) -> tuple[dict, bool]:
+    """Fingerprint a PNG and report whether every decoded RGBA pixel is identical."""
     try:
         from PIL import Image
     except ImportError as exc:
@@ -75,11 +81,17 @@ def _pixel_fingerprint(path: Path) -> dict:
     except Exception as exc:
         raise InspectionError("cannot decode runtime PNG screenshot") from exc
     payload = width.to_bytes(4, "big") + height.to_bytes(4, "big") + pixels
+    uniform = pixels.count(pixels[:4]) == width * height
     return {
         "width": width, "height": height,
         "png_sha256": _hash_file(path, _MAX_SCREENSHOT_BYTES),
         "pixel_sha256": sha256(payload).hexdigest(),
-    }
+    }, uniform
+
+
+def _require_distinct_stage_pixels(stages: list[dict]) -> None:
+    if len({row["pixel_sha256"] for row in stages}) != len(stages):
+        raise InspectionError("boot/menu/map/scene screenshots must be visually distinct within a trial")
 
 
 def capture_desktop_png(output: Path, bbox: tuple[int, int, int, int] | None = None) -> dict:
@@ -148,11 +160,14 @@ def build_capture_trial(plan: dict, capture_input: dict, runtime_binary: Path) -
     for expected, row in zip(plan["stages"], capture_input["stages"]):
         if row["frame"] != expected["start_frame"]:
             raise InspectionError("captured stage frame does not match static slice entry")
-        shot = _pixel_fingerprint(Path(row["screenshot"]))
+        shot, uniform = _decoded_fingerprint(Path(row["screenshot"]))
+        if row["marker_observed"] and uniform:
+            raise InspectionError("a stage with an observed marker cannot be a single flat color screenshot")
         stages.append({
             "id": row["id"], "frame": row["frame"], "marker_observed": row["marker_observed"],
             **shot,
         })
+    _require_distinct_stage_pixels(stages)
     transitions = []
     for row in capture_input["transitions"]:
         out = {
@@ -198,6 +213,7 @@ def validate_capture_trial(document: Any) -> dict:
             raise InspectionError("invalid captured dimensions")
         if not _is_hash(row.get("png_sha256")) or not _is_hash(row.get("pixel_sha256")):
             raise InspectionError("invalid captured image digest")
+    _require_distinct_stage_pixels(stages)
     transitions = document.get("transitions")
     if not isinstance(transitions, list) or len(transitions) != len(TRANSITIONS):
         raise InspectionError("invalid captured transitions")

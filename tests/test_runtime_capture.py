@@ -37,8 +37,14 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.plan=plan(self.source)
         self.shots=[]
         for index,color in enumerate(((10,20,30,255),(40,50,60,255),(70,80,90,255),(100,110,120,255))):
-            path=self.root/f"shot-{index}.png"; Image.new("RGBA",(8,6),color).save(path); self.shots.append(path)
+            path=self.root/f"shot-{index}.png"; self.save_shot(path,color); self.shots.append(path)
     def tearDown(self): self.tmp.cleanup()
+
+    @staticmethod
+    def save_shot(path, color, marker=True):
+        image=Image.new("RGBA",(8,6),color)
+        if marker: image.putpixel((3,2),(250,240,230,255))
+        image.save(path)
 
     def input(self, trial="one", offset=0, probes=True):
         transitions=[
@@ -78,7 +84,7 @@ class RuntimeCaptureTests(unittest.TestCase):
 
     def test_visual_or_source_mismatch_fails_closed(self):
         a=build_capture_trial(self.plan,self.input("one"),self.binary)
-        Image.new("RGBA",(8,6),(255,0,0,255)).save(self.shots[2])
+        self.save_shot(self.shots[2],(255,0,0,255))
         b=build_capture_trial(self.plan,self.input("two"),self.binary)
         with self.assertRaises(InspectionError): finalize_capture_trials(self.plan,[a,b])
         other=self.root/"other.exe"; other.write_bytes(b"other")
@@ -91,6 +97,19 @@ class RuntimeCaptureTests(unittest.TestCase):
         with self.assertRaises(InspectionError): build_capture_trial(self.plan,bad,self.binary)
         jpg=self.root/"bad.png"; Image.new("RGB",(2,2)).save(jpg,format="JPEG")
         with self.assertRaises(InspectionError): _pixel_fingerprint(jpg)
+
+    def test_flat_marker_screenshots_and_repeated_stage_pixels_fail_closed(self):
+        self.save_shot(self.shots[0],(0,0,0,255),marker=False)
+        self.assertEqual(build_capture_trial(self.plan,self.input("flat-boot"),self.binary)["stages"][0]["id"],"boot")
+        for index in (1,2,3):
+            flat=self.root/f"flat-{index}.png"; self.save_shot(flat,(9,9,9,255),marker=False)
+            bad=self.input(); bad["stages"][index]["screenshot"]=str(flat)
+            with self.assertRaisesRegex(InspectionError,"flat color"): build_capture_trial(self.plan,bad,self.binary)
+        bad=self.input(); bad["stages"][3]["screenshot"]=bad["stages"][2]["screenshot"]
+        with self.assertRaisesRegex(InspectionError,"visually distinct"): build_capture_trial(self.plan,bad,self.binary)
+        trial=build_capture_trial(self.plan,self.input("one"),self.binary)
+        tampered=json.loads(json.dumps(trial)); tampered["stages"][3]["pixel_sha256"]=tampered["stages"][1]["pixel_sha256"]
+        with self.assertRaisesRegex(InspectionError,"visually distinct"): validate_capture_trial(tampered)
 
     def test_capture_desktop_uses_imagegrab_and_create_only(self):
         out=self.root/"desktop.png"
