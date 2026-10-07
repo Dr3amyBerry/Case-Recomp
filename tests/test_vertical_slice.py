@@ -132,6 +132,9 @@ class VerticalSliceTests(unittest.TestCase):
         with self.assertRaises(InspectionError): validate_verified_flow_proof(wrong)
         timing=json.loads(json.dumps(proof)); timing['rules'][0]['not_before_ms'] += 1
         with self.assertRaises(InspectionError): validate_verified_flow_proof(timing)
+        overflow=json.loads(json.dumps(proof)); overflow['rules'][0]['not_before_ms']=9_223_372_036_854_775_808
+        overflow['binding_sha256']=digest({k:v for k,v in overflow.items() if k!='binding_sha256'})
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(overflow)
         rebound=json.loads(json.dumps(timing)); rebound['binding_sha256']=digest({k:v for k,v in rebound.items() if k!='binding_sha256'})
         self.assertIs(validate_verified_flow_proof(rebound),rebound)
         with self.assertRaises(InspectionError):

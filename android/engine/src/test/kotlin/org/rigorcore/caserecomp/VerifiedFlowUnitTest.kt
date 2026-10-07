@@ -161,6 +161,14 @@ class VerifiedFlowUnitTest {
             it["rules"] = rules
         }
         assertTrue(runCatching { VerifiedFlowProofParser.parse(fractionalTiming) }.isFailure)
+
+        val longTiming = rebound {
+            val rules = it["rules"].jsonList("rules")
+                .map { row -> row.jsonObject("rule").toMutableMap() }.toMutableList()
+            rules[0]["not_before_ms"] = Int.MAX_VALUE.toLong() + 1L
+            it["rules"] = rules
+        }
+        assertEquals(Int.MAX_VALUE.toLong() + 1L, VerifiedFlowProofParser.parse(longTiming).rules[0].notBeforeMs)
     }
 
     @Test fun python_generated_binding_vector_is_accepted_by_kotlin() {

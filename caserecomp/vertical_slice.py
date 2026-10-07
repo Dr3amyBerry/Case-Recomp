@@ -377,7 +377,7 @@ def validate_verified_flow_proof(doc: Any) -> dict:
                 != (rule_id, from_screen, input_kind, to_screen):
             raise InspectionError("invalid verified-flow rule")
         timing = row.get("not_before_ms")
-        if isinstance(timing, bool) or not isinstance(timing, int) or timing < 0:
+        if isinstance(timing, bool) or not isinstance(timing, int) or timing < 0 or timing > 9_223_372_036_854_775_807:
             raise InspectionError("invalid verified-flow timing")
         if scene_mode is None:
             if row.get("scene_id") is not None:

@@ -69,6 +69,11 @@ object VerifiedFlowProofParser {
         return value.toInt()
     }
 
+    private fun strictLong(value: Any?, name: String): Long {
+        require(value is Long) { "$name must be an integer JSON number" }
+        return value
+    }
+
     private val rootKeys = setOf(
         "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
         "evidence_kind", "evidence_chain", "boot_verified", "rules", "binding_sha256",
@@ -104,7 +109,7 @@ object VerifiedFlowProofParser {
                 inputKind = row["input_kind"].jsonString("input_kind"),
                 toScreen = Screen.valueOf(row["to_screen"].jsonString("to_screen")),
                 sceneId = sceneValue as? String,
-                notBeforeMs = strictInt(row["not_before_ms"], "not_before_ms").toLong(),
+                notBeforeMs = strictLong(row["not_before_ms"], "not_before_ms"),
             )
         }
 
