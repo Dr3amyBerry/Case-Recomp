@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = cmd.add_parser("director-map", help="Inspect XFIR/Afterburner resources without extracting")
     summary.add_argument("source", type=Path, help="Local .cct or Director projector .exe")
     summary.add_argument("--details", action="store_true", help="List resource IDs, sizes, tags and codecs")
+    summary.add_argument("--links", action="store_true", help="Include structural KEY* cast-owner relationship counts")
 
     movie = cmd.add_parser("extract-movie", help="Extract an embedded Director movie locally (no execution)")
     movie.add_argument("source", type=Path, help="Locally owned Windows PE projector")
@@ -70,6 +71,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "director-map":
             archive, offset = open_archive(args.source)
             record = {"source_name": args.source.name, "movie_offset": offset, **archive.summary(resource_details=args.details)}
+            if args.links:
+                from .relationships import CastRelationships
+                record["relationships"] = CastRelationships(archive).summary(archive)
         elif args.command == "extract-movie":
             record = extract_movie(args.source, args.output)
         elif args.command == "convert-local":

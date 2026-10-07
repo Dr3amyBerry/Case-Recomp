@@ -14,7 +14,11 @@ from tests.test_pipeline import media_cast
 
 STUB_PROJECTOR = '''#!/usr/bin/env python3
 import pathlib,sys
-path=pathlib.Path(sys.argv[2]);path.with_suffix('.cst').write_bytes(b'SYNTHETIC CST')
+assert sys.argv[1:4] == ['decompile','--dump-scripts','-o']
+output=pathlib.Path(sys.argv[4])
+(output/'cast.cst').write_bytes(b'SYNTHETIC CST')
+c=(output/'cast'/'casts');c.mkdir(parents=True)
+(c/'script.ls').write_text('on synthetic\nend\n')
 '''
 STUB_LIBRE = '''#!/usr/bin/env python3
 import pathlib,sys
@@ -42,11 +46,13 @@ class AdapterTests(unittest.TestCase):
     def test_projectorrays_stub_isolated_staging(self):
         input_before = self.source.read_bytes()
         info = run_backend('projectorrays',self.source,self.dest,self.make_tool(STUB_PROJECTOR))
-        self.assertEqual(info['asset_count'],1)
-        self.assertEqual(info['assets'][0]['file'],'cast.cst')
+        self.assertEqual(info['asset_count'],2)
+        self.assertIn('cast.cst', [asset['file'] for asset in info['assets']])
+        self.assertIn('cast/casts/script.ls', [asset['file'] for asset in info['assets']])
         self.assertEqual(self.source.read_bytes(),input_before)
-        self.assertEqual(verify_export(self.dest)['verified_files'],1)
+        self.assertEqual(verify_export(self.dest)['verified_files'],2)
         self.assertEqual(info['verified_semantics'],False)
+        self.assertIn('recovered-lingo-unverified', [asset['format'] for asset in info['assets']])
 
     def test_libre_stub_captures_script(self):
         info=run_backend('libreshockwave',self.source,self.dest,self.make_tool(STUB_LIBRE))
@@ -74,7 +80,7 @@ class AdapterTests(unittest.TestCase):
     def test_external_bad_extension(self):
         self.make_tool('''#!/usr/bin/env python3
 import pathlib,sys
-pathlib.Path(sys.argv[2]).with_suffix('.txt').write_text('not accepted')
+(pathlib.Path(sys.argv[4])/'cast.txt').write_text('not accepted')
 ''')
         with self.assertRaises(InspectionError):
             run_backend('projectorrays',self.source,self.dest,self.tool)
@@ -82,7 +88,7 @@ pathlib.Path(sys.argv[2]).with_suffix('.txt').write_text('not accepted')
     def test_external_symlink_output_rejected(self):
         self.make_tool('''#!/usr/bin/env python3
 import pathlib,sys
-p=pathlib.Path(sys.argv[2]);p.with_suffix('.cst').symlink_to(p)
+p=pathlib.Path(sys.argv[4]);(p/'cast.cst').symlink_to(p/'cast.cst')
 ''')
         with self.assertRaises(InspectionError):
             run_backend('projectorrays',self.source,self.dest,self.tool)

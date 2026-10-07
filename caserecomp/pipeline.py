@@ -14,6 +14,7 @@ import wave
 
 from .director import open_archive, read_local, exclusive_write
 from .inspector import InspectionError
+from .relationships import CastRelationships
 
 MAX_ASSET_COUNT = 12000
 MAX_EXPORT_BYTES = 512 * 1024 * 1024
@@ -167,6 +168,7 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
     if not archives:
         raise InspectionError("no valid Director archive found")
     records = []
+    link_tables = []
     skipped = Counter()
     totals = Counter()
     output_bytes = 0
@@ -174,6 +176,14 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
     try:
         for index, (path, archive) in enumerate(archives):
             folder = f"archive-{index:03d}"
+            try:
+                links = CastRelationships(archive)
+                image_owners = links.image_alpha_links(archive)
+                link_tables.append({"archive_index": index, "status": "parsed", **links.summary(archive)})
+            except InspectionError as exc:
+                # Degrade explicitly for older/invalid KEY* without inventing a pairing.
+                image_owners = {}
+                link_tables.append({"archive_index": index, "status": "unavailable", "reason": str(exc)})
             for entry in sorted(archive.entries.values(), key=lambda r: r.id):
                 totals[entry.tag] += 1
                 if entry.tag == "ediM":
@@ -196,6 +206,8 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                         ext = ".png" if image_format == "png" else ".jpg"
                         relative = f"{folder}/images/{entry.id:08d}{ext}"
                         extra = {"format": image_format, "width": w, "height": h, "alpha_applied": False}
+                        if entry.id in image_owners:
+                            extra.update(image_owners[entry.id])
                     else:
                         skipped["unrecognized_ediM"] += 1
                         continue
@@ -240,8 +252,9 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                                 for index, (path, archive) in enumerate(archives)],
             "asset_count": len(records), "bytes": output_bytes,
             "assets": records, "skipped": dict(sorted(skipped.items())),
+            "relationship_maps": link_tables,
             "resource_tags": dict(sorted(totals.items())),
-            "warnings": ["JPEG exports do not include independent ALFA masks",
+            "warnings": ["JPEG exports do not include independent ALFA masks; KEY* associations record potential mask IDs but are not an alpha decoder",
                          "Raw Lscr chunks are NOT decompiled Lingo",
                          "SWA-compressed snd chunks are not converted by the built-in decoder; ID3/MP3 media are exported as original streams"],
         }

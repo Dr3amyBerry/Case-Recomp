@@ -61,7 +61,8 @@ def _copy_results(source: Path, target: Path, *, allowed_extensions: set[str] | 
         output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         exclusive_write(output, data)
         assets.append({"file": relative.as_posix(), "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
-                       "format": "external-unknown", "converted": "unverified"})
+                       "format": "recovered-lingo-unverified" if file.suffix.lower() == ".ls" else "external-unknown",
+                       "converted": "unverified"})
         total += len(data)
     if not assets:
         raise InspectionError("tool returned no recognized export files")
@@ -92,7 +93,9 @@ def run_backend(provider: str, source: Path, destination: Path, binary: Path, *,
         produced = root / "generated"
         produced.mkdir(mode=0o700)
         if provider == "projectorrays":
-            args = [str(executable), "decompile", str(staged_file)]
+            # Explicit output directory prevents changes to staged original and
+            # enables ProjectorRays' opt-in Lingo script dump.
+            args = [str(executable), "decompile", "--dump-scripts", "-o", str(produced), str(staged_file)]
         else:
             args = [str(executable), str(staged), str(produced)]
         try:
@@ -103,10 +106,9 @@ def run_backend(provider: str, source: Path, destination: Path, binary: Path, *,
         if completed.returncode != 0:
             raise InspectionError(f"external tool returned nonzero exit status {completed.returncode}")
         if provider == "projectorrays":
-            # ProjectorRays emits editable .dir/.cst beside the input. Never
-            # publish the input copy; only generated editable project files.
-            results_root = staged
-            allowed = {".cst", ".dir"}
+            # Dedicated output also contains casts/*.ls where supported.
+            results_root = produced
+            allowed = {".cst", ".dir", ".ls"}
         else:
             results_root = produced
             allowed = None

@@ -35,17 +35,24 @@ def generate_wav():
     return stream.getvalue()
 
 
-def media_cast(assets=None, kind=b'CDGF'):
+def media_cast(assets=None, kind=b'CDGF', keys=None):
     """Build small, valid compressed XFIR cast with selectable raw, zlib or SWA members."""
     assets = assets or [('ediM', generate_jpeg(), 1), ('Lscr', b'compiled-fake-lingo', 1),
                         ('snd ', generate_wav(), 1), ('ALFA', b'opaque alpha', 1)]
     codecs = [b'Macromedia ziplib compression', b'Macromedia null Compressor', b'SWA Decompressor Xtra']
     registry = struct.pack('<H', 3) + bytes(3 * 16) + b'\0'.join(codecs) + b'\0'
     fver = varint(0x501) + varint(1) + varint(0x73A) + b'\x09' + b'8.5.1#104'
-    ils_body = varint(1) + b'initial'
+    if keys is None:
+        key_payload = b'initial'  # legacy negative-test placeholder
+    else:
+        key_payload = struct.pack('<HHII', 12, 12, len(keys) + 2, len(keys))
+        key_payload += b''.join(struct.pack('<II4s', rid, owner, tag[::-1].encode('ascii'))
+                                for rid, owner, tag in keys)
+        key_payload += bytes(24)  # two reserved, unused records
+    ils_body = varint(1) + key_payload
     ils_zip = zlib.compress(ils_body)
     members = [(0, 0, len(ils_zip), len(ils_body), 0, 'ILS '),
-               (1, 0xffffffff, len(b'initial'), len(b'initial'), 0, 'KEY*')]
+               (1, 0xffffffff, len(key_payload), len(key_payload), 0, 'KEY*')]
     trailing = bytearray(ils_zip)
     for i, (tag, data, codec) in enumerate(assets, 100):
         raw = zlib.compress(data) if codec == 0 else data
