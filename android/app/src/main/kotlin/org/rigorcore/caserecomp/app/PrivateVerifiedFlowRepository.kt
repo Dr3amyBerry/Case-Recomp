@@ -53,8 +53,10 @@ class PrivateVerifiedFlowRepository(context: Context) {
     }
 
     fun clearFor(content: LoadedPrivateContent): Boolean {
-        val file = fileFor(content)
-        return !file.exists() || file.delete()
+        val target = fileFor(content)
+        val temp = File(directory, target.name + ".tmp")
+        val backup = File(directory, target.name + ".bak")
+        return listOf(target, temp, backup).all { !it.exists() || it.delete() }
     }
 
     private fun parseBoundFile(file: File, content: LoadedPrivateContent): VerifiedFlowProofV2? {
@@ -71,17 +73,21 @@ class PrivateVerifiedFlowRepository(context: Context) {
         val backup = File(directory, target.name + ".bak")
         if (temp.exists()) temp.delete()
 
-        if (target.exists()) {
+        val targetValid = parseBoundFile(target, content) != null
+        if (targetValid) {
             if (backup.exists()) backup.delete()
             return
         }
-        if (!backup.exists()) return
 
-        // A backup is recoverable only after full parser + package/scenario binding.
-        if (parseBoundFile(backup, content) == null) {
-            backup.delete()
+        val backupValid = parseBoundFile(backup, content) != null
+        if (!backupValid) {
+            if (backup.exists()) backup.delete()
             return
         }
+
+        // If an interrupted replacement left a corrupt/missing target, prefer the
+        // last fully validated package-bound proof. Never recover an unvalidated file.
+        if (target.exists() && !target.delete()) return
         if (!backup.renameTo(target)) backup.delete()
     }
 

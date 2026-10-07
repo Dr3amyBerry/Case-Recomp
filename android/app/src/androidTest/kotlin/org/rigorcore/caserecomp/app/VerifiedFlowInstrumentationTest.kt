@@ -169,6 +169,20 @@ class VerifiedFlowInstrumentationTest {
         assertTrue(!backup.exists())
         assertTrue(!File(directory, target.name + ".tmp").exists())
 
+        // clearFor must erase every recoverable transactional copy.
+        assertTrue(target.renameTo(backup))
+        File(directory, target.name + ".tmp").writeText("stale", Charsets.UTF_8)
+        assertTrue(repository.clearFor(loaded))
+        assertTrue(!target.exists() && !backup.exists() && !File(directory, target.name + ".tmp").exists())
+        assertNull(repository.loadFor(loaded))
+
+        // Re-import, then a corrupt target with a valid interrupted backup recovers safely.
+        repository.importProof(ByteArrayInputStream(valid.toByteArray()), loaded)
+        assertTrue(target.renameTo(backup))
+        target.writeText("corrupt", Charsets.UTF_8)
+        assertNotNull(repository.loadFor(loaded))
+        assertTrue(target.isFile && !backup.exists())
+
         // Invalid backup must never be promoted.
         assertTrue(target.delete())
         backup.writeText("{\"format\":\"case-recomp-verified-flow\",\"version\":1}", Charsets.UTF_8)

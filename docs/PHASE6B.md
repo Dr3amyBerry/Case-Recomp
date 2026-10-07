@@ -61,3 +61,5 @@ The `.tmp`/`.bak` commit path is also fail-closed across interruption:
 - a failed replacement leaves the previous valid proof recoverable.
 
 This is crash-consistency hardening only; it does not turn the local evidence chain into remote attestation.
+
+`clearFor()` removes the active proof and all transactional `.tmp`/`.bak` copies, so an explicitly cleared proof cannot later reappear through crash recovery. If a target exists but is corrupt while a package-bound backup remains valid, recovery restores only that fully validated backup.
