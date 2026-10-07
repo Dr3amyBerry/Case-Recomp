@@ -26,8 +26,9 @@ class GameShellView(
         val originX = (width - model.designWidth * scale) / 2f
         val originY = (height - model.designHeight * scale) / 2f
 
-        if (model.screen == Screen.SCENE && model.sceneId != null) {
-            privateContent?.backgroundAsset(model.sceneId)?.let(bitmapLoader::load)?.let { bitmap ->
+        val sceneId = model.sceneId
+        if (model.screen == Screen.SCENE && sceneId != null) {
+            privateContent?.backgroundAsset(sceneId)?.let(bitmapLoader::load)?.let { bitmap ->
                 paint.alpha = 255
                 canvas.drawBitmap(bitmap, null, RectF(originX, originY, originX + model.designWidth * scale, originY + model.designHeight * scale), paint)
             }
