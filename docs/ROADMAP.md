@@ -7,14 +7,14 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 1:** identify edition, installed file layout, PE projector, and Director container signatures; implement read-only hashing inventory and tests.
 - [x] **Phase 2A:** map the main XFIR movie and all 38 compressed Director cast files, parse their Afterburner indices, and validate 7,018 resources.
 - [x] **Phase 2B:** read local zlib and uncompressed resources, reconstruct ILS entries containing 80 compiled Lingo resources, implement selective extraction, tests and docs; determine unsupported SWA set.
-- [x] **Phase 2C:** ProjectorRays and LibreShockwave were executed privately against the supplied main Director movie; handler/source and assembly structure are cross-checked without publishing recovered content.
+- [x] **Phase 2C:** real private ProjectorRays + LibreShockwave run completed; 527 handlers / 287 names agree with the original compiled index and 527/527 assembly handler records match on address+opcode structure. Semantics remain unproven.
 - [x] **Phase 3A:** validated `ediM` JPEG/PNG, ID3/MP3, known PCM/WAV, bytecode extraction, private manifest, SHA-256 verification, and synthetic external-tool adapters.
 - [x] **Phase 3B.1:** read KEY* allocated/used table records and associate CASt/ediM/ALFA without guessing by adjacent resource IDs; publish synthetic tests and reproducible proof.
-- [x] **Phase 3B.2:** 1,988/1,988 linked JPEG+ALFA masks decode; 29 SWA payloads match LibreShockwave extraction after the 82-byte wrapper and decode locally; 16 true-color BITD images are pixel-identical to LibreShockwave. Five indexed BITD palettes remain RGB-pending.
-- [x] **Phase 3B.3:** verified 80 compiled Lscr scripts, 1,608 Lnam names, 527 handler spans (287 distinct); ProjectorRays and LibreShockwave both recover 527 handlers / 287 names and match the original name index.
+- [x] **Phase 3B.2:** 1,988/1,988 verified JPEG+ALFA compositions; 29 SWA payloads cross-checked against LibreShockwave and locally decoded; 16 true-color BITD pixel-identical to LibreShockwave, five indexed BITD index planes verified.
+- [x] **Phase 3B.3 (partial):** verified 80 compiled Lscr script directories, 1,608 Lnam names, 527 handler spans (287 distinct); optional source-recovery name cross-check against original index. No readable original Lingo recovered yet.
 - [x] **Phase 3B.3 (remaining media):** independently corroborate the System-Windows `-102` entries exercised by the title and verify all five indexed BITD members pixel-for-pixel against LibreShockwave. Runtime behavior semantics remain a Phase 4/5 task.
-- [~] **Phase 4:** bounded DRCF/CAS*/CASt/VWSC/VWLB structural parser, anonymous timeline segmentation, versioned `case-recomp-scenario` v1, synthetic fixtures and Kotlin frame/event replay are implemented. Actual puzzle/state-machine rules still require private reference traces before porting.
-- [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
+- [x] **Phase 4:** bounded DRCF/CAS*/CASt/VWSC/VWLB parser, scenario-v1, indexed BITD closure, private trace-plan/compare gate, synthetic trace promotion and deterministic Kotlin replay are implemented. No original rule is promoted without an independent observable trace.
+- [~] **Phase 5:** initial Android Gradle shell, lifecycle, versioned persistence, deterministic clock, synthetic renderer/input and simulated audio tests are implemented. Original behavior import, real media rendering and accessibility/device QA remain pending.
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
 - [ ] **Phase 7:** integration, device and regression QA, performance, safety; target >90% coverage for maintainable new code.
 - [ ] **Phase 8:** debug APK via controlled CI; review signing, licensing, production distribution and any store requirements separately.
@@ -60,3 +60,8 @@ Read-only `lingo-index` analyses the original embedded Director movie without ex
 ## Phase 4 structural baseline
 
 See [PHASE4.md](PHASE4.md). Private validation identifies 203 Score frames, 120 displayed channels, 387 CASt resources, 643 logical CAS* slots, 28 markers and 29 anonymous marker-delimited segments. CAS* resolution links 2,086 structural Score behavior references to 38 compiled script resources. These are structural facts only; game-rule semantics still require reference traces.
+
+
+## Phase 4B trace baseline
+
+The private `trace-plan` command generated 29 hash-only observation checkpoints for the owned main movie. This is a verification plan, **not** proof of gameplay semantics. No Huntsville behavior has been promoted to public fixtures because an independent runtime observation trace has not yet been supplied. Public promotion tests use synthetic data only. See [PHASE4B.md](PHASE4B.md).

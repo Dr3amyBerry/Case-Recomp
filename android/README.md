@@ -1,26 +1,30 @@
 # Case-Recomp Android engine: architecture prototype
 
-No APK and no original gameplay implementation exists yet. `engine/` currently contains a **pure Kotlin**, Android-independent reducer with immutable `Session` state, generic scene/object transitions, versioned scenario-v1 frame ranges, content-neutral engine events, synthetic hit regions, deterministic state/event replay traces and aspect-fit touch coordinate mapping. Every scenario in tests is synthetic. Its state and rules are placeholders, *not claims about Mystery Case Files gameplay*.
+A synthetic debug APK shell now exists as source and CI output, but no original gameplay implementation exists yet. `engine/` contains a **pure Kotlin**, Android-independent reducer with immutable `Session` state, generic scene/object transitions, versioned scenario-v1 frame ranges, content-neutral engine events, synthetic hit regions, deterministic state/event replay traces and aspect-fit touch coordinate mapping. Every scenario in tests is synthetic. Its state and rules are placeholders, *not claims about Mystery Case Files gameplay*.
 
 ## Native target architecture
 
 - **Importer:** locally-owned Director content → Python `convert-local` → versioned, hash-checked private manifest and RGBA PNG/WAV/MP3 assets. Copy into Android app-private storage only after a user-initiated local import; do not bundle original media in a public APK.
-- **Engine:** Kotlin deterministic state reducer. `ScenarioV1` mirrors the public `case-recomp-scenario` v1 contract; frame advancement and emitted events are deterministic. Later stages must consume privately verified timeline/behavior traces instead of invented original-game transitions. Persistence will serialize data with explicit versioning and migration.
-- **Renderer:** Android `SurfaceView`/Compose bridge (to be selected after profiling), virtual 640×480 design viewport as *placeholder*, fitted without distorting aspect ratio; letterboxed areas ignore taps. Draw order, Director ink effects and animation are pending.
+- **Engine:** Kotlin deterministic state reducer. `ScenarioV1` mirrors the public contract; frame advancement and emitted events are deterministic. `SessionSnapshotV1`, `GameClock`, lifecycle state, render model and audio ports are now implemented and source-tested. Later stages must consume privately verified traces instead of invented original-game transitions.
+- **Renderer:** the initial shell uses a native custom `View` with synthetic shapes and a 640×360 synthetic design viewport. Rendering and input share the same aspect-fit letterbox transform. Director ink effects, animation and original layouts remain pending.
 - **Audio:** Android Media3 or platform decoder for local converted streams, pause/resume and lifecycle, synchronized game clock and original loop metadata to be verified.
 - **Integration:** view state → engine events, viewport touch positions → game coordinates, local assets → render resources. Offline by default; no banking, accounts or analytics required.
-- **QA:** Kotlin smoke tests for reducer correctness, touch mapping and deterministic scene transitions. On-device test matrices and a debug APK workflow are not yet implemented.
+- **QA:** Kotlin smoke/JVM tests cover reducer, persistence, lifecycle, render model, touch mapping, replay and simulated audio. GitHub CI also assembles the synthetic debug APK; device/emulator matrices remain pending.
 
 ## Tested locally without Android SDK
 
 ```bash
 kotlinc android/engine/src/main/kotlin/org/rigorcore/caserecomp/Engine.kt \
+  android/engine/src/main/kotlin/org/rigorcore/caserecomp/Runtime.kt \
   android/engine/src/test/kotlin/org/rigorcore/caserecomp/EngineSmoke.kt \
+  android/engine/src/test/kotlin/org/rigorcore/caserecomp/RuntimeSmoke.kt \
   -include-runtime -d /tmp/case-engine.jar
 java -jar /tmp/case-engine.jar
 ```
 
-Expected: `Kotlin engine smoke: PASS (scenario-v1, frames, events, hit-test, deterministic replay)`.
+Expected output ends in a PASS message covering replay, persistence, lifecycle, render, input and simulated audio.
+
+For the Android shell, CI uses AGP 9.4.1 + Gradle 9.6.0 + JDK 17 and runs `gradle :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`.
 
 ## Pending dependencies
 

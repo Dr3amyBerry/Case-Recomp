@@ -1,14 +1,15 @@
 # Case-Recomp — Director-to-Android static reconstruction research
 
-A read-only/explicit-local-extraction toolkit for an independently obtained game installation, with the long-term goal of a playable Android port. **No working Android APK exists.** The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
+A read-only/explicit-local-extraction toolkit for an independently obtained game installation, with the long-term goal of a playable Android port. **A synthetic Android shell is now buildable, but no original-game playable APK exists.** The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
 
 ## Phases
 
 - [x] **1 —** inspect PE32/projector, classify Director/XFIR containers, create reproducible source-only CI.
 - [x] **2 —** parse 39 Afterburner movie/cast archives, map and verify raw/zlib resources and initial load segment (ILS), expose create-only raw extraction.
 - [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests, KEY* cast/alpha relationships, verified raw/PackBits ALFA composition, true-color BITD decoding, explicit third-party recovery adapters and reproducible tests.
-- [~] **4 —** verified indexed BITD palette subset, bounded Score/cast/timeline structure, public scenario-v1 contract and deterministic Kotlin frame/event replay.
-- [ ] **5–8 —** Android UI/runtime, licensed local asset import, device QA, packaging and distribution review.
+- [x] **4 —** close indexed BITD fidelity, parse Score/cast/timeline structure, define scenario-v1, add fail-closed private behavior traces and expand the deterministic Kotlin runtime.
+- [~] **5 —** synthetic Android/Gradle shell, lifecycle, persistence, rendering/input and simulated audio are in place; licensed local import and verified original behavior remain pending.
+- [ ] **6–8 —** local asset import, device QA, performance and controlled APK packaging.
 
 ## Install
 
@@ -36,6 +37,8 @@ python -m caserecomp verify-export /private/converted
 python -m caserecomp fidelity-file /private/reference.png /private/candidate.png --kind png
 python -m caserecomp score-structure /private/game/MysteryCaseFiles.exe --output /private/score-structure.json
 python -m caserecomp scenario-check fixtures/synthetic-scenario-v1.json
+python -m caserecomp trace-plan /private/game/MysteryCaseFiles.exe --output /private/trace-plan.json
+python -m caserecomp trace-compare /private/trace-plan.json /private/runtime-observation.json --output /private/trace-compare.json
 
 # Optional independently installed tooling; launches native code only with explicit command
 python -m caserecomp external-export /private/movie.dcr --backend libreshockwave --binary /tools/libreshockwave_asset_extractor --output /private/ls-output
@@ -46,7 +49,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ### Conversion scope and limitations
 
-* `ediM` JPEG images are decoded/validated with Pillow. `KEY*` ownership links `CASt`/`ediM`/`ALFA`; 1,988 linked masks are validated as raw or PackBits 8-bit planes and can be composed into RGBA PNG. `BITD` 16/32-bit rendering is implemented. The five indexed members used by the main movie resolve through an independently corroborated Director System-Windows `-102` subset and are verified pixel-for-pixel against LibreShockwave.
+* `ediM` JPEG images are decoded/validated with Pillow. `KEY*` ownership links `CASt`/`ediM`/`ALFA`; 1,988 linked masks are validated as raw or PackBits 8-bit planes and can be composed into RGBA PNG. `BITD` 16/32-bit true-color rendering is implemented. The five indexed BITD members used by this title are also rendered through an independently corroborated subset of Director System Windows palette `-102`; unknown legacy palette indices still fail closed.
 * `ediM` resources starting `ID3` can be real MP3 streams; `mutagen` checks MPEG audio metadata and the original bytes are preserved. This is not an exhaustive frame-by-frame decoder validation.
 * `snd ` members using SWA remain unsupported by the generic Director decoder, but an explicit local FFmpeg path can decode their validated MPEG payload to WAV. All 29 private resources were cross-checked against LibreShockwave payload extraction; historical loop/timing equivalence remains open.
 * `Lscr` contains **compiled bytecode**, not readable Lingo. The `--include-bytecode` flag exports the source bytes as `.lscr`. Use separately vetted ProjectorRays or LibreShockwave for decompilation and gameplay reconstruction.
@@ -55,6 +58,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Phase 4B — private behavior traces, deterministic persistence and Android shell](docs/PHASE4B.md)
 - [Phase 4 — palette closure, Score structure, scenario-v1 and Kotlin engine](docs/PHASE4.md)
 - [Phase 3 — conversion, Lingo recovery, external-tool evaluation, test matrix](docs/PHASE3.md)
 - [Phase 3B.1 — KEY* cast-member associations and validation](docs/PHASE3B_RELATIONSHIPS.md)
@@ -77,11 +81,15 @@ python -m caserecomp convert-local /private/game --output /private/converted \
   --image-format png --alpha-mode best-effort --decode-swa --ffmpeg /usr/bin/ffmpeg
 python -m caserecomp verify-export /private/converted
 python -m caserecomp fidelity-file /private/reference.png /private/candidate.png --kind png
+python -m caserecomp score-structure /private/game/MysteryCaseFiles.exe --output /private/score-structure.json
+python -m caserecomp scenario-check fixtures/synthetic-scenario-v1.json
+python -m caserecomp trace-plan /private/game/MysteryCaseFiles.exe --output /private/trace-plan.json
+python -m caserecomp trace-compare /private/trace-plan.json /private/runtime-observation.json --output /private/trace-compare.json
 python -m caserecomp compare-lingo /private/pr-dumps /private/ls-dumps \
   --output /private/lingo-audit.json --redact-names
 ```
 
 Use `--alpha-mode strict` to stop and rollback on an unsupported paired mask.
-**This is not a complete Director renderer**: all linked ALFA planes and all 21 BITD members found across the private installation now have verified decode paths for the formats exercised by this title; Score/runtime behavior, ink effects and original-game Lingo semantics remain open. See
+**This is not a complete Director renderer**: all linked ALFA planes and all 21 BITD members found across the private installation now have verified decode paths, but Director ink effects, Score/runtime behavior and original-game Lingo semantics remain open. See
 [Phase 3B media research](docs/PHASE3B_MEDIA.md) and the
 [Android engine prototype](android/README.md).

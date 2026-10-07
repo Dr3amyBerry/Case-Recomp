@@ -88,6 +88,21 @@ def main(argv: list[str] | None = None) -> int:
     scenario = cmd.add_parser("scenario-check", help="Validate public case-recomp-scenario v1 JSON")
     scenario.add_argument("source", type=Path)
 
+    trace_plan = cmd.add_parser("trace-plan", help="Build a private redacted behavior trace plan from an owned Director movie")
+    trace_plan.add_argument("source", type=Path)
+    trace_plan.add_argument("--output", required=True, type=Path, help="Create-only private JSON plan")
+    trace_plan.add_argument("--frame", action="append", type=int, default=[], help="Specific frame to observe; repeatable")
+
+    trace_compare = cmd.add_parser("trace-compare", help="Compare a private trace plan with runtime observations")
+    trace_compare.add_argument("plan", type=Path)
+    trace_compare.add_argument("observation", type=Path)
+    trace_compare.add_argument("--output", required=True, type=Path, help="Create-only private comparison JSON")
+
+    trace_fixture = cmd.add_parser("trace-synthetic-fixture", help="Promote only a verified private comparison to a synthetic scenario-v1 fixture")
+    trace_fixture.add_argument("comparison", type=Path)
+    trace_fixture.add_argument("--output", required=True, type=Path)
+    trace_fixture.add_argument("--id", default="verified-synthetic")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "scan":
@@ -170,6 +185,32 @@ def main(argv: list[str] | None = None) -> int:
                       "id": document["id"], "scene_count": len(document["scenes"]),
                       "event_count": len(document["events"]),
                       "fingerprint_sha256": scenario_fingerprint(document)}
+        elif args.command == "trace-plan":
+            from .trace import build_private_trace_plan
+            from .director import exclusive_write
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            record = build_private_trace_plan(args.source, args.frame or None)
+            exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
+            print(json.dumps({"format": record["format"], "version": record["version"],
+                              "kind": record["kind"], "steps": len(record["steps"])}, sort_keys=True))
+            return 0
+        elif args.command == "trace-compare":
+            from .trace import compare_private_trace, load_json
+            from .director import exclusive_write
+            from .pipeline import guard_destination
+            guard_destination(args.plan, args.output)
+            guard_destination(args.observation, args.output)
+            record = compare_private_trace(load_json(args.plan), load_json(args.observation))
+            exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
+        elif args.command == "trace-synthetic-fixture":
+            from .trace import load_json, synthetic_fixture_from_verified_comparison, write_synthetic_fixture
+            from .pipeline import guard_destination
+            guard_destination(args.comparison, args.output)
+            document = synthetic_fixture_from_verified_comparison(load_json(args.comparison), args.id)
+            write_synthetic_fixture(args.output, document)
+            record = {"format": document["format"], "version": document["version"], "id": document["id"],
+                      "scenes": len(document["scenes"]), "events": len(document["events"])}
         elif args.command == "extract-resources":
             if any(len(tag) != 4 for tag in args.tag):
                 raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")

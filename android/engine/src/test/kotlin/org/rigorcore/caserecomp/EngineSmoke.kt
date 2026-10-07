@@ -72,5 +72,6 @@ fun main() {
     check(replayA.finalSession.screen == Screen.COMPLETE)
     check(replayA.states.size == trace.size + 1)
     check(replayA.events.contains(EngineEvent.FrameReached("roomA", 15)))
-    println("Kotlin engine smoke: PASS (scenario-v1, frames, events, hit-test, deterministic replay)")
+    runtimeSmoke()
+    println("Kotlin engine smoke: PASS (scenario-v1, frames, events, hit-test, deterministic replay, persistence, lifecycle, render, input, simulated audio)")
 }

@@ -42,3 +42,8 @@ manifest.json
 dist/
 build/
 *.egg-info/
+# Android/Gradle local outputs
+.gradle/
+local.properties
+.idea/
+*.iml

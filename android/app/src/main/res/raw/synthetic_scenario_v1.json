@@ -1,0 +1,20 @@
+{
+  "format": "case-recomp-scenario",
+  "version": 1,
+  "id": "android-shell-synthetic",
+  "design": {"width": 640, "height": 360},
+  "scenes": [
+    {
+      "id": "synthetic-room",
+      "frame_start": 1,
+      "frame_end": 30,
+      "targets": [
+        {"id": "circle", "rect": [80, 90, 180, 190], "z": 1},
+        {"id": "square", "rect": [390, 100, 510, 220], "z": 2}
+      ]
+    }
+  ],
+  "events": [
+    {"id": "midpoint", "kind": "frame-reached", "scene": "synthetic-room", "frame": 15}
+  ]
+}
