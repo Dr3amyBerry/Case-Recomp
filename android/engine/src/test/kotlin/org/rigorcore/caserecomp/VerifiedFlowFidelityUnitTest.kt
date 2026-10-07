@@ -32,7 +32,7 @@ class VerifiedFlowFidelityUnitTest {
         val clock = DeterministicClock()
         val runtime = GameRuntime(
             scenario(), clock, InMemorySessionStore(), RecordingAudioPort(),
-            flowGate = VerifiedFlowGate(proof(), "fidelity-flow", scenarioHash, packageId),
+            flowGate = VerifiedFlowGate(proof(), scenario(), scenarioHash, packageId),
         )
         runtime.onCreate(); runtime.onStart(); runtime.onResume()
 

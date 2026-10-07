@@ -94,6 +94,9 @@ class PrivateVerifiedFlowRepository(context: Context) {
         require(proof.packageId == content.manifest.packageId) { "verified flow package mismatch" }
         require(proof.scenarioId == content.scenario.id) { "verified flow scenario mismatch" }
         require(proof.scenarioSha256 == content.manifest.scenarioSha256) { "verified flow scenario hash mismatch" }
+        val sceneIds = content.scenario.scenes.map { it.id }.toSet()
+        require(proof.rules.filter { it.toScreen == org.rigorcore.caserecomp.Screen.SCENE }
+            .all { it.sceneId in sceneIds }) { "verified flow scene is not present in active scenario" }
     }
 
     private fun fileFor(content: LoadedPrivateContent): File =

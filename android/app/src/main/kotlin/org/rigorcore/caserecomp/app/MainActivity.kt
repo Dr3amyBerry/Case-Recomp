@@ -33,7 +33,7 @@ class MainActivity : Activity() {
         val proof = content?.let(flowRepository::loadFor)
         val flowGate = when {
             content == null -> AllowAllFlowGate
-            proof != null -> VerifiedFlowGate(proof, scenario.id, content.manifest.scenarioSha256, content.manifest.packageId)
+            proof != null -> VerifiedFlowGate(proof, scenario, content.manifest.scenarioSha256, content.manifest.packageId)
             else -> DenyAllFlowGate
         }
         runtime = GameRuntime(

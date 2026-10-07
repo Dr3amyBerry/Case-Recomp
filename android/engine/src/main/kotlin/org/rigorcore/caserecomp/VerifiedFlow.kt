@@ -63,6 +63,12 @@ data class VerifiedFlowProofV2(
 }
 
 object VerifiedFlowProofParser {
+    private fun strictInt(value: Any?, name: String): Int {
+        require(value is Long) { "$name must be an integer JSON number" }
+        require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) { "$name integer range" }
+        return value.toInt()
+    }
+
     private val rootKeys = setOf(
         "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
         "evidence_kind", "evidence_chain", "boot_verified", "rules", "binding_sha256",
@@ -73,7 +79,7 @@ object VerifiedFlowProofParser {
     fun parse(text: String): VerifiedFlowProofV2 {
         val root = MiniJson.parse(text).jsonObject("verified-flow")
         require(root.keys == rootKeys) { "verified-flow fields" }
-        require(root["format"] == VERIFIED_FLOW_FORMAT && root["version"].jsonInt("version") == VERIFIED_FLOW_VERSION)
+        require(root["format"] == VERIFIED_FLOW_FORMAT && strictInt(root["version"], "version") == VERIFIED_FLOW_VERSION)
         val binding = root["binding_sha256"].jsonString("binding_sha256")
         require(SHA256_HEX.matches(binding)) { "binding_sha256" }
         val bindingBase = root.filterKeys { it != "binding_sha256" }
@@ -98,7 +104,7 @@ object VerifiedFlowProofParser {
                 inputKind = row["input_kind"].jsonString("input_kind"),
                 toScreen = Screen.valueOf(row["to_screen"].jsonString("to_screen")),
                 sceneId = sceneValue as? String,
-                notBeforeMs = row["not_before_ms"].jsonInt("not_before_ms").toLong(),
+                notBeforeMs = strictInt(row["not_before_ms"], "not_before_ms").toLong(),
             )
         }
 
@@ -141,7 +147,7 @@ object DenyAllFlowGate : FlowGate {
 
 class VerifiedFlowGate(
     private val proof: VerifiedFlowProofV2,
-    scenarioId: String,
+    scenario: ScenarioV1,
     scenarioSha256: String,
     packageId: String,
 ) : FlowGate {
@@ -149,8 +155,12 @@ class VerifiedFlowGate(
 
     init {
         require(proof.packageId == packageId)
-        require(proof.scenarioId == scenarioId)
+        require(proof.scenarioId == scenario.id)
         require(proof.scenarioSha256 == scenarioSha256)
+        val sceneIds = scenario.scenes.map { it.id }.toSet()
+        require(proof.rules.filter { it.toScreen == Screen.SCENE }.all { it.sceneId in sceneIds }) {
+            "verified-flow scene is not present in scenario"
+        }
     }
 
     override fun onRuntimeCreated(nowMillis: Long) {

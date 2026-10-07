@@ -73,7 +73,7 @@ class VerifiedFlowUnitTest {
         val store = InMemorySessionStore()
         val audio = RecordingAudioPort()
         val runtime = GameRuntime(scenario(), clock, store, audio,
-            flowGate = VerifiedFlowGate(proof(), "flow", scenarioHash, packageId))
+            flowGate = VerifiedFlowGate(proof(), scenario(), scenarioHash, packageId))
         runtime.onCreate(); runtime.onStart(); runtime.onResume()
         runtime.dispatch(Input.Start)
         assertEquals(Screen.MENU, runtime.session.screen)
@@ -95,7 +95,7 @@ class VerifiedFlowUnitTest {
         runtime.onPause(); runtime.onStop(); runtime.onDestroy()
         assertTrue(store.value != null)
         val restored = GameRuntime(scenario(), DeterministicClock(1000), store, RecordingAudioPort(),
-            flowGate = VerifiedFlowGate(proof(), "flow", scenarioHash, packageId))
+            flowGate = VerifiedFlowGate(proof(), scenario(), scenarioHash, packageId))
         restored.onCreate()
         assertEquals(Screen.SCENE, restored.session.screen)
     }
@@ -142,6 +142,27 @@ class VerifiedFlowUnitTest {
         }.isFailure)
     }
 
+    @Test fun parser_rejects_fractional_numeric_spellings_even_with_valid_binding() {
+        fun rebound(mutator: (MutableMap<String, Any?>) -> Unit): String {
+            val root = MiniJson.parse(proofText()).jsonObject("root").toMutableMap()
+            root.remove("binding_sha256")
+            mutator(root)
+            val binding = sha256Hex(MiniJson.canonical(root))
+            return MiniJson.canonical(root + ("binding_sha256" to binding))
+        }
+
+        val fractionalVersion = rebound { it["version"] = 2.0 }
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(fractionalVersion) }.isFailure)
+
+        val fractionalTiming = rebound {
+            val rules = it["rules"].jsonList("rules")
+                .map { row -> row.jsonObject("rule").toMutableMap() }.toMutableList()
+            rules[0]["not_before_ms"] = 100.0
+            it["rules"] = rules
+        }
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(fractionalTiming) }.isFailure)
+    }
+
     @Test fun python_generated_binding_vector_is_accepted_by_kotlin() {
         val url = requireNotNull(javaClass.getResource("/verified-flow-v2-python-vector.json"))
         val parsed = VerifiedFlowProofParser.parse(url.readText())
@@ -150,8 +171,15 @@ class VerifiedFlowUnitTest {
     }
 
     @Test fun package_and_scenario_binding_and_default_deny_are_fail_closed() {
-        assertTrue(runCatching { VerifiedFlowGate(proof(), "flow", scenarioHash, "8".repeat(64)) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowGate(proof(), "flow", "c".repeat(64), packageId) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowGate(proof(), scenario(), scenarioHash, "8".repeat(64)) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowGate(proof(), scenario(), "c".repeat(64), packageId) }.isFailure)
+        val wrongScene = proof().copy(
+            rules = listOf(
+                proof().rules[0],
+                proof().rules[1].copy(sceneId = "missing-room"),
+            ),
+        )
+        assertTrue(runCatching { VerifiedFlowGate(wrongScene, scenario(), scenarioHash, packageId) }.isFailure)
         val menu = Session()
         assertFalse(DenyAllFlowGate.allow(menu, Input.Start, menu.copy(screen = Screen.MAP), 0))
         assertTrue(DenyAllFlowGate.allow(menu, Input.Reset, menu, 0))

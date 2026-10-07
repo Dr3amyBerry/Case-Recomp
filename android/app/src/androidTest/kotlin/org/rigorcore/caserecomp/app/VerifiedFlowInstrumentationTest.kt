@@ -60,7 +60,7 @@ class VerifiedFlowInstrumentationTest {
         return LoadedPrivateContent(manifest, scenario, context.filesDir)
     }
 
-    private fun proofText(packageOverride: String = packageId): String {
+    private fun proofText(packageOverride: String = packageId, sceneOverride: String = "room"): String {
         val base = linkedMapOf<String, Any?>(
             "format" to "case-recomp-verified-flow",
             "version" to 2L,
@@ -82,7 +82,7 @@ class VerifiedFlowInstrumentationTest {
                 ),
                 linkedMapOf<String, Any?>(
                     "from_screen" to "MAP", "id" to "map-scene", "input_kind" to "enter-scene",
-                    "not_before_ms" to 50L, "scene_id" to "room", "to_screen" to "SCENE",
+                    "not_before_ms" to 50L, "scene_id" to sceneOverride, "to_screen" to "SCENE",
                 ),
             ),
         )
@@ -97,7 +97,7 @@ class VerifiedFlowInstrumentationTest {
         assertNotNull(repository.loadFor(loaded))
         val clock = DeterministicClock()
         val runtime = GameRuntime(loaded.scenario, clock, InMemorySessionStore(), RecordingAudioPort(),
-            flowGate = VerifiedFlowGate(imported, loaded.scenario.id, scenarioHash, packageId))
+            flowGate = VerifiedFlowGate(imported, loaded.scenario, scenarioHash, packageId))
         runtime.onCreate(); runtime.onStart(); runtime.onResume()
         lateinit var view: GameShellView
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -134,6 +134,15 @@ class VerifiedFlowInstrumentationTest {
 
         val wrongPackage = proofText("9".repeat(64))
         assertTrue(runCatching { repository.importProof(ByteArrayInputStream(wrongPackage.toByteArray()), loaded) }.isFailure)
+        assertNotNull(repository.loadFor(loaded))
+
+        // This document has a completely valid v2 binding hash, package id,
+        // scenario id/hash and evidence chain. It must still be rejected because
+        // its SCENE rule names no scene in the active scenario.
+        val nonexistentScene = proofText(sceneOverride = "missing-room")
+        assertTrue(runCatching {
+            repository.importProof(ByteArrayInputStream(nonexistentScene.toByteArray()), loaded)
+        }.isFailure)
         assertNotNull(repository.loadFor(loaded))
 
         val tamperedChain = valid.replace("6".repeat(64), "0".repeat(64))

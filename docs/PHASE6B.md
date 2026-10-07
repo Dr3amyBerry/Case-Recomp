@@ -63,3 +63,12 @@ The `.tmp`/`.bak` commit path is also fail-closed across interruption:
 This is crash-consistency hardening only; it does not turn the local evidence chain into remote attestation.
 
 `clearFor()` removes the active proof and all transactional `.tmp`/`.bak` copies, so an explicitly cleared proof cannot later reappear through crash recovery. If a target exists but is corrupt while a package-bound backup remains valid, recovery restores only that fully validated backup.
+
+
+### Final Android semantic boundary hardening
+
+Android v2 parsing now requires `version` and every `not_before_ms` to be actual integer JSON numbers. Numerically integral floating spellings such as `2.0` or `100.0` are rejected even when a caller recomputes a syntactically valid `binding_sha256`.
+
+The app repository and runtime gate also independently require every proof rule that enters `SCENE` to reference a scene ID present in the active, hash-bound scenario. This closes the remaining gap where a proof could be structurally valid, package/scenario-hash bound and correctly re-hashed while still naming a nonexistent scene.
+
+No v1 migration was added because reconstructing the missing v2 evidence chain would reduce the fail-closed guarantee.
