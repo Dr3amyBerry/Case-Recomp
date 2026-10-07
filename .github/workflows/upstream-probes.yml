@@ -45,6 +45,18 @@ jobs:
           echo "Synthetic fixture decompile exit code: $result (fixture does not contain real cast members)"
           head -n 12 /tmp/pr-smoke.log
           echo "Build success does not imply real-game decompile success."
+      - name: Stage ProjectorRays binary for private local evaluation
+        run: |
+          mkdir -p /tmp/pr-artifact/lib
+          cp /tmp/projectorrays/projectorrays /tmp/pr-artifact/
+          ldd /tmp/projectorrays/projectorrays | awk '/=> \/.*libmpg123/{print $3}' | xargs -r -I{} cp -L {} /tmp/pr-artifact/lib/
+          printf '%s\n' '6f9bcebf626b43719abe2affcbbcb041d154d666' > /tmp/pr-artifact/REVISION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: projectorrays-linux-pinned
+          path: /tmp/pr-artifact
+          if-no-files-found: error
+          retention-days: 1
   libreshockwave:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -82,3 +94,14 @@ jobs:
           echo "Synthetic fixture export exit code: $result (synthetic cast lacks real assets)"
           head -n 12 /tmp/ls-smoke.log
           echo "No game data, extracted assets or tool outputs are uploaded."
+      - name: Stage LibreShockwave extractor for private local evaluation
+        run: |
+          mkdir -p /tmp/ls-artifact
+          cp /tmp/libreshockwave/cmake-build-debug/cpp/libreshockwave_asset_extractor /tmp/ls-artifact/
+          printf '%s\n' 'fca530f9ef388d7ff38fa6c7117feae5bb5411c6' > /tmp/ls-artifact/REVISION
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libreshockwave-linux-pinned
+          path: /tmp/ls-artifact
+          if-no-files-found: error
+          retention-days: 1
