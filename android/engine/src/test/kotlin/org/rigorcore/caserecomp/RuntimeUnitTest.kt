@@ -24,8 +24,8 @@ class RuntimeUnitTest {
         val snapshot = SessionSnapshotV1("unit", Screen.SCENE, "room", 7, mapOf("room" to setOf("a")), 123)
         val encoded = SessionSnapshotCodecV1.encode(snapshot)
         assertEquals(snapshot, SessionSnapshotCodecV1.decode(encoded))
-        assertFalse(encoded.endsWith("\\n"))
-        assertEquals(snapshot, SessionSnapshotCodecV1.decode(encoded + "\\n    \t"))
+        assertFalse(encoded.endsWith("\n"))
+        assertEquals(snapshot, SessionSnapshotCodecV1.decode(encoded + "\n    \t"))
         assertNull(SessionSnapshotCodecV1.decode(encoded.replace("frame=7", "frame=8")))
     }
 

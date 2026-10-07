@@ -146,7 +146,7 @@ object SessionSnapshotCodecV1 {
         // SharedPreferences XML may preserve serializer indentation after a legacy
         // trailing newline. Encoded fields are URL-escaped and the checksum is the
         // final row, so trailing ASCII whitespace is never semantic.
-        val normalized = encoded.trimEnd(' ', '\\t', '\\r', '\\n')
+        val normalized = encoded.trimEnd(' ', '\t', '\r', '\n')
         val lines = normalized.lines()
         val header = lines.firstOrNull() ?: return null
         val legacy = header == LEGACY_HEADER
