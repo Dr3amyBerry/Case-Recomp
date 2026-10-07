@@ -318,7 +318,7 @@ def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id:
         raise InspectionError("verified-flow scene is not present in scenario")
     timings = {(row["from"], row["to"]): row["elapsed_ms"] for row in comparison["transitions"]}
     use_timing = comparison.get("timing_verified") is True
-    proof = {
+    proof_base = {
         "format": FLOW_FORMAT, "version": FLOW_VERSION, "package_id": package_id, "scenario_id": scenario_id,
         "scenario_sha256": sha256(canonical_bytes(scenario)).hexdigest(),
         "source_sha256": comparison["source_sha256"], "evidence_kind": comparison["evidence_kind"],
@@ -334,19 +334,25 @@ def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id:
              "scene_id": scene_id, "not_before_ms": timings[("map", "scene")] if use_timing else 0},
         ],
     }
+    proof = {**proof_base, "binding_sha256": _digest(proof_base)}
     return validate_verified_flow_proof(proof)
 
 
 def validate_verified_flow_proof(doc: Any) -> dict:
     root_keys = {
         "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
-        "evidence_kind", "evidence_chain", "boot_verified", "rules",
+        "evidence_kind", "evidence_chain", "boot_verified", "rules", "binding_sha256",
     }
     if not isinstance(doc, dict) or set(doc) != root_keys or doc.get("format") != FLOW_FORMAT \
             or doc.get("version") != FLOW_VERSION or doc.get("boot_verified") is not True:
         raise InspectionError("invalid verified-flow proof")
     if doc.get("evidence_kind") != "independent-original-runtime":
         raise InspectionError("verified-flow proof requires independent original-runtime evidence")
+    if not _is_hash(doc.get("binding_sha256")):
+        raise InspectionError("invalid verified-flow binding digest")
+    binding_base = {key: value for key, value in doc.items() if key != "binding_sha256"}
+    if _digest(binding_base) != doc["binding_sha256"]:
+        raise InspectionError("verified-flow binding digest mismatch")
     if not _is_hash(doc.get("package_id")) or not isinstance(doc.get("scenario_id"), str) or not doc["scenario_id"] \
             or not _is_hash(doc.get("scenario_sha256")) or not _is_hash(doc.get("source_sha256")):
         raise InspectionError("invalid verified-flow proof identity")

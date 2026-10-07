@@ -22,6 +22,7 @@ class VerifiedFlowUnitTest {
         sourceSha256 = "b".repeat(64),
         evidenceKind = "independent-original-runtime",
         evidenceChain = chain(),
+        bindingSha256 = "f".repeat(64),
         bootVerified = true,
         rules = listOf(
             VerifiedFlowRuleV2("menu-map", Screen.MENU, "start", Screen.MAP, notBeforeMs = 100),
@@ -35,15 +36,37 @@ class VerifiedFlowUnitTest {
             listOf(ScenarioTargetV1("target", GameRect(10f, 10f, 30f, 30f), 1)))),
     )
 
-    private fun proofText(): String = """
-        {"boot_verified":true,"evidence_kind":"independent-original-runtime",
-         "evidence_chain":{"capture_consensus_sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","observation_sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","spec_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
-         "format":"case-recomp-verified-flow","package_id":"$packageId",
-         "rules":[
-           {"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":0,"scene_id":null,"to_screen":"MAP"},
-           {"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":0,"scene_id":"room","to_screen":"SCENE"}],
-         "scenario_id":"flow","scenario_sha256":"$scenarioHash","source_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","version":2}
-    """.trimIndent()
+    private fun proofDocument(packageValue: String = packageId): MutableMap<String, Any?> = linkedMapOf(
+        "format" to "case-recomp-verified-flow",
+        "version" to 2L,
+        "package_id" to packageValue,
+        "scenario_id" to "flow",
+        "scenario_sha256" to scenarioHash,
+        "source_sha256" to "b".repeat(64),
+        "evidence_kind" to "independent-original-runtime",
+        "evidence_chain" to linkedMapOf(
+            "spec_sha256" to "c".repeat(64),
+            "observation_sha256" to "d".repeat(64),
+            "capture_consensus_sha256" to "e".repeat(64),
+        ),
+        "boot_verified" to true,
+        "rules" to listOf(
+            linkedMapOf<String, Any?>(
+                "id" to "menu-map", "from_screen" to "MENU", "input_kind" to "start",
+                "to_screen" to "MAP", "scene_id" to null, "not_before_ms" to 0L,
+            ),
+            linkedMapOf<String, Any?>(
+                "id" to "map-scene", "from_screen" to "MAP", "input_kind" to "enter-scene",
+                "to_screen" to "SCENE", "scene_id" to "room", "not_before_ms" to 0L,
+            ),
+        ),
+    )
+
+    private fun proofText(packageValue: String = packageId): String {
+        val base = proofDocument(packageValue)
+        val binding = sha256Hex(MiniJson.canonical(base))
+        return MiniJson.canonical(base + ("binding_sha256" to binding))
+    }
 
     @Test fun runtime_gate_is_stage_local_persistent_and_blocks_unverified_scene_rules() {
         val clock = DeterministicClock()
@@ -77,19 +100,45 @@ class VerifiedFlowUnitTest {
         assertEquals(Screen.SCENE, restored.session.screen)
     }
 
-    @Test fun parser_requires_v2_exact_schema_and_complete_evidence_chain() {
+    @Test fun parser_requires_v2_exact_schema_complete_chain_and_binding_digest() {
         val text = proofText()
         val parsed = VerifiedFlowProofParser.parse(text)
         assertTrue(parsed.bootVerified)
         assertEquals(packageId, parsed.packageId)
         assertEquals("c".repeat(64), parsed.evidenceChain.specSha256)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.dropLast(2) + "1}") }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("independent-original-runtime", "synthetic-test")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("c".repeat(64), "z".repeat(64))) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(packageId, "x".repeat(64))) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("boot_verified", "unexpected")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(":0,", ":0.5,")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("menu-map", "other")) }.isFailure)
+        assertTrue(parsed.bindingSha256.matches(Regex("[0-9a-f]{64}")))
+
+        fun mutated(block: (MutableMap<String, Any?>) -> Unit): String {
+            val root = MiniJson.parse(text).jsonObject("root").toMutableMap()
+            block(root)
+            return MiniJson.canonical(root)
+        }
+
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(mutated { it["version"] = 1L }) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(mutated { it["evidence_kind"] = "synthetic-test" }) }.isFailure)
+        assertTrue(runCatching {
+            VerifiedFlowProofParser.parse(mutated {
+                val chain = it["evidence_chain"].jsonObject("chain").toMutableMap()
+                chain.remove("spec_sha256")
+                it["evidence_chain"] = chain
+            })
+        }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(mutated { it.remove("package_id") }) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(mutated { it["unexpected"] = 1L }) }.isFailure)
+        assertTrue(runCatching {
+            VerifiedFlowProofParser.parse(mutated {
+                val rules = it["rules"].jsonList("rules").map { row -> row.jsonObject("rule").toMutableMap() }.toMutableList()
+                rules[0]["not_before_ms"] = 1L
+                it["rules"] = rules
+            })
+        }.isFailure)
+        assertTrue(runCatching {
+            VerifiedFlowProofParser.parse(mutated {
+                val rules = it["rules"].jsonList("rules").map { row -> row.jsonObject("rule").toMutableMap() }.toMutableList()
+                rules[0]["id"] = "other"
+                it["rules"] = rules
+            })
+        }.isFailure)
     }
 
     @Test fun package_and_scenario_binding_and_default_deny_are_fail_closed() {

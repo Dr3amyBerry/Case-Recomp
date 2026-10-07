@@ -44,6 +44,6 @@ No real Huntsville capture trial has been added to the repository; original rule
 
 ## Android import boundary
 
-The Python proof emitted after this chain is now `.crflow` v2 and requires the target private-content `package_id`. Android independently validates the complete `evidence_chain` and package/scenario bindings before persistence and again on load.
+The Python proof emitted after this chain is now `.crflow` v2 and requires the target private-content `package_id`. Android independently validates the complete `evidence_chain`, package/scenario bindings and a canonical `binding_sha256` covering the whole v2 proof before persistence and again on load. The digest detects stale or partially edited proofs but is not remote attestation or a signature.
 
 Legacy v1 proofs are intentionally not migrated. They do not contain enough information to recreate the v2 chain without weakening the fail-closed guarantee. Re-run the private evidence pipeline and explicitly generate a v2 proof instead.

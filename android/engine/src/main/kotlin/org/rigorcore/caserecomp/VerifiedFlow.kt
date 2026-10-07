@@ -47,6 +47,7 @@ data class VerifiedFlowProofV2(
     val sourceSha256: String,
     val evidenceKind: String,
     val evidenceChain: VerifiedFlowEvidenceChainV2,
+    val bindingSha256: String,
     val bootVerified: Boolean,
     val rules: List<VerifiedFlowRuleV2>,
 ) {
@@ -55,6 +56,7 @@ data class VerifiedFlowProofV2(
         require(scenarioId.isNotBlank())
         require(SHA256_HEX.matches(scenarioSha256) && SHA256_HEX.matches(sourceSha256))
         require(evidenceKind == "independent-original-runtime")
+        require(SHA256_HEX.matches(bindingSha256))
         require(bootVerified)
         require(rules.map { it.id } == listOf("menu-map", "map-scene"))
     }
@@ -63,7 +65,7 @@ data class VerifiedFlowProofV2(
 object VerifiedFlowProofParser {
     private val rootKeys = setOf(
         "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
-        "evidence_kind", "evidence_chain", "boot_verified", "rules",
+        "evidence_kind", "evidence_chain", "boot_verified", "rules", "binding_sha256",
     )
     private val chainKeys = setOf("spec_sha256", "observation_sha256", "capture_consensus_sha256")
     private val ruleKeys = setOf("id", "from_screen", "input_kind", "to_screen", "scene_id", "not_before_ms")
@@ -72,6 +74,10 @@ object VerifiedFlowProofParser {
         val root = MiniJson.parse(text).jsonObject("verified-flow")
         require(root.keys == rootKeys) { "verified-flow fields" }
         require(root["format"] == VERIFIED_FLOW_FORMAT && root["version"].jsonInt("version") == VERIFIED_FLOW_VERSION)
+        val binding = root["binding_sha256"].jsonString("binding_sha256")
+        require(SHA256_HEX.matches(binding)) { "binding_sha256" }
+        val bindingBase = root.filterKeys { it != "binding_sha256" }
+        require(sha256Hex(MiniJson.canonical(bindingBase)) == binding) { "verified-flow binding hash mismatch" }
 
         val chain = root["evidence_chain"].jsonObject("evidence_chain")
         require(chain.keys == chainKeys) { "evidence_chain fields" }
@@ -103,6 +109,7 @@ object VerifiedFlowProofParser {
             sourceSha256 = root["source_sha256"].jsonString("source_sha256"),
             evidenceKind = root["evidence_kind"].jsonString("evidence_kind"),
             evidenceChain = evidence,
+            bindingSha256 = binding,
             bootVerified = root["boot_verified"] as? Boolean ?: error("boot_verified boolean"),
             rules = rules,
         )

@@ -118,6 +118,7 @@ class VerticalSliceTests(unittest.TestCase):
         )
         self.assertEqual(proof['version'],FLOW_VERSION)
         self.assertEqual(proof['package_id'],PACKAGE)
+        self.assertEqual(proof['binding_sha256'],digest({k:v for k,v in proof.items() if k!='binding_sha256'}))
         legacy=json.loads(json.dumps(proof)); legacy['version']=1
         with self.assertRaises(InspectionError): validate_verified_flow_proof(legacy)
         missing=json.loads(json.dumps(proof)); del missing['evidence_chain']
@@ -126,6 +127,10 @@ class VerticalSliceTests(unittest.TestCase):
         with self.assertRaises(InspectionError): validate_verified_flow_proof(extra)
         wrong=json.loads(json.dumps(proof)); wrong['rules'][0]['id']='other'
         with self.assertRaises(InspectionError): validate_verified_flow_proof(wrong)
+        timing=json.loads(json.dumps(proof)); timing['rules'][0]['not_before_ms'] += 1
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(timing)
+        rebound=json.loads(json.dumps(timing)); rebound['binding_sha256']=digest({k:v for k,v in rebound.items() if k!='binding_sha256'})
+        self.assertIs(validate_verified_flow_proof(rebound),rebound)
         with self.assertRaises(InspectionError):
             verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room',package_id='bad')
 

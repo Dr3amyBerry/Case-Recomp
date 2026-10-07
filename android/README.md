@@ -56,4 +56,4 @@ Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recrea
 
 ### Verified-flow v2 import
 
-`VerifiedFlowProofParser` accepts only the exact v2 schema. Legacy v1 proofs, missing/extra evidence fields, invalid hashes, fractional timings and unexpected rule IDs are rejected. `PrivateVerifiedFlowRepository` additionally binds the proof to the active private-content package and revalidates on every load. There is no automatic v1 migration because Android cannot safely reconstruct missing capture provenance.
+`VerifiedFlowProofParser` accepts only the exact v2 schema. It recomputes `binding_sha256` over the canonical proof body, so edits to package/scenario identity, evidence hashes, scene binding or timing rules fail closed unless the entire private proof is deliberately regenerated. Legacy v1 proofs, missing/extra evidence fields, invalid hashes, fractional timings and unexpected rule IDs are rejected. `PrivateVerifiedFlowRepository` additionally binds the proof to the active private-content package and revalidates on every load. There is no automatic v1 migration because Android cannot safely reconstruct missing capture provenance.

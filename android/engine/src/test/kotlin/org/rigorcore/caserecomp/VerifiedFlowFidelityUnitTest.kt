@@ -20,6 +20,7 @@ class VerifiedFlowFidelityUnitTest {
         scenarioId = "fidelity-flow", scenarioSha256 = scenarioHash,
         sourceSha256 = "b".repeat(64), evidenceKind = "independent-original-runtime",
         evidenceChain = VerifiedFlowEvidenceChainV2("c".repeat(64), "d".repeat(64), "e".repeat(64)),
+        bindingSha256 = "f".repeat(64),
         bootVerified = true,
         rules = listOf(
             VerifiedFlowRuleV2("menu-map", Screen.MENU, "start", Screen.MAP, notBeforeMs = 25),

@@ -40,6 +40,7 @@ The parser requires an exact schema, including:
 - `evidence_chain.spec_sha256`,
 - `evidence_chain.observation_sha256`,
 - `evidence_chain.capture_consensus_sha256`,
+- `binding_sha256`, recomputed over the complete proof payload excluding only the binding field itself,
 - exactly the two expected navigation rule IDs and shapes.
 
-The app repository verifies the proof package ID against the active `.crcontent` manifest before writing it to app-private storage and repeats that validation every time the proof is loaded. A rejected import does not replace an already-valid proof. A stale, legacy or manipulated stored proof loads as no proof, so private content falls back to the deny-all gate.
+The app repository verifies the proof package ID against the active `.crcontent` manifest before writing it to app-private storage and repeats that validation every time the proof is loaded. A rejected import does not replace an already-valid proof. The binding digest ties package/scenario identity, evidence hashes, scene selection and timing rules into one canonical payload; changing any of them without recomputing the binding is rejected. A stale, legacy or manipulated stored proof loads as no proof, so private content falls back to the deny-all gate. This is an integrity checksum, not a trusted signature: a hostile local actor controlling all private evidence can still regenerate a self-consistent proof.
