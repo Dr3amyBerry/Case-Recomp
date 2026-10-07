@@ -28,7 +28,7 @@ Source game: Mystery Case Files: Huntsville, Spanish, RealNetworks version 1.0. 
 
 ## Phase 3 reproducibility
 
-See [PHASE3.md](PHASE3.md). Real main-movie conversion: 165 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 251 outputs verified; 29 SWA and one unknown `ediM` remain unconverted. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
+See [PHASE3.md](PHASE3.md). Real entire 39-container conversion: 2,108 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 2,194 outputs verified (53,420,657 bytes); 29 SWA and one unknown `ediM` remain unconverted. The upstream ProjectorRays and LibreShockwave native source builds passed on GitHub Actions; only synthetic minimal fixtures were tried, not the real commercial game. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
 
 ## Parallel nonblocking tracks
 

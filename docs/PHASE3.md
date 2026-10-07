@@ -10,7 +10,7 @@ Source: user's original local Spanish-language *Mystery Case Files: Huntsville* 
 
 | Member | Example population | Validated evidence | Phase 3 handling |
 |---|---:|---|---|
-| `ediM` carrying JPEG | 2,115 `ediM` in complete dataset; main movie has **165 JPEG** | `FFD8`/`FFD9`, full Pillow decode and bounded dimensions | Export validated JPEG bytes or normalized RGB PNG, SHA-256 manifest |
+| `ediM` carrying JPEG | **2,108 JPEG** among 2,115 `ediM` in the complete dataset; main movie has **165 JPEG** | `FFD8`/`FFD9`, full Pillow decode and bounded dimensions | Export validated JPEG bytes or normalized RGB PNG, SHA-256 manifest |
 | `ediM` carrying ID3/MP3 | **6** in main movie | `ID3` v2.3 and mutagen MPEG frames, rate/length/bitrate parsed | Preserve MP3 bytes, record stream metadata; no transcoding |
 | `ediM` unclassified | **1** in main movie | Starts with zeros, neither JPEG nor ID3 | Skip and count as `unrecognized_ediM`; do not guess media type |
 | `ALFA` | Main: 84; `01.cct`: 91 | Independent compressed alpha-like data, not a JPEG | Preserve as raw with `--include-raw`; **not combined with JPEG** |
@@ -89,3 +89,13 @@ The local conversion manifest contains `schema_version`, source file name and SH
 - [ ] Associate `CASt` / `KEY*` images with ALFA and implement alpha masks, BITD, palette/color-space rules.
 - [ ] Decode SWA `snd` with a verified audio backend and verify output duration/playback in a real renderer.
 - [ ] Model deterministic level transitions from reconstructed Lingo and add golden tests; only then start Android frontend integration.
+
+## Verified full-dataset conversion and experimental CI results
+
+The complete **39-archive** local-run was performed with `--image-format png --include-bytecode`. The resulting manifest was re-read and validated without exposing media or bytecode. Aggregate counts: **2,108 decoded PNGs**, **6 metadata-validated MP3 streams**, **80 raw compiled-Lingo fragments**, for **2,194 verified files (53,420,657 bytes)**. Skipped: **29 SWA**, **1 unclassified ediM**. Assets were removed when the temporary directory closed.
+
+The upstream-source experiment is documented in [GitHub Actions run 37564274290](https://github.com/Dr3amyBerry/Case-Recomp/actions/runs/37564274290) (pinned source revisions; no proprietary inputs):
+- **ProjectorRays** compiled with C++17 dependencies; running `decompile` on the deliberately incomplete synthetic CCT **aborted (exit 134)** with a read-past-end-of-stream runtime error. The job's successful status means the *build and informational probe step ran*, not that decompilation succeeded.
+- **LibreShockwave** compiled its `libreshockwave_asset_extractor` target and accepted the same synthetic CCT (**exit 0**): `members=0 png=0 text=0 sounds=0 palettes=0 raw=0 scripts=0 errors=0`. This verifies the tool starts and parses a tiny empty-style container, **not** that game media are recovered.
+
+Both builds succeeded with the pinned upstream commits; no original-game file was used by the Actions jobs. The next milestone is to run vetted tools against the real private game input in an isolated host environment, compare exact Lingo handler resolution and multimedia rendering, and determine whether LibreShockwave can decode this game's 29 SWA-compressed entries. No such downstream equivalence is yet claimed.

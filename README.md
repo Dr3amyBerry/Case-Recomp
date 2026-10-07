@@ -57,3 +57,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 ## Licenses and boundaries
 
 ProjectorRays is MPL-2.0; LibreShockwave is AGPL-3.0. Neither is included here. Their source compilation is tested on GitHub using **pinned revisions and synthetic fixtures only**, and outputs are never published. ProjectorRays and LibreShockwave licensing, the user's game license, and future Android redistributions need separate review. This toolkit cannot circumvent commercial licensing, game protections, or third-party distribution rights.
+
+### Full input validation (39 archives)
+
+All 39 locally supplied Director containers were processed in a single local conversion and integrity-verification run: **2,108 PNG**, **6 MP3**, **80 compiled-Lingo bytecode** files, **2,194 outputs verified**, approximately 53.4 MB. The pipeline refused to relabel 29 SWA sound members and 1 unrecognized `ediM` member. All game-derived temporary outputs were deleted; only these aggregate observations were documented. The pinned upstream build-probe workflow completed successfully for both projects, but ProjectorRays rejected the incomplete synthetic cast (exit 134) and LibreShockwave reported 0 members in that same intentionally minimal fixture. This does **not** establish correct real-game Lingo recovery or Android compatibility.
