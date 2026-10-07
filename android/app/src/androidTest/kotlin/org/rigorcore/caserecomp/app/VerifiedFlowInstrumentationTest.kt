@@ -28,6 +28,7 @@ import org.rigorcore.caserecomp.ScenarioTargetV1
 import org.rigorcore.caserecomp.ScenarioV1
 import org.rigorcore.caserecomp.Screen
 import org.rigorcore.caserecomp.VerifiedFlowGate
+import org.rigorcore.caserecomp.VerifiedFlowProofParser
 import org.rigorcore.caserecomp.sha256Hex
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -157,7 +158,7 @@ class VerifiedFlowInstrumentationTest {
 
         val directory = File(context.filesDir, "private-flow")
         val target = File(directory, packageId + ".crflow")
-        val expectedCanonical = MiniJson.canonical(MiniJson.parse(valid).jsonObject("proof")) + "\n"
+        val expectedCanonical = VerifiedFlowProofParser.canonicalize(valid)
         assertEquals(expectedCanonical, target.readText(Charsets.UTF_8))
 
         // Simulate process death after target -> .bak but before .tmp -> target.
