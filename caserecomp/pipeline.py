@@ -143,17 +143,25 @@ def _publish_asset(root: Path, relative: str, data: bytes, entry: dict) -> dict:
 
 
 def convert_local(source: Path, destination: Path, *, image_format: str = "jpg", include_bytecode: bool = False,
-                  include_raw: bool = False, max_assets: int = MAX_ASSET_COUNT) -> dict:
+                  include_raw: bool = False, max_assets: int = MAX_ASSET_COUNT,
+                  alpha_mode: str = "off", decode_swa: bool = False, ffmpeg: Path | None = None) -> dict:
     """Convert validated JPEG/PCM and optionally export Lingo bytecode or opaque raw members.
 
     Unknown formats are reported in counts, not declared converted. All writes
     are local, create-only, with rollback on error.
     """
+    if alpha_mode not in ("off", "best-effort", "strict"):
+        raise InspectionError("alpha mode must be off, best-effort or strict")
+    if alpha_mode != "off" and image_format != "png":
+        raise InspectionError("ALFA composition requires --image-format png")
     if image_format not in ("jpg", "png"):
         raise InspectionError("supported image formats are jpg and png")
     if not 1 <= max_assets <= MAX_ASSET_COUNT:
         raise InspectionError("invalid max asset cap")
     guard_destination(source, destination)
+    if decode_swa:
+        from .audio import resolve_ffmpeg
+        ffmpeg = resolve_ffmpeg(ffmpeg)
     paths = input_archives(source)
     archives = []
     for path in paths:
@@ -181,7 +189,8 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                 image_owners = links.image_alpha_links(archive)
                 link_tables.append({"archive_index": index, "status": "parsed", **links.summary(archive)})
             except InspectionError as exc:
-                # Degrade explicitly for older/invalid KEY* without inventing a pairing.
+                # Older formats and synthetic archives can lack a decodable KEY*.
+                # The media export remains valid but relationship fidelity is unverified.
                 image_owners = {}
                 link_tables.append({"archive_index": index, "status": "unavailable", "reason": str(exc)})
             for entry in sorted(archive.entries.values(), key=lambda r: r.id):
@@ -201,13 +210,29 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                         except InspectionError:
                             skipped["invalid_ediM"] += 1
                             continue
-                        if image_format == "png":
+                        extra = {"format": image_format, "width": w, "height": h, "alpha_applied": False}
+                        relationship = image_owners.get(entry.id)
+                        if relationship:
+                            extra.update(relationship)
+                        applied = False
+                        if alpha_mode != "off" and relationship and relationship["alpha_resource_id"] is not None:
+                            from .bitmap import compose_jpeg_alpha
+                            try:
+                                mask = archive.get_resource(relationship["alpha_resource_id"])
+                                data, audited = compose_jpeg_alpha(data, mask)
+                                extra.update(audited)
+                                applied = True
+                            except InspectionError:
+                                skipped["invalid_ALFA"] += 1
+                                if alpha_mode == "strict":
+                                    raise
+                                extra["alpha_decode_status"] = "unsupported-mask"
+                        elif alpha_mode == "strict" and relationship and relationship["alpha_resource_id"] is None:
+                            raise InspectionError("strict alpha requires an unambiguous mask for cast-owned image")
+                        if image_format == "png" and not applied:
                             data = _as_png(data)
                         ext = ".png" if image_format == "png" else ".jpg"
                         relative = f"{folder}/images/{entry.id:08d}{ext}"
-                        extra = {"format": image_format, "width": w, "height": h, "alpha_applied": False}
-                        if entry.id in image_owners:
-                            extra.update(image_owners[entry.id])
                     else:
                         skipped["unrecognized_ediM"] += 1
                         continue
@@ -217,18 +242,25 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                     extra = {"format": "compiled-lingo", "decompiled": False}
                 elif entry.tag == "snd ":
                     if archive._codec_name(entry.compression_index) == "unsupported":
-                        skipped["unsupported_SWA"] += 1
-                        continue
-                    data = archive.get_resource(entry.id)
-                    if not data.startswith(b"RIFF"):
-                        skipped["unknown_audio"] += 1
-                        continue
-                    try:
-                        extra = {"format": "pcm-wav", **_wave_metadata(data)}
-                    except InspectionError:
-                        skipped["invalid_wav"] += 1
-                        continue
-                    relative = f"{folder}/audio/{entry.id:08d}.wav"
+                        if not decode_swa:
+                            skipped["unsupported_SWA"] += 1
+                            continue
+                        from .audio import decode_swa as decode_encoded_swa, swa_encoded_resource
+                        encoded = swa_encoded_resource(archive, entry)
+                        # Explicit opt-in, fail closed. Bad decodes roll back the entire export.
+                        data, extra = decode_encoded_swa(encoded, ffmpeg)
+                        relative = f"{folder}/audio/{entry.id:08d}.wav"
+                    else:
+                        data = archive.get_resource(entry.id)
+                        if not data.startswith(b"RIFF"):
+                            skipped["unknown_audio"] += 1
+                            continue
+                        try:
+                            extra = {"format": "pcm-wav", **_wave_metadata(data)}
+                        except InspectionError:
+                            skipped["invalid_wav"] += 1
+                            continue
+                        relative = f"{folder}/audio/{entry.id:08d}.wav"
                 elif entry.tag in {"ALFA", "BITD", "XMED", "Lnam", "CASt"} and include_raw:
                     try:
                         data = archive.get_resource(entry.id)
@@ -254,9 +286,9 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
             "assets": records, "skipped": dict(sorted(skipped.items())),
             "relationship_maps": link_tables,
             "resource_tags": dict(sorted(totals.items())),
-            "warnings": ["JPEG exports do not include independent ALFA masks; KEY* associations record potential mask IDs but are not an alpha decoder",
+            "warnings": ["ALFA is applied only when explicit and PackBits dimensions validate; graphics ink/palette/score fidelity is not established",
                          "Raw Lscr chunks are NOT decompiled Lingo",
-                         "SWA-compressed snd chunks are not converted by the built-in decoder; ID3/MP3 media are exported as original streams"],
+                         "SWA can be optionally decoded using FFmpeg from the MPEG payload; historical Xtra equivalence is NOT established"],
         }
         exclusive_write(destination / "manifest.json", (json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"))
         return manifest
@@ -265,6 +297,7 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
         import shutil
         shutil.rmtree(destination)
         raise
+
 
 
 def verify_export(destination: Path) -> dict:

@@ -18,7 +18,7 @@ assert sys.argv[1:4] == ['decompile','--dump-scripts','-o']
 output=pathlib.Path(sys.argv[4])
 (output/'cast.cst').write_bytes(b'SYNTHETIC CST')
 c=(output/'cast'/'casts');c.mkdir(parents=True)
-(c/'script.ls').write_text('on synthetic\nend\n')
+(c/'script.ls').write_text('on synthetic\\nend\\n')
 '''
 STUB_LIBRE = '''#!/usr/bin/env python3
 import pathlib,sys
@@ -42,6 +42,12 @@ class AdapterTests(unittest.TestCase):
         self.tool.write_text(code)
         self.tool.chmod(0o700)
         return self.tool
+
+    def test_stub_is_valid_python_before_subprocess_launch(self):
+        # Prevent a regression where escaped newline characters in a generated
+        # stub become literal newlines inside a quoted Python string in CI.
+        compile(STUB_PROJECTOR, '<synthetic-projectorrays>', 'exec')
+        compile(STUB_LIBRE, '<synthetic-libreshockwave>', 'exec')
 
     def test_projectorrays_stub_isolated_staging(self):
         input_before = self.source.read_bytes()

@@ -9,7 +9,9 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 2B:** read local zlib and uncompressed resources, reconstruct ILS entries containing 80 compiled Lingo resources, implement selective extraction, tests and docs; determine unsupported SWA set.
 - [ ] **Phase 2C:** Real-game comparison of ProjectorRays and LibreShockwave remains pending. Phase 3 adds reproducible pinned build probes and simulated adapter tests, which are not substitutes for full-game decompilation.
 - [x] **Phase 3A:** validated `ediM` JPEG/PNG, ID3/MP3, known PCM/WAV, bytecode extraction, private manifest, SHA-256 verification, and synthetic external-tool adapters.
-- [ ] **Phase 3B:** alpha-accurate BITD/ALFA, font/text resolution, SWA decoding and full Lingo decompilation on real game files.
+- [x] **Phase 3B.1:** read KEY* allocated/used table records and associate CASt/ediM/ALFA without guessing by adjacent resource IDs; publish synthetic tests and reproducible proof.
+- [x] **Phase 3B.2 (partial):** 1,968 verified JPEG+ALFA pixel compositions and 29 SWA MPEG→WAV local decodes; 21 BITD stream probes. Full BITD color fidelity and recovered Lingo semantics remain open.
+- [ ] **Phase 3B.3:** resolve 20 unusual ALFA resources, BITD native geometry/palette, original-runtime fidelity and real-game Lingo handler comparison.
 - [ ] **Phase 4:** deterministic gameplay state machine and actual level/puzzle recreation from recovered scripts and data.
 - [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
@@ -28,7 +30,9 @@ Source game: Mystery Case Files: Huntsville, Spanish, RealNetworks version 1.0. 
 
 ## Phase 3 reproducibility
 
-See [PHASE3.md](PHASE3.md). Real entire 39-container conversion: 2,108 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 2,194 outputs verified (53,420,657 bytes); 29 SWA and one unknown `ediM` remain unconverted. The upstream ProjectorRays and LibreShockwave native source builds passed on GitHub Actions; only synthetic minimal fixtures were tried, not the real commercial game. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
+See [PHASE3.md](PHASE3.md). Real main-movie conversion: 165 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 251 outputs verified; 29 SWA and one unknown `ediM` remain unconverted. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
+
+Phase 3B.1 validated all 39 `KEY*` maps and 1,988 unambiguous image-to-alpha references; see [PHASE3B_RELATIONSHIPS.md](PHASE3B_RELATIONSHIPS.md). The decoder still does not apply alpha.
 
 ## Parallel nonblocking tracks
 
@@ -42,3 +46,7 @@ See [PHASE3.md](PHASE3.md). Real entire 39-container conversion: 2,108 PNG, 6 MP
 - [PENDIENTE_APROBACION_HUMANA] Production Android signing, store publishing or permissions for externally visible releases.
 
 No production credentials are requested or stored. No APK is claimed until device or emulator tests demonstrate actual gameplay.
+
+## Phase 3B.2 results
+
+See [PHASE3B_MEDIA.md](PHASE3B_MEDIA.md). Real-game private output (39 containers) produced 2,223 hash-verified files and was discarded after QA. Kotlin prototype: [../android/README.md](../android/README.md). No APK is claimed.

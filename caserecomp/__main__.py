@@ -43,6 +43,16 @@ def main(argv: list[str] | None = None) -> int:
     convert.add_argument("--image-format", choices=("jpg", "png"), default="jpg")
     convert.add_argument("--include-bytecode", action="store_true", help="Raw Lscr only; not Lingo source")
     convert.add_argument("--include-raw", action="store_true", help="Retain undecoded ALFA/BITD/XMED and metadata")
+    convert.add_argument("--alpha-mode", choices=("off", "best-effort", "strict"), default="off",
+                         help="Apply KEY*-linked PackBits ALFA to PNG; strict rejects invalid masks")
+    convert.add_argument("--decode-swa", action="store_true", help="Opt-in local FFmpeg WAV decode of SWA MPEG payloads")
+    convert.add_argument("--ffmpeg", type=Path, help="Trusted local FFmpeg executable, used only with --decode-swa")
+
+    compare = cmd.add_parser("compare-lingo", help="Compare two local Lingo .ls recovery directories, structurally")
+    compare.add_argument("left", type=Path)
+    compare.add_argument("right", type=Path)
+    compare.add_argument("--output", required=True, type=Path, help="Create-only local JSON report")
+    compare.add_argument("--redact-names", action="store_true", help="Use SHA-256 handler identifiers")
 
     check = cmd.add_parser("verify-export", help="Verify local conversion hashes/paths against manifest")
     check.add_argument("source", type=Path)
@@ -79,7 +89,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "convert-local":
             from .pipeline import convert_local
             record = convert_local(args.source, args.output, image_format=args.image_format,
-                                   include_bytecode=args.include_bytecode, include_raw=args.include_raw)
+                                   include_bytecode=args.include_bytecode, include_raw=args.include_raw,
+                                   alpha_mode=args.alpha_mode, decode_swa=args.decode_swa, ffmpeg=args.ffmpeg)
+        elif args.command == "compare-lingo":
+            from .lingo_compare import compare_directories
+            from .director import exclusive_write
+            record = compare_directories(args.left, args.right, redact=args.redact_names)
+            exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
         elif args.command == "verify-export":
             from .pipeline import verify_export
             record = verify_export(args.source)
