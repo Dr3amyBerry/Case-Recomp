@@ -1,4 +1,4 @@
-# Exclude proprietary binaries, casts, licensed media, and generated reports.
+# Do not distribute proprietary game binaries, casts, licensed media or extracted assets.
 *.exe
 *.dll
 *.cct
@@ -10,8 +10,6 @@
 *.swf
 *.apk
 *.aab
-inventory*.json
-sample_inventory.json
 /private/
 /game-data/
 /extracted/
@@ -22,3 +20,11 @@ __pycache__/
 *.egg-info/
 .venv/
 .DS_Store
+*.cxt
+*.swa
+.coverage
+htmlcov/
+.coverage.*
+private*/
+local-output/
+*.dcr

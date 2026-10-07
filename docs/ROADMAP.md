@@ -1,36 +1,39 @@
-# AUTOPILOT_V1 roadmap
+# AUTOPILOT_V1 — Case-Recomp roadmap
 
-- [x] Phase 1A: identify the game archive contents and original binary signatures without executing them.
-- [x] Phase 1B: add a safe read-only inspector, synthetic unit tests and public CI scaffold.
-- [ ] Phase 2: map the embedded Director movie and external casts; benchmark ProjectorRays and LibreShockwave; document Lingo handlers and asset formats.
-- [ ] Phase 3: reproducible local extraction pipeline, provenance, validation and quality gates (no proprietary output committed).
-- [ ] Phase 4: deterministic game-state reimplementation: menu, map, scene navigation, hidden-item search and minigames.
-- [ ] Phase 5: Android runner with touch input, letterboxing, audio, lifecycle, persistence, and accessibility.
-- [ ] Phase 6: local licensed-asset importer and level compatibility verification.
-- [ ] Phase 7: unit/integration/UI tests, performance and security; target >90% coverage of newly written code.
-- [ ] Phase 8: reproducible APK via opt-in GitHub Actions, documentation and release checklist.
+Work is committed directly to `main`; no branches created unless explicitly requested. Never commit copyrighted game media/executables. All existing repository source is retained.
+
+## Roadmap
+
+- [x] **Phase 1:** identify edition, installed file layout, PE projector, and Director container signatures; implement read-only hashing inventory and tests.
+- [x] **Phase 2A:** map the main XFIR movie and all 38 compressed Director cast files, parse their Afterburner indices, and validate 7,018 resources.
+- [x] **Phase 2B:** read local zlib and uncompressed resources, reconstruct ILS entries containing 80 compiled Lingo resources, implement selective extraction, tests and docs; determine unsupported SWA set.
+- [ ] **Phase 2C:** run and benchmark ProjectorRays and LibreShockwave locally; prove Lingo bytecode -> handler disassembly and media conversion on this edition. Comparison from upstream READMEs exists, but executable integration has not been verified.
+- [ ] **Phase 3:** semantic asset extraction and validation (bitmaps, alpha, scripts, fonts, text, sounds), verifiable provenance, asset import format.
+- [ ] **Phase 4:** deterministic gameplay state machine and actual level/puzzle recreation from recovered scripts and data.
+- [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
+- [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
+- [ ] **Phase 7:** integration, device and regression QA, performance, safety; target >90% coverage for maintainable new code.
+- [ ] **Phase 8:** debug APK via controlled CI; review signing, licensing, production distribution and any store requirements separately.
 
 ## Verified baseline (2026-10-06)
 
-Game: Mystery Case Files: Huntsville — Spanish edition, version 1.0, 2006.
+Source game: Mystery Case Files: Huntsville, Spanish, RealNetworks version 1.0. Director runtime version `8.5.1#104` from XFIR headers.
 
-- MysteryCaseFiles.exe: PE32/i386, 11,094,294 bytes; contains an embedded Director XFIR movie at offset 2,435,648.
-- data/gallinita.exe: PE32/i386 and SWF data (FWS) in trailing bytes.
-- data/01.cct: Director XFIR/CDGF, version string 8.5.1#104.
-- data/empty.cct: same container, 485 bytes.
-- data/: 21 numbered casts, 16 dat casts, one empty cast, plus gallinita.exe and Thumbs.db.
+- PE32 `MysteryCaseFiles.exe`, 11,094,294 bytes; embedded `XFIR/FGDM` movie offset **2,435,648**, length **8,658,642**.
+- 38 `XFIR/FGDC` CCT libraries (21 numbered, 16 `dat`, 1 `empty`), all structurally decoded.
+- **39 containers, 7,018 indexed resources, 6,989 decoded or copied**, 29 known unsupported `snd ` SWA-codec chunks.
+- **80 `Lscr`** compiled scripts in the main movie's initial load segment (not decompiled into Lingo source).
+- Detailed counts, risk assessment and commands: [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md).
 
-## Parallel tracks
+## Parallel nonblocking tracks
 
-A. Binary research and test fixtures; B. Android architecture and shell; C. CI/security/documentation. These can advance independently, but gameplay correctness requires analyzing locally licensed scripts and media.
+- A: Director / Lingo semantics and local tool comparison.
+- B: portable game-state logic and cross-platform rendering research.
+- C: testing/CI/security/docs. No external tool copies or proprietary media required for these tasks.
 
-## Deferred external decisions
+## Deferred decisions
 
-- [PENDIENTE_APROBACION_HUMANA] Distribution of any package that would include third-party copyrighted media (not needed for the scanner).
-- [PENDIENTE_APROBACION_HUMANA] Android production signing and store submission (not needed for local debug builds).
+- [PENDIENTE_APROBACION_HUMANA] Rights review before any redistribution of third-party commercial art, audio or embedded programs.
+- [PENDIENTE_APROBACION_HUMANA] Production Android signing, store publishing or permissions for externally visible releases.
 
-## Risks
-
-- Technical: Director/XFIR is not a native Android format; the Android runner must reproduce or implement the relevant Lingo/Director behavior.
-- Legal: never distribute a bundled proprietary executable or cast/media contents in the public repo.
-- QA: current synthetic tests validate the inspector, not game behavior or successful Android execution.
+No production credentials are requested or stored. No APK is claimed until device or emulator tests demonstrate actual gameplay.

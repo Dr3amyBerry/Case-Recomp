@@ -1,25 +1,67 @@
-"""Command-line interface: python -m caserecomp scan SOURCE --output report.json"""
+"""Offline CLI for bounded PE and Director XFIR analysis and local extraction."""
+
+from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
+from .director import extract_movie, extract_resources, open_archive
 from .inspector import InspectionError, report_json
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Read-only static inventory of legacy game files")
-    parser.add_argument("command", choices=["scan"])
-    parser.add_argument("source", type=Path, help="Local folder containing user-provided files")
-    parser.add_argument("--output", type=Path, help="Write a JSON report (never the input files)")
+    parser = argparse.ArgumentParser(description="Read-only Director analysis and explicit local extraction")
+    cmd = parser.add_subparsers(dest="command", required=True)
+
+    scan = cmd.add_parser("scan", help="Read-only inventory with SHA-256 and PE/Director signatures")
+    scan.add_argument("source", type=Path, help="Local input folder")
+    scan.add_argument("--output", type=Path, help="Optional JSON report path (create-only)")
+
+    summary = cmd.add_parser("director-map", help="Inspect XFIR/Afterburner resources without extracting")
+    summary.add_argument("source", type=Path, help="Local .cct or Director projector .exe")
+    summary.add_argument("--details", action="store_true", help="List resource IDs, sizes, tags and codecs")
+
+    movie = cmd.add_parser("extract-movie", help="Extract an embedded Director movie locally (no execution)")
+    movie.add_argument("source", type=Path, help="Locally owned Windows PE projector")
+    movie.add_argument("--output", required=True, type=Path, help="New destination .dcr file")
+
+    resources = cmd.add_parser("extract-resources", help="Extract selected raw Director resources locally")
+    resources.add_argument("source", type=Path, help="Local .cct, .dcr or PE projector")
+    resources.add_argument("--output", required=True, type=Path, help="New output directory")
+    resources.add_argument("--tag", action="append", default=[], help="Exactly four-character resource tag; repeatable")
+    resources.add_argument("--id", action="append", type=int, default=[], help="Resource ID; repeatable")
+
+    verify = cmd.add_parser("verify-local", help="Validate local Director archives; no extracted output")
+    verify.add_argument("source", type=Path, help="Local directory containing owned game data")
+
     args = parser.parse_args(argv)
     try:
-        result = report_json(args.source)
-        if args.output:
-            args.output.write_text(result, encoding="utf-8")
-            print(f"Inventory written to {args.output}")
+        if args.command == "scan":
+            output = report_json(args.source)
+            if args.output:
+                from .director import exclusive_write
+                exclusive_write(args.output, output.encode("utf-8"))
+                print(f"Inventory written to {args.output}")
+            else:
+                print(output, end="")
+            return 0
+        if args.command == "verify-local":
+            from .verification import verify_directory
+            record = verify_directory(args.source)
+        elif args.command == "director-map":
+            archive, offset = open_archive(args.source)
+            record = {"source_name": args.source.name, "movie_offset": offset, **archive.summary(resource_details=args.details)}
+        elif args.command == "extract-movie":
+            record = extract_movie(args.source, args.output)
+        elif args.command == "extract-resources":
+            if any(len(tag) != 4 for tag in args.tag):
+                raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")
+            record = extract_resources(args.source, args.output, tags=set(args.tag), ids=set(args.id))
         else:
-            print(result, end="")
+            raise InspectionError("invalid subcommand")
+        print(json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2))
         return 0
     except (InspectionError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
