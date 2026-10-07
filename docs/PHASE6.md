@@ -44,3 +44,8 @@ The parser requires an exact schema, including:
 - exactly the two expected navigation rule IDs and shapes.
 
 The app repository verifies the proof package ID against the active `.crcontent` manifest before writing it to app-private storage and repeats that validation every time the proof is loaded. A rejected import does not replace an already-valid proof. The binding digest ties package/scenario identity, evidence hashes, scene selection and timing rules into one canonical payload; changing any of them without recomputing the binding is rejected. A stale, legacy or manipulated stored proof loads as no proof, so private content falls back to the deny-all gate. This is an integrity checksum, not a trusted signature: a hostile local actor controlling all private evidence can still regenerate a self-consistent proof.
+
+
+### Source identity gate
+
+The Android proof repository now requires a validated packaged Phase 4B trace plan before accepting `.crflow` v2. The proof's `source_sha256` must equal the trace plan's source digest. Because the trace-plan digest is included in the `.crcontent` package identity, a proof for a different Director source cannot be rebound merely by matching package/scenario fields.

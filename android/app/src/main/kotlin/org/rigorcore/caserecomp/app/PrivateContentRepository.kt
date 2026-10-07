@@ -3,6 +3,7 @@ package org.rigorcore.caserecomp.app
 import android.content.Context
 import org.rigorcore.caserecomp.PrivateContentManifestParser
 import org.rigorcore.caserecomp.PrivateContentManifestV1
+import org.rigorcore.caserecomp.PrivateTracePlanParser
 import org.rigorcore.caserecomp.ScenarioJsonV1
 import org.rigorcore.caserecomp.ScenarioV1
 import org.rigorcore.caserecomp.sha256Hex
@@ -27,6 +28,7 @@ data class LoadedPrivateContent(
     val manifest: PrivateContentManifestV1,
     val scenario: ScenarioV1,
     val root: File,
+    val tracePlanSourceSha256: String? = null,
 ) {
     fun fileForAsset(id: String): File? {
         val asset = manifest.asset(id) ?: return null
@@ -66,10 +68,7 @@ class PrivateContentRepository(private val context: Context) {
                 require(file.length() == asset.bytes) { "asset size mismatch" }
                 require(file.inputStream().use { digest(it) } == asset.sha256) { "asset hash mismatch" }
             }
-            manifest.tracePlanPath?.let { path ->
-                val file = checkedFile(staging, path)
-                require(file.inputStream().use { digest(it) } == manifest.tracePlanSha256) { "trace-plan hash mismatch" }
-            }
+            verifyTracePlan(staging, manifest, "trace-plan")
             val finalDir = File(packages, manifest.packageId)
             if (finalDir.exists()) {
                 val existingValid = runCatching { loadPackage(finalDir) }.isSuccess
@@ -134,11 +133,17 @@ class PrivateContentRepository(private val context: Context) {
             require(file.length() == asset.bytes) { "stored asset size mismatch" }
             require(file.inputStream().use { digest(it) } == asset.sha256) { "stored asset hash mismatch" }
         }
-        manifest.tracePlanPath?.let { path ->
-            val file = checkedFile(root, path)
-            require(file.inputStream().use { digest(it) } == manifest.tracePlanSha256) { "stored trace-plan hash mismatch" }
-        }
-        return LoadedPrivateContent(manifest, scenario, root)
+        val tracePlanSourceSha256 = verifyTracePlan(root, manifest, "stored trace-plan")
+        return LoadedPrivateContent(manifest, scenario, root, tracePlanSourceSha256)
+    }
+
+    private fun verifyTracePlan(root: File, manifest: PrivateContentManifestV1, label: String): String? {
+        val path = manifest.tracePlanPath ?: return null
+        val expectedHash = requireNotNull(manifest.tracePlanSha256) { "$label digest missing" }
+        val file = checkedFile(root, path)
+        require(file.length() in 1L..8L * 1024L * 1024L) { "$label size" }
+        require(file.inputStream().use { digest(it) } == expectedHash) { "$label hash mismatch" }
+        return PrivateTracePlanParser.parse(file.readText(Charsets.UTF_8)).sourceSha256
     }
 
     private fun extract(input: InputStream, destination: File) {

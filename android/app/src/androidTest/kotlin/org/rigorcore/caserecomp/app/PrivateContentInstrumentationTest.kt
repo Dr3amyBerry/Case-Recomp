@@ -92,6 +92,21 @@ class PrivateContentInstrumentationTest {
         assertTrue(!loaded.root.exists())
     }
 
+    @Test fun trace_plan_source_is_loaded_and_malformed_plan_is_rejected_fail_closed() {
+        val repository = PrivateContentRepository(context)
+        val loaded = repository.importBundle(ByteArrayInputStream(privateBundle(includeTracePlan = true)))
+        assertEquals("f".repeat(64), loaded.tracePlanSourceSha256)
+        assertEquals("f".repeat(64), repository.loadActive()?.tracePlanSourceSha256)
+
+        assertTrue(runCatching {
+            repository.importBundle(
+                ByteArrayInputStream(privateBundle(includeTracePlan = true, malformedTracePlan = true)),
+            )
+        }.isFailure)
+        assertEquals(loaded.manifest.packageId, repository.loadActive()?.manifest?.packageId)
+        assertEquals("f".repeat(64), repository.loadActive()?.tracePlanSourceSha256)
+    }
+
     @Test fun importer_rejects_asset_hash_mismatch_without_activating_package() {
         val bytes = privateBundle(tamperAssetHash = true)
         val repository = PrivateContentRepository(context)
@@ -99,7 +114,11 @@ class PrivateContentInstrumentationTest {
         assertEquals(null, repository.loadActive())
     }
 
-    private fun privateBundle(tamperAssetHash: Boolean = false): ByteArray {
+    private fun privateBundle(
+        tamperAssetHash: Boolean = false,
+        includeTracePlan: Boolean = false,
+        malformedTracePlan: Boolean = false,
+    ): ByteArray {
         val image = ByteArrayOutputStream().also { out ->
             Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888).apply { eraseColor(0xFFFF0000.toInt()) }
                 .compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -116,6 +135,27 @@ class PrivateContentInstrumentationTest {
         )
         val scenarioBytes = (MiniJson.canonical(scenario) + "\n").toByteArray()
         val conversion = "b".repeat(64)
+        val tracePlan = linkedMapOf<String, Any?>(
+            "format" to "case-recomp-behavior-trace",
+            "version" to 1L,
+            "kind" to "private-plan",
+            "source_sha256" to "f".repeat(64),
+            "steps" to listOf(
+                linkedMapOf<String, Any?>(
+                    "frame" to 1L, "sprite_count" to 0L, "sprite_sha256" to "6".repeat(64),
+                    "behavior_count" to 0L, "script_count" to 0L, "handler_set_sha256" to "7".repeat(64),
+                ),
+            ),
+            "observation_contract" to linkedMapOf(
+                "required" to listOf(
+                    "frame", "sprite_count", "sprite_sha256", "handler_set_sha256", "observable_state_sha256",
+                ),
+                "optional" to listOf("input_kind", "event_kind"),
+            ),
+        )
+        if (malformedTracePlan) tracePlan["unexpected"] = true
+        val traceBytes = (MiniJson.canonical(tracePlan) + "\n").toByteArray()
+
         val base = linkedMapOf<String, Any?>(
             "format" to "case-recomp-private-content", "version" to 1,
             "scenario" to mapOf("path" to "scenario.json", "sha256" to sha256Hex(scenarioBytes), "id" to "instrumented-private"),
@@ -125,6 +165,9 @@ class PrivateContentInstrumentationTest {
                 "targets" to mapOf("room" to mapOf("target" to assetId)), "audio" to emptyMap<String,String>()),
             "source" to mapOf("conversion_manifest_sha256" to conversion),
         )
+        if (includeTracePlan) {
+            base["trace_plan"] = mapOf("path" to "trace-plan.json", "sha256" to sha256Hex(traceBytes))
+        }
         val packageId = sha256Hex(MiniJson.canonical(base) + "\n")
         val manifest = base + ("package_id" to packageId)
         val output = ByteArrayOutputStream()
@@ -132,6 +175,7 @@ class PrivateContentInstrumentationTest {
             fun put(name: String, data: ByteArray) { zip.putNextEntry(ZipEntry(name)); zip.write(data); zip.closeEntry() }
             put("content-manifest.json", (MiniJson.canonical(manifest) + "\n").toByteArray())
             put("scenario.json", scenarioBytes)
+            if (includeTracePlan) put("trace-plan.json", traceBytes)
             put("assets/$declaredHash.png", image)
         }
         return output.toByteArray()

@@ -44,7 +44,10 @@ class VerifiedFlowInstrumentationTest {
         File(context.filesDir, "private-flow").deleteRecursively()
     }
 
-    private fun loaded(packageOverride: String = packageId): LoadedPrivateContent {
+    private fun loaded(
+        packageOverride: String = packageId,
+        traceSourceSha256: String? = "f".repeat(64),
+    ): LoadedPrivateContent {
         val assetHash = "c".repeat(64)
         val scenario = ScenarioV1(
             id = "instrumented-flow", designWidth = 100, designHeight = 50,
@@ -57,17 +60,21 @@ class VerifiedFlowInstrumentationTest {
             assets = listOf(ContentAssetV1("sha256-" + assetHash, "assets/" + assetHash + ".png", assetHash, 0, "image/png")),
             bindings = ContentBindingsV1(), conversionManifestSha256 = "e".repeat(64),
         )
-        return LoadedPrivateContent(manifest, scenario, context.filesDir)
+        return LoadedPrivateContent(manifest, scenario, context.filesDir, traceSourceSha256)
     }
 
-    private fun proofText(packageOverride: String = packageId, sceneOverride: String = "room"): String {
+    private fun proofText(
+        packageOverride: String = packageId,
+        sceneOverride: String = "room",
+        sourceOverride: String = "f".repeat(64),
+    ): String {
         val base = linkedMapOf<String, Any?>(
             "format" to "case-recomp-verified-flow",
             "version" to 2L,
             "package_id" to packageOverride,
             "scenario_id" to "instrumented-flow",
             "scenario_sha256" to scenarioHash,
-            "source_sha256" to "f".repeat(64),
+            "source_sha256" to sourceOverride,
             "evidence_kind" to "independent-original-runtime",
             "evidence_chain" to linkedMapOf(
                 "spec_sha256" to "6".repeat(64),
@@ -119,6 +126,27 @@ class VerifiedFlowInstrumentationTest {
         assertTrue(File(context.filesDir, "private-flow/" + packageId + ".crflow").isFile)
         assertTrue(repository.clearFor(loaded))
         assertNull(repository.loadFor(loaded))
+    }
+
+    @Test fun source_binding_requires_matching_packaged_trace_plan() {
+        val repository = PrivateVerifiedFlowRepository(context)
+
+        assertTrue(runCatching {
+            repository.importProof(
+                ByteArrayInputStream(proofText().toByteArray()),
+                loaded(traceSourceSha256 = null),
+            )
+        }.isFailure)
+
+        assertTrue(runCatching {
+            repository.importProof(
+                ByteArrayInputStream(proofText(sourceOverride = "0".repeat(64)).toByteArray()),
+                loaded(),
+            )
+        }.isFailure)
+
+        val valid = repository.importProof(ByteArrayInputStream(proofText().toByteArray()), loaded())
+        assertEquals("f".repeat(64), valid.sourceSha256)
     }
 
     @Test fun legacy_tampered_and_cross_package_imports_fail_without_replacing_valid_proof() {

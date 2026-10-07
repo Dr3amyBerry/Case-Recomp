@@ -77,3 +77,12 @@ No v1 migration was added because reconstructing the missing v2 evidence chain w
 Python and Android now share the same strict numeric interpretation for the proof version: `version: 2.0` is rejected even if its binding digest is recomputed. This prevents cross-language acceptance differences at the `.crflow` trust boundary.
 
 The timing domain is also cross-language aligned: `not_before_ms` must be a non-negative integer JSON number within signed 64-bit range. Android preserves it as `Long`; Python rejects values above `Long.MAX_VALUE`.
+
+
+## Android source binding to packaged trace-plan
+
+Android now parses and validates the packaged Phase 4B `trace-plan.json` rather than treating it as an opaque hash-only file. Its exact schema, observation contract, step bounds and hashes are checked both at import and every later package load.
+
+A `.crflow` can be imported or recovered only when the active `.crcontent` contains such a validated trace plan and `crflow.source_sha256 == trace-plan.source_sha256`.
+
+The trace-plan file hash is already bound into the `.crcontent` manifest and package ID, while the `.crflow` is independently bound to that package ID. Combined with the packager-side check against `convert-local source_archives[].sha256`, this closes the local source-integrity chain without adding invented provenance. A content package without a trace plan remains usable for private media/scenario loading but cannot unlock verified original navigation.

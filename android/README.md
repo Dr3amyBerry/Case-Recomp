@@ -57,3 +57,8 @@ Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recrea
 ### Verified-flow v2 import
 
 `VerifiedFlowProofParser` accepts only the exact v2 schema. It recomputes `binding_sha256` over the canonical proof body, so edits to package/scenario identity, evidence hashes, scene binding or timing rules fail closed unless the entire private proof is deliberately regenerated. Legacy v1 proofs, missing/extra evidence fields, invalid hashes, fractional timings and unexpected rule IDs are rejected. `PrivateVerifiedFlowRepository` additionally binds the proof to the active private-content package and revalidates on every load. There is no automatic v1 migration because Android cannot safely reconstruct missing capture provenance.
+
+
+### Verified-flow source provenance
+
+For private content, `.crflow` activation now also requires the active package to contain a valid Phase 4B `trace-plan.json`. Android validates that plan on import/load and requires `proof.source_sha256` to equal its `source_sha256`. Packages without a trace plan remain valid for local media/scenario use but stay deny-all for original navigation.
