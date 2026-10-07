@@ -8,12 +8,12 @@ import hashlib
 import json
 import os
 import shutil
-import stat
 import subprocess
 import tempfile
 from pathlib import Path
 
 from .director import embedded_movie, exclusive_write, open_archive, read_local
+from .executables import tool_command
 from .inspector import InspectionError
 from .pipeline import MAX_ASSET_COUNT, MAX_EXPORT_BYTES, guard_destination
 
@@ -21,11 +21,7 @@ BACKENDS = {"projectorrays", "libreshockwave"}
 
 
 def _binary(path: Path) -> Path:
-    if path.is_symlink() or not path.is_file():
-        raise InspectionError("external tool must be an existing regular file")
-    info = path.stat()
-    if not info.st_mode & stat.S_IXUSR:
-        raise InspectionError("external tool is not executable")
+    tool_command(path)
     return path.absolute()
 
 
@@ -95,9 +91,9 @@ def run_backend(provider: str, source: Path, destination: Path, binary: Path, *,
         if provider == "projectorrays":
             # Explicit output directory prevents changes to staged original and
             # enables ProjectorRays' opt-in Lingo script dump.
-            args = [str(executable), "decompile", "--dump-scripts", "-o", str(produced), str(staged_file)]
+            args = [*tool_command(executable), "decompile", "--dump-scripts", "-o", str(produced), str(staged_file)]
         else:
-            args = [str(executable), str(staged), str(produced)]
+            args = [*tool_command(executable), str(staged), str(produced)]
         try:
             completed = subprocess.run(args, cwd=root, capture_output=True, timeout=timeout, check=False,
                                        env={"PATH": os.environ.get("PATH", ""), "HOME": str(root)}, shell=False)

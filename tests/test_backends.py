@@ -1,12 +1,14 @@
 """External-tool adapters are tested using generated executables, not third-party binaries."""
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from caserecomp.__main__ import main
 from caserecomp.backends import _binary, run_backend
+from caserecomp.executables import tool_command
 from caserecomp.inspector import InspectionError
 from caserecomp.pipeline import verify_export
 from tests.test_pipeline import media_cast
@@ -114,8 +116,33 @@ p=pathlib.Path(sys.argv[4]);(p/'cast.cst').symlink_to(p/'cast.cst')
         self.tool.write_text('no execute')
         with self.assertRaises(InspectionError):
             _binary(self.tool)
-        self.tool.chmod(0o700)
+        self.make_tool(STUB_PROJECTOR)
         self.assertEqual(_binary(self.tool),self.tool)
+
+    @unittest.skipIf(os.name == 'nt', 'Windows has no POSIX owner execute bit')
+    def test_posix_tool_requires_owner_execute_bit(self):
+        self.tool.write_text(STUB_PROJECTOR)
+        self.tool.chmod(0o600)
+        with self.assertRaises(InspectionError):
+            tool_command(self.tool, windows=False)
+        self.tool.chmod(0o700)
+        self.assertEqual(tool_command(self.tool, windows=False), [str(self.tool)])
+
+    def test_windows_tool_requires_pe_image_or_python_script(self):
+        script = self.base/'tool.py'
+        script.write_text(STUB_PROJECTOR)
+        self.assertEqual(tool_command(script, windows=True), [sys.executable, str(script)])
+        image = self.base/'tool.exe'
+        image.write_bytes(b'MZ' + bytes(62))
+        self.assertEqual(tool_command(image, windows=True), [str(image)])
+        for name, body in (('shell.sh', b'#!/bin/sh\necho python\n'), ('image.dll', b'MZ' + bytes(62)),
+                           ('plain.exe', b'not a PE image'), ('late.py', b'print(1)\n#!python\n')):
+            candidate = self.base/name
+            candidate.write_bytes(body)
+            with self.assertRaises(InspectionError):
+                tool_command(candidate, windows=True)
+        with self.assertRaises(InspectionError):
+            tool_command(self.base, windows=True)
 
     def test_symlink_tool_fails(self):
         self.make_tool(STUB_PROJECTOR)

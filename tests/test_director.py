@@ -2,6 +2,7 @@
 
 import json
 import struct
+import os
 import tempfile
 import unittest
 import zlib
@@ -219,6 +220,29 @@ class SafetyTests(unittest.TestCase):
             link.symlink_to(file)
             with self.assertRaises((InspectionError, OSError)):
                 read_local(link)
+
+    def test_input_symlink_rejected_without_o_nofollow(self):
+        from unittest.mock import patch
+        from caserecomp import director
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            file = root / "fixture.cct"
+            other = root / "other.cct"
+            link = root / "link.cct"
+            file.write_bytes(afterburner_fixture())
+            other.write_bytes(afterburner_fixture())
+            link.symlink_to(file)
+            with patch.object(director, "_O_NOFOLLOW", 0):
+                self.assertEqual(director.read_local(file), afterburner_fixture())
+                with self.assertRaises(InspectionError):
+                    director.read_local(link)
+                with patch.object(director, "_same_unlinked_file", return_value=False),                         self.assertRaises(InspectionError):
+                    director.read_local(file)
+            opened = os.stat(file)
+            self.assertTrue(director._same_unlinked_file(file, opened))
+            self.assertFalse(director._same_unlinked_file(other, opened))
+            self.assertFalse(director._same_unlinked_file(link, opened))
+            self.assertFalse(director._same_unlinked_file(root / "missing.cct", opened))
 
     def test_destinations_do_not_replace_existing_data(self):
         from caserecomp.director import exclusive_write

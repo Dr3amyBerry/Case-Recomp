@@ -296,13 +296,30 @@ def embedded_movie(executable: bytes) -> tuple[int, bytes]:
     return found[0]
 
 
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+
+
+def _same_unlinked_file(path: Path, opened: os.stat_result) -> bool:
+    """Without O_NOFOLLOW (Windows), confirm the opened handle is the non-link path entry."""
+    try:
+        entry = os.lstat(path)
+    except OSError:
+        return False
+    return not stat.S_ISLNK(entry.st_mode) and (entry.st_dev, entry.st_ino) == (opened.st_dev, opened.st_ino)
+
+
 def read_local(path: Path) -> bytes:
-    """Read from one opened file descriptor, refusing symlinks when supported."""
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    """Read from one opened file descriptor, refusing symlinks on every platform."""
+    nofollow = _O_NOFOLLOW
+    if not nofollow and path.is_symlink():
+        raise InspectionError("input must be a regular file within size cap")
+    flags = os.O_RDONLY | nofollow | getattr(os, "O_BINARY", 0)
     with os.fdopen(os.open(path, flags), "rb") as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_FILE_BYTES:
             raise InspectionError("input must be a regular file within size cap")
+        if not nofollow and not _same_unlinked_file(path, info):
+            raise InspectionError("input changed or became a symbolic link while opening")
         data = stream.read(MAX_FILE_BYTES + 1)
         if len(data) > MAX_FILE_BYTES:
             raise InspectionError("input grew beyond maximum permitted size")

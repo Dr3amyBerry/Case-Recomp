@@ -12,6 +12,7 @@ import subprocess
 from PIL import Image
 
 from caserecomp.audio import decode_swa, resolve_ffmpeg, swa_encoded_resource
+from caserecomp.executables import tool_command
 from caserecomp.bitmap import (BitmapCastInfo, compose_jpeg_alpha, decode_alpha_plane,
                                decode_bitd_truecolor, decode_bitd_indices, decode_bitd_indexed,
                                director_system_windows_color, parse_bitmap_cast_member,
@@ -151,12 +152,19 @@ class SwaDecodeTests(TestCase):
             root = Path(directory)
             with self.assertRaises(InspectionError):
                 resolve_ffmpeg(root / "missing")
-            f = root / "ffmpeg"
+            f = root / "ffmpeg.exe"
             f.write_text("stub")
             with self.assertRaises(InspectionError):
                 resolve_ffmpeg(f)
+            f.write_bytes(b"MZ" + bytes(62))
             f.chmod(0o700)
             self.assertEqual(resolve_ffmpeg(f), f)
+            script = root / "ffmpeg-wrapper"
+            script.write_text("#!/usr/bin/env python3\n")
+            script.chmod(0o700)
+            windows = lambda path: tool_command(path, windows=True)
+            with patch("caserecomp.audio.tool_command", windows), self.assertRaises(InspectionError):
+                resolve_ffmpeg(script)
             link = root / "link"
             link.symlink_to(f)
             with self.assertRaises(InspectionError):

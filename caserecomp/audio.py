@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .executables import tool_command
 from .inspector import InspectionError
 from .pipeline import _wave_metadata
 
@@ -24,7 +25,11 @@ def resolve_ffmpeg(binary: Path | None) -> Path:
     path = binary if binary is not None else Path(shutil.which("ffmpeg") or "")
     if not str(path) or str(path) == "." or path.is_symlink() or not path.is_file():
         raise InspectionError("FFmpeg must be installed locally or specified with --ffmpeg")
-    if not os.access(path, os.X_OK) or not stat.S_ISREG(path.stat().st_mode):
+    try:
+        native = len(tool_command(path)) == 1
+    except InspectionError:
+        native = False
+    if not native or not stat.S_ISREG(path.stat().st_mode):
         raise InspectionError("FFmpeg tool is not an executable regular file")
     return path.absolute()
 
