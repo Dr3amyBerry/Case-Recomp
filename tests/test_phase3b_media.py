@@ -12,7 +12,8 @@ import subprocess
 from PIL import Image
 
 from caserecomp.audio import decode_swa, resolve_ffmpeg, swa_encoded_resource
-from caserecomp.bitmap import compose_jpeg_alpha, decode_alpha_plane, probe_bitd, unpack_packbits
+from caserecomp.bitmap import (BitmapCastInfo, compose_jpeg_alpha, decode_alpha_plane,
+    decode_bitd_indices, probe_bitd, unpack_packbits)
 from caserecomp.director import DirectorArchive
 from caserecomp.inspector import InspectionError
 from caserecomp.pipeline import convert_local, verify_export
@@ -199,3 +200,18 @@ class SwaDecodeTests(TestCase):
             with self.assertRaises(InspectionError):
                 convert_local(input_file, out, decode_swa=True, ffmpeg=tool)
             self.assertFalse(out.exists())
+
+
+class RawAlphaAndIndexedBitdTests(TestCase):
+    def test_exact_size_raw_alpha_with_odd_width_padding(self):
+        plane, codec = decode_alpha_plane(bytes([1,2,3,0,4,5,6,0]), 3, 2, with_codec=True)
+        self.assertEqual(plane, bytes([1,2,3,4,5,6]))
+        self.assertEqual(codec, "director-raw-gray8")
+
+    def test_four_bit_indices_are_unpacked_without_inventing_palette(self):
+        info = BitmapCastInfo(width=3, height=1, bit_depth=4, pitch=2, reg_x=0, reg_y=0, palette_id=-102)
+        indices, meta = decode_bitd_indices(bytes([0x12,0x30]), info)
+        self.assertEqual(indices, bytes([1,2,3]))
+        self.assertTrue(meta["palette_indices_verified"])
+        self.assertFalse(meta["palette_rgb_resolved"])
+        self.assertEqual(meta["palette_id"], -102)

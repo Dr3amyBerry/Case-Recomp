@@ -109,9 +109,28 @@ class CastRelationships:
             }
         return relationships
 
+    def bitd_links(self, archive: DirectorArchive) -> dict[int, dict]:
+        """Return unique BITD -> bitmap CASt owner links from KEY*."""
+        result: dict[int, dict] = {}
+        for owner_id, owned in sorted(self._by_owner.items()):
+            if owner_id not in archive.entries or archive.entries[owner_id].tag != "CASt":
+                continue
+            ids = owned.get("BITD", ())
+            if len(ids) != 1:
+                continue
+            bitmap_id = ids[0]
+            if len(self.owners_of(bitmap_id)) != 1:
+                continue
+            result[bitmap_id] = {
+                "cast_member_id": owner_id,
+                "association_method": "KEY*-cast-owner",
+            }
+        return result
+
     def summary(self, archive: DirectorArchive) -> dict:
         active = sum(record.present for record in self.records)
         linked = self.image_alpha_links(archive)
+        bitd = self.bitd_links(archive)
         cast_members = {rid for rid, r in archive.entries.items() if r.tag == "CASt"}
         linked_cast_owners = {record.owner_id for record in self.records if record.present and record.owner_id in cast_members}
         return {
@@ -122,6 +141,7 @@ class CastRelationships:
             "linked_cast_members": len(linked_cast_owners),
             "images_with_cast_owner": len(linked),
             "images_with_alpha_reference": sum(info["alpha_resource_id"] is not None for info in linked.values()),
+            "bitd_with_cast_owner": len(bitd),
             "reference_tags": dict(sorted(Counter(record.tag for record in self.records).items())),
             "alpha_decoded": False,
         }

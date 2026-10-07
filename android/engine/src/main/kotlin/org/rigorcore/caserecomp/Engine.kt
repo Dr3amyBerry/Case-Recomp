@@ -80,3 +80,49 @@ class LetterboxViewport(private val designWidth: Float, private val designHeight
         return if (localX in 0f..designWidth && localY in 0f..designHeight) GamePoint(localX, localY) else null
     }
 }
+
+
+/** Synthetic-layout hit regions used by Phase 4 tests; no original coordinates. */
+data class GameRect(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    init {
+        require(left.isFinite() && top.isFinite() && right.isFinite() && bottom.isFinite())
+        require(right > left && bottom > top)
+    }
+    fun contains(point: GamePoint): Boolean =
+        point.x >= left && point.x < right && point.y >= top && point.y < bottom
+}
+
+data class TargetRegion(val objectId: String, val bounds: GameRect, val zIndex: Int = 0) {
+    init { require(objectId.isNotBlank()) }
+}
+
+data class SceneLayout(val sceneId: String, val targets: List<TargetRegion>) {
+    init {
+        require(sceneId.isNotBlank() && targets.isNotEmpty())
+        require(targets.map { it.objectId }.toSet().size == targets.size)
+    }
+
+    /** Highest z-index wins; ties are rejected at construction-time usage by stable id check. */
+    fun hit(point: GamePoint): String? = targets
+        .filter { it.bounds.contains(point) }
+        .sortedWith(compareByDescending<TargetRegion> { it.zIndex }.thenBy { it.objectId })
+        .firstOrNull()?.objectId
+}
+
+data class ReplayResult(val finalSession: Session, val states: List<Session>)
+
+fun Engine.replay(initial: Session = Session(), inputs: Iterable<Input>): ReplayResult {
+    var current = initial
+    val states = mutableListOf(current)
+    for (input in inputs) {
+        current = update(current, input)
+        states += current
+    }
+    return ReplayResult(current, states.toList())
+}
+
+fun Engine.inputForTap(session: Session, layout: SceneLayout, point: GamePoint): Input.FindObject? {
+    if (session.screen != Screen.SCENE || session.selectedSceneId != layout.sceneId) return null
+    val objectId = layout.hit(point) ?: return null
+    return Input.FindObject(objectId)
+}

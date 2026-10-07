@@ -23,7 +23,7 @@ The report includes per-handler `script_id`, optionally redacted handler-name SH
 
 ## Cross-checking decompiler outputs
 
-ProjectorRays (`6f9bcebf626b43719abe2affcbbcb041d154d666`, MPL-2.0) supports `decompile --dump-scripts`, producing human-readable `.ls` when it succeeds. LibreShockwave (`fca530f9ef388d7ff38fa6c7117feae5bb5411c6`, AGPL-3.0) includes a Lingo decompiler and an asset extractor that may export `.ls`/`.lsasm`. Their source builds and tool help are separately verified; **neither has yet produced trusted original-game Lingo results in this pipeline**.
+ProjectorRays (`6f9bcebf626b43719abe2affcbbcb041d154d666`, MPL-2.0) supports `decompile --dump-scripts`, producing human-readable `.ls` when it succeeds. LibreShockwave (`fca530f9ef388d7ff38fa6c7117feae5bb5411c6`, AGPL-3.0) includes a Lingo decompiler and an asset extractor that may export `.ls`/`.lsasm`. Their source builds and tool help are separately verified. A private real-game run now produced 80 source listings and 80 assembly listings from each tool. ProjectorRays text is decoded explicitly as `mac_roman`; LibreShockwave output is UTF-8. Both contain **527 complete handlers** and **287 distinct names**, and all **287/287** names from the original compiled index occur on both sides.
 
 The independently authored `compare-lingo` command counts exact common names and conservatively normalized text-body matches across two locally generated `.ls` trees. With `--reference-movie` it *also* checks each provider's names against the actual game's `Lnam/LctX/Lscr` index, producing missing/unindexed name sets. Results from both providers can differ because of decompilation strategy or recovered source formatting: name-set parity and equal normalized source text do **not** establish bytecode-level or runtime equivalence.
 
@@ -47,7 +47,7 @@ The generated `lingo-index` report rejects overwrite and refuses writing inside 
 ## Fidelity and remaining work
 
 1. Generate verified **real-game** `.ls` outputs with both pinned decompilers on an offline isolated workstation, capturing tool version, exit code and reproducible chunk/hash provenance; investigate errors instead of claiming absent output succeeded.
-2. Measure handler-name recall against 527 indexed records, record duplicate IDs and missing bodies, and compare bytecode control flow against recovered source before porting game logic.
+2. Preserve the measured baseline: 527/527 handler records and 287/287 names align structurally. Assembly address/opcode sequences match for 527/527 records, but operands and runtime semantics are not certified. Phase 4 must use deterministic state/event traces rather than trusting either decompiler text as unquestioned source.
 3. Preserve `Lnam/LctX/Lscr` resource relations across 38 external casts when script references exist; do not infer that cast libraries contain all needed controller code.
 4. Integrate script behavior into the Android Kotlin state machine only after golden replay fixtures, audio/visual frame comparisons, and deterministic save/load tests exist.
 

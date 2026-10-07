@@ -144,7 +144,8 @@ def _publish_asset(root: Path, relative: str, data: bytes, entry: dict) -> dict:
 
 def convert_local(source: Path, destination: Path, *, image_format: str = "jpg", include_bytecode: bool = False,
                   include_raw: bool = False, max_assets: int = MAX_ASSET_COUNT,
-                  alpha_mode: str = "off", decode_swa: bool = False, ffmpeg: Path | None = None) -> dict:
+                  alpha_mode: str = "off", decode_swa: bool = False, ffmpeg: Path | None = None,
+                  decode_bitd: bool = False) -> dict:
     """Convert validated JPEG/PCM and optionally export Lingo bytecode or opaque raw members.
 
     Unknown formats are reported in counts, not declared converted. All writes
@@ -187,11 +188,13 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
             try:
                 links = CastRelationships(archive)
                 image_owners = links.image_alpha_links(archive)
+                bitd_owners = links.bitd_links(archive)
                 link_tables.append({"archive_index": index, "status": "parsed", **links.summary(archive)})
             except InspectionError as exc:
                 # Older formats and synthetic archives can lack a decodable KEY*.
                 # The media export remains valid but relationship fidelity is unverified.
                 image_owners = {}
+                bitd_owners = {}
                 link_tables.append({"archive_index": index, "status": "unavailable", "reason": str(exc)})
             for entry in sorted(archive.entries.values(), key=lambda r: r.id):
                 totals[entry.tag] += 1
@@ -236,6 +239,29 @@ def convert_local(source: Path, destination: Path, *, image_format: str = "jpg",
                     else:
                         skipped["unrecognized_ediM"] += 1
                         continue
+                elif entry.tag == "BITD" and decode_bitd:
+                    relationship = bitd_owners.get(entry.id)
+                    if not relationship:
+                        skipped["unlinked_BITD"] += 1
+                        continue
+                    from .bitmap import decode_bitd_truecolor, parse_bitmap_cast_member
+                    try:
+                        cast_data = archive.get_resource(relationship["cast_member_id"])
+                        info = parse_bitmap_cast_member(cast_data)
+                        if info.indexed:
+                            from .bitmap import decode_bitd_indices
+                            # Validate geometry/PackBits and index unpacking, but do not invent RGB
+                            # while the Director palette is unresolved.
+                            decode_bitd_indices(archive.get_resource(entry.id), info)
+                            skipped["indexed_BITD_indices_verified"] += 1
+                            skipped["indexed_BITD_requires_palette"] += 1
+                            continue
+                        data, extra = decode_bitd_truecolor(archive.get_resource(entry.id), info)
+                    except InspectionError:
+                        skipped["invalid_BITD"] += 1
+                        continue
+                    extra.update(relationship)
+                    relative = f"{folder}/images/{entry.id:08d}-bitd.png"
                 elif entry.tag == "Lscr" and include_bytecode:
                     data = archive.get_resource(entry.id)
                     relative = f"{folder}/bytecode/{entry.id:08d}.lscr"

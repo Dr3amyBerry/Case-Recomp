@@ -2,7 +2,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
-from caserecomp.lingo_compare import compare_directories, handler_bodies
+from caserecomp.lingo_compare import compare_directories, handler_bodies, compare_assembly_directories
 from caserecomp.inspector import InspectionError
 from caserecomp.__main__ import main
 import json
@@ -132,3 +132,27 @@ class CrossIndexComparisonTests(TestCase):
                 self.assertEqual(report['compiled_index_crosscheck']['both_matching_original_names'],1)
                 self.assertEqual(main(['compare-lingo',str(a),str(b),'--reference-movie',str(reference),
                     '--output',str(out)]),2)
+
+
+class EncodingAndAssemblyTests(TestCase):
+    def test_explicit_macroman_source(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp); a=root/'a'; b=root/'b'; a.mkdir(); b.mkdir()
+            (a/'a.ls').write_bytes(b'on test\nput "caf\x8e"\nend\n')
+            (b/'b.ls').write_text('on test\nput "café"\nend\n',encoding='utf-8')
+            report=compare_directories(a,b,left_encoding='mac_roman',right_encoding='utf-8')
+            self.assertEqual(report['shared_names'],1)
+            self.assertEqual(report['left_encoding'],'mac_roman')
+            with self.assertRaises(InspectionError):
+                compare_directories(a,b,left_encoding='unknown')
+
+    def test_assembly_address_opcode_equivalence(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp); a=root/'a'; b=root/'b'; a.mkdir(); b.mkdir()
+            (a/'x.lasm').write_text('on ping\n [ 0] pushzero .... <0>\n [ 1] jmpifz [ 8]\n [ 4] ret\nend\n')
+            (b/'x.lsasm').write_text('on PING\n [0000] pushZero\n [0001] jmpIfZ 4\n [0004] ret\nend\n')
+            report=compare_assembly_directories(a,b)
+            self.assertEqual(report['matched_handler_records'],1)
+            self.assertEqual(report['exact_address_opcode_multiset_names'],1)
+            self.assertFalse(report['operands_compared'])
+            self.assertFalse(report['semantics_verified'])

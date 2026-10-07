@@ -7,13 +7,13 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 1:** identify edition, installed file layout, PE projector, and Director container signatures; implement read-only hashing inventory and tests.
 - [x] **Phase 2A:** map the main XFIR movie and all 38 compressed Director cast files, parse their Afterburner indices, and validate 7,018 resources.
 - [x] **Phase 2B:** read local zlib and uncompressed resources, reconstruct ILS entries containing 80 compiled Lingo resources, implement selective extraction, tests and docs; determine unsupported SWA set.
-- [ ] **Phase 2C:** Real-game comparison of ProjectorRays and LibreShockwave remains pending. Phase 3 adds reproducible pinned build probes and simulated adapter tests, which are not substitutes for full-game decompilation.
+- [x] **Phase 2C:** ProjectorRays and LibreShockwave were executed privately against the supplied main Director movie; handler/source and assembly structure are cross-checked without publishing recovered content.
 - [x] **Phase 3A:** validated `ediM` JPEG/PNG, ID3/MP3, known PCM/WAV, bytecode extraction, private manifest, SHA-256 verification, and synthetic external-tool adapters.
 - [x] **Phase 3B.1:** read KEY* allocated/used table records and associate CASt/ediM/ALFA without guessing by adjacent resource IDs; publish synthetic tests and reproducible proof.
-- [x] **Phase 3B.2 (partial):** 1,968 verified JPEG+ALFA pixel compositions and 29 SWA MPEG→WAV local decodes; 21 BITD stream probes. Full BITD color fidelity and recovered Lingo semantics remain open.
-- [x] **Phase 3B.3 (partial):** verified 80 compiled Lscr script directories, 1,608 Lnam names, 527 handler spans (287 distinct); optional source-recovery name cross-check against original index. No readable original Lingo recovered yet.
-- [ ] **Phase 3B.3 (remaining):** resolve 20 unusual ALFA masks, BITD native geometry/palette, original-runtime fidelity and genuine game-source Lingo decompiler comparison.
-- [ ] **Phase 4:** deterministic gameplay state machine and actual level/puzzle recreation from recovered scripts and data.
+- [x] **Phase 3B.2:** 1,988/1,988 linked JPEG+ALFA masks decode; 29 SWA payloads match LibreShockwave extraction after the 82-byte wrapper and decode locally; 16 true-color BITD images are pixel-identical to LibreShockwave. Five indexed BITD palettes remain RGB-pending.
+- [x] **Phase 3B.3:** verified 80 compiled Lscr scripts, 1,608 Lnam names, 527 handler spans (287 distinct); ProjectorRays and LibreShockwave both recover 527 handlers / 287 names and match the original name index.
+- [ ] **Phase 3B remaining:** independently resolve System-Windows palette -102 for 5 indexed BITD members and establish original-runtime scene/audio/gameplay fidelity. Lingo semantic equivalence remains unproven.
+- [~] **Phase 4:** started with a pure-Kotlin deterministic reducer, aspect-fit touch mapping, synthetic hit regions and deterministic replay. Actual level/puzzle rules must be promoted only from verified traces/data.
 - [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
 - [ ] **Phase 7:** integration, device and regression QA, performance, safety; target >90% coverage for maintainable new code.

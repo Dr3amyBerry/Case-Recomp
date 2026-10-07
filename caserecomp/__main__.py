@@ -47,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="Apply KEY*-linked PackBits ALFA to PNG; strict rejects invalid masks")
     convert.add_argument("--decode-swa", action="store_true", help="Opt-in local FFmpeg WAV decode of SWA MPEG payloads")
     convert.add_argument("--ffmpeg", type=Path, help="Trusted local FFmpeg executable, used only with --decode-swa")
+    convert.add_argument("--decode-bitd", action="store_true",
+                         help="Decode KEY*-owned 16/32-bit BITD; indexed BITD stays pending")
 
     script_index = cmd.add_parser("lingo-index", help="Recover Lnam/LctX/Lscr handler names and bytecode boundaries")
     script_index.add_argument("source", type=Path)
@@ -59,6 +61,10 @@ def main(argv: list[str] | None = None) -> int:
     compare.add_argument("--output", required=True, type=Path, help="Create-only local JSON report")
     compare.add_argument("--redact-names", action="store_true", help="Use SHA-256 handler identifiers")
     compare.add_argument("--reference-movie", type=Path, help="Optional original local Director movie; cross-check handler names only")
+    compare.add_argument("--left-encoding", choices=("utf-8", "mac_roman", "cp1252"), default="utf-8")
+    compare.add_argument("--right-encoding", choices=("utf-8", "mac_roman", "cp1252"), default="utf-8")
+    compare.add_argument("--assembly", action="store_true",
+                         help="Also compare ProjectorRays .lasm to LibreShockwave .lsasm address/opcode sequences")
 
     check = cmd.add_parser("verify-export", help="Verify local conversion hashes/paths against manifest")
     check.add_argument("source", type=Path)
@@ -69,6 +75,11 @@ def main(argv: list[str] | None = None) -> int:
     external.add_argument("--backend", choices=("projectorrays", "libreshockwave"), required=True)
     external.add_argument("--binary", type=Path, required=True)
     external.add_argument("--timeout", type=int, default=180)
+
+    fidelity = cmd.add_parser("fidelity-file", help="Compare private decoded media without exposing game assets")
+    fidelity.add_argument("left", type=Path)
+    fidelity.add_argument("right", type=Path)
+    fidelity.add_argument("--kind", choices=("png", "wav"), required=True)
 
     args = parser.parse_args(argv)
     try:
@@ -96,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
             from .pipeline import convert_local
             record = convert_local(args.source, args.output, image_format=args.image_format,
                                    include_bytecode=args.include_bytecode, include_raw=args.include_raw,
-                                   alpha_mode=args.alpha_mode, decode_swa=args.decode_swa, ffmpeg=args.ffmpeg)
+                                   alpha_mode=args.alpha_mode, decode_swa=args.decode_swa, ffmpeg=args.ffmpeg,
+                                   decode_bitd=args.decode_bitd)
         elif args.command == "lingo-index":
             from .lingo_index import index_movie
             from .director import exclusive_write
@@ -108,15 +120,21 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({k: v for k, v in record.items() if k != "handlers"}, sort_keys=True))
             return 0
         elif args.command == "compare-lingo":
-            from .lingo_compare import compare_directories, compare_against_movie
+            from .lingo_compare import compare_directories, compare_against_movie, compare_assembly_directories
             from .director import exclusive_write
             from .pipeline import guard_destination
             guard_destination(args.left, args.output)
-            record = compare_directories(args.left, args.right, redact=args.redact_names)
+            record = compare_directories(args.left, args.right, redact=args.redact_names,
+                                         left_encoding=args.left_encoding, right_encoding=args.right_encoding)
+            if args.assembly:
+                record["assembly_crosscheck"] = compare_assembly_directories(
+                    args.left, args.right, redact=args.redact_names,
+                    left_encoding=args.left_encoding, right_encoding=args.right_encoding)
             if args.reference_movie:
                 guard_destination(args.reference_movie, args.output)
                 record["compiled_index_crosscheck"] = compare_against_movie(
-                    args.left, args.right, args.reference_movie, redact=args.redact_names)
+                    args.left, args.right, args.reference_movie, redact=args.redact_names,
+                    left_encoding=args.left_encoding, right_encoding=args.right_encoding)
             exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
         elif args.command == "verify-export":
             from .pipeline import verify_export
@@ -124,6 +142,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "external-export":
             from .backends import run_backend
             record = run_backend(args.backend, args.source, args.output, args.binary, timeout=args.timeout)
+        elif args.command == "fidelity-file":
+            from .fidelity import compare_png, compare_wav
+            record = compare_png(args.left, args.right) if args.kind == "png" else compare_wav(args.left, args.right)
         elif args.command == "extract-resources":
             if any(len(tag) != 4 for tag in args.tag):
                 raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")

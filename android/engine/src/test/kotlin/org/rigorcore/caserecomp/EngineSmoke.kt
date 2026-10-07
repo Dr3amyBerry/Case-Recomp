@@ -32,5 +32,19 @@ fun main() {
     val point = viewport.gamePoint(640f, 360f, 1280f, 720f)
     check(point != null && point.x == 320f && point.y == 240f)
     check(viewport.gamePoint(Float.NaN, 0f, 1280f, 720f) == null)
-    println("Kotlin engine smoke: PASS (states, discoveries, margins)")
+    val layout = SceneLayout("roomA", listOf(
+        TargetRegion("book", GameRect(10f, 10f, 100f, 100f), zIndex = 1),
+        TargetRegion("lamp", GameRect(60f, 60f, 140f, 140f), zIndex = 2)
+    ))
+    val roomSession = game.update(game.update(Session(), Input.Start), Input.EnterScene("roomA"))
+    check(game.inputForTap(roomSession, layout, GamePoint(70f, 70f)) == Input.FindObject("lamp"))
+    check(game.inputForTap(roomSession, layout, GamePoint(500f, 400f)) == null)
+    val replay = game.replay(inputs = listOf(
+        Input.Start, Input.EnterScene("roomA"), Input.FindObject("book"),
+        Input.FindObject("lamp"), Input.EnterScene("roomB"), Input.FindObject("clock")
+    ))
+    check(replay.finalSession.screen == Screen.COMPLETE)
+    check(replay.states.size == 7)
+    check(game.replay(inputs = listOf(Input.Start)).finalSession == game.update(Session(), Input.Start))
+    println("Kotlin engine smoke: PASS (states, discoveries, margins, hit-test, replay)")
 }

@@ -1,6 +1,6 @@
 # Case-Recomp Android engine: architecture prototype
 
-No APK and no original gameplay implementation exists yet. `engine/` currently contains a **pure Kotlin**, Android-independent reducer with immutable `Session` state, generic scene/object transitions and aspect-fit touch coordinate mapping. Every scenario in tests is synthetic. Its state and rules are placeholders, *not claims about Mystery Case Files gameplay*.
+No APK and no original gameplay implementation exists yet. `engine/` currently contains a **pure Kotlin**, Android-independent reducer with immutable `Session` state, generic scene/object transitions, synthetic hit regions, deterministic replay traces and aspect-fit touch coordinate mapping. Every scenario in tests is synthetic. Its state and rules are placeholders, *not claims about Mystery Case Files gameplay*.
 
 ## Native target architecture
 
@@ -20,7 +20,7 @@ kotlinc android/engine/src/main/kotlin/org/rigorcore/caserecomp/Engine.kt \
 java -jar /tmp/case-engine.jar
 ```
 
-Expected: `Kotlin engine smoke: PASS (states, discoveries, margins)`.
+Expected: `Kotlin engine smoke: PASS (states, discoveries, margins, hit-test, replay)`.
 
 ## Pending dependencies
 
