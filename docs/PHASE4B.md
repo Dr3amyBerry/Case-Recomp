@@ -73,7 +73,7 @@ Build stack selected for the 2026-10 toolchain:
 - Android Gradle Plugin `9.4.1`;
 - Gradle `9.6.0` in CI;
 - JDK 17;
-- compile SDK 37, target SDK 36, min SDK 26.
+- compile SDK 36, target SDK 36, min SDK 26.
 
 AGP 9.x built-in Kotlin is used; no redundant `org.jetbrains.kotlin.android` plugin is applied.
 
