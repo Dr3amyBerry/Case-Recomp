@@ -10,7 +10,8 @@ The repository can now prepare and ingest a private second-source observation fr
 4. `slice-capture-trial` verifies the runtime binary SHA-256 against the private slice plan, hashes decoded RGBA pixels, removes local screenshot paths, and emits a private trial.
 5. Repeat at least twice under controlled conditions.
 6. `slice-capture-finalize` requires exact visual consensus before emitting an `independent-original-runtime` observation.
-7. Feed that observation to `slice-compare`; only a fully matching result can produce `.crflow`.
+7. Feed that observation to `slice-compare`.
+8. `slice-flow-proof` must receive the original plan and observation again; it recomputes the comparison and rejects a stale or hand-edited comparison before any `.crflow` is emitted.
 
 Internal Score sprite/handler hashes are explicitly **static-bound evidence**. The independent channel is the native-projector identity, stage/marker/frame observation, pixel consensus, navigation sequence and controlled timing probes.
 
@@ -19,3 +20,23 @@ Timing is fail-closed: ordinary transition latency is recorded for QA but never 
 ## Current status
 
 The private static Huntsville ranges remain 1–67, 68–92, 93–97 and 98–102. Because no native-projector screenshots were captured in this environment, original rules promoted in this run remain **0**.
+
+
+## Post-Phase-8 hardening
+
+Native trial handling is now fail-closed at additional boundaries:
+
+- every trial is bound to the canonical SHA-256 of the exact vertical-slice plan,
+- two files with the same hashed trial ID cannot satisfy the repeated-trial requirement,
+- persisted trial privacy flags are mandatory,
+- stage dimensions and marker evidence are validated,
+- `input_at_ms`, `visible_at_ms` and `latency_ms` must be internally consistent,
+- timing probes must contain exactly a rejected-before and accepted-at value in valid order,
+- consensus records a hash of the distinct trial set,
+- observation validation checks dimensions, latency summaries and timing tolerance,
+- the comparison records plan, observation and native-consensus digests,
+- `slice-flow-proof` recomputes the comparison from the supplied plan/observation instead of trusting a comparison file by itself.
+
+This protects against accidental duplication, stale files and local JSON editing. It is an integrity chain, not remote attestation: a hostile local actor controlling every private input can still fabricate private evidence. Therefore real Huntsville promotion still requires independently obtained native-projector captures and human provenance discipline.
+
+No real Huntsville capture trial has been added to the repository; original rules promoted remain **0**.

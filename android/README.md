@@ -9,7 +9,7 @@ A synthetic debug APK shell now exists as source and CI output, but no original 
 - **Renderer:** the initial shell uses a native custom `View` with synthetic shapes and a 640×360 synthetic design viewport. Rendering and input share the same aspect-fit letterbox transform. Director ink effects, animation and original layouts remain pending.
 - **Audio:** Android Media3 or platform decoder for local converted streams, pause/resume and lifecycle, synchronized game clock and original loop metadata to be verified.
 - **Integration:** view state → engine events, viewport touch positions → game coordinates, local assets → render resources. Offline by default; no banking, accounts or analytics required.
-- **QA:** Kotlin smoke/JVM tests cover reducer, persistence, lifecycle, render model, touch mapping, replay and simulated audio. GitHub CI also assembles the synthetic debug APK; device/emulator matrices remain pending.
+- **QA:** Kotlin smoke/JVM tests cover reducer, persistence, lifecycle, render model, touch mapping, replay and simulated audio. GitHub CI assembles the synthetic debug APK and the API 26/33/36 emulator matrix is green. A manual serial-pinned physical-device harness is prepared; representative real-device runs remain pending.
 
 ## Tested locally without Android SDK
 
@@ -47,3 +47,8 @@ Private imported content is fail-closed: without an app-private `.crflow` proof 
 ## Phase 7 QA
 
 Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recreation, persisted-slot recovery, historical save migration, corrupt-save fallback, multiple aspect ratios, low-memory bitmap eviction, private package/proof removal and Android audio-focus interruption handling. JVM tests also execute fixed deterministic performance guardrails. Private original-game content remains gated by `.crflow` and no game assets are bundled.
+
+
+## Post-Phase-8 physical-device harness
+
+`../tools/android_physical_qa.sh` repeats the synthetic force-stop, upgrade and save-only restore checks on an explicitly selected real device. It rejects emulators and pre-existing installs of the synthetic package, records no ADB serial in its evidence and uninstalls the test package on exit. See `../docs/POST_PHASE8_DEVICE_QA.md`.

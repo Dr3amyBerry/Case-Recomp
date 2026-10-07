@@ -45,7 +45,7 @@ python -m caserecomp private-content-package /private/converted /private/scenari
 python -m caserecomp private-content-verify /private/game.crcontent
 python -m caserecomp slice-plan /private/game/MysteryCaseFiles.exe --menu-label PRIVATE_MENU --map-label PRIVATE_MAP --scene-label PRIVATE_SCENE --output /private/slice.json
 python -m caserecomp slice-compare /private/slice.json /private/original-runtime-observation.json --output /private/slice-compare.json
-python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --scene-id room-1 --output /private/verified.crflow
+python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --spec /private/slice.json --observation /private/original-runtime-observation.json --scene-id room-1 --output /private/verified.crflow
 python -m caserecomp slice-capture-screen --output /private/menu.png --bbox 100 100 900 700
 python -m caserecomp slice-capture-trial /private/slice.json /private/trial-input.json --runtime-binary /private/MysteryCaseFiles.exe --output /private/trial-1.json
 python -m caserecomp slice-capture-finalize /private/slice.json /private/trial-1.json /private/trial-2.json --output /private/original-runtime-observation.json
@@ -68,6 +68,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Post-Phase-8 — physical-device synthetic QA](docs/POST_PHASE8_DEVICE_QA.md)
 - [Phase 8 — controlled synthetic debug packaging](docs/PHASE8.md)
 - [Phase 6B — native runtime capture consensus](docs/PHASE6B.md)
 - [Phase 7 QA preparation](docs/PHASE7_QA.md)
