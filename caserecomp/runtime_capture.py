@@ -10,6 +10,9 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from statistics import median
+import shutil
+import tempfile
+import time
 from typing import Any
 
 from .inspector import InspectionError
@@ -18,8 +21,10 @@ from .vertical_slice import STAGES, TRANSITIONS, validate_private_slice
 CAPTURE_INPUT_FORMAT = "case-recomp-runtime-capture-input"
 TRIAL_FORMAT = "case-recomp-runtime-capture-trial"
 CONSENSUS_FORMAT = "case-recomp-native-capture-consensus"
+BURST_FORMAT = "case-recomp-desktop-capture-burst"
 VERSION = 1
 _MAX_SCREENSHOT_BYTES = 64 * 1024 * 1024
+_MAX_BURST_FRAMES = 10_000
 _ALLOWED_INPUTS = ("none", "start", "enter-scene")
 _HEX = set("0123456789abcdef")
 
@@ -109,6 +114,77 @@ def capture_desktop_png(output: Path, bbox: tuple[int, int, int, int] | None = N
         output.unlink(missing_ok=True)
         raise InspectionError("desktop capture failed; run on the same desktop as the native projector") from exc
     return _pixel_fingerprint(output)
+
+
+def _validate_bbox(bbox: tuple[int, int, int, int] | None) -> None:
+    if bbox is not None and (len(bbox) != 4 or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]):
+        raise InspectionError("invalid screenshot bounding box")
+
+
+def capture_desktop_png_burst(
+    output: Path, *, count: int = 240, interval_ms: int = 16,
+    bbox: tuple[int, int, int, int] | None = None,
+) -> dict:
+    """Capture a create-only, locally stored PNG burst and its frame manifest.
+
+    The manifest deliberately stores only filenames relative to ``output``.  It
+    is a private working artifact: choose an exact common pixel fingerprint
+    across independent bursts before passing that frame to capture-trial.
+    """
+    if output.exists() or output.is_symlink() or not output.parent.is_dir():
+        raise InspectionError("burst output must be a new directory in an existing directory")
+    if not isinstance(count, int) or not 1 <= count <= _MAX_BURST_FRAMES:
+        raise InspectionError("burst frame count must be between 1 and 10000")
+    if not isinstance(interval_ms, int) or not 0 <= interval_ms <= 60_000:
+        raise InspectionError("burst interval must be between 0 and 60000 ms")
+    _validate_bbox(bbox)
+
+    temporary = Path(tempfile.mkdtemp(prefix=".case-recomp-burst-", dir=output.parent))
+    frames_dir = temporary / "frames"
+    frames_dir.mkdir()
+    started_ns = time.monotonic_ns()
+    samples: list[dict] = []
+    dimensions: tuple[int, int] | None = None
+    try:
+        from PIL import ImageGrab
+        for index in range(count):
+            target_ns = started_ns + index * interval_ms * 1_000_000
+            remaining_ns = target_ns - time.monotonic_ns()
+            if remaining_ns > 0:
+                time.sleep(remaining_ns / 1_000_000_000)
+            filename = f"{index + 1:06d}.png"
+            path = frames_dir / filename
+            image = ImageGrab.grab(bbox=bbox)
+            image.save(path, format="PNG")
+            fingerprint = _pixel_fingerprint(path)
+            current_dimensions = (fingerprint["width"], fingerprint["height"])
+            if dimensions is None:
+                dimensions = current_dimensions
+            elif current_dimensions != dimensions:
+                raise InspectionError("desktop capture dimensions changed during burst")
+            samples.append({
+                "index": index + 1,
+                "filename": f"frames/{filename}",
+                "captured_at_ms": (time.monotonic_ns() - started_ns) // 1_000_000,
+                **fingerprint,
+            })
+        manifest = {
+            "format": BURST_FORMAT, "version": VERSION,
+            "bbox": list(bbox) if bbox is not None else None,
+            "frame_count": count, "interval_ms": interval_ms,
+            "samples": samples,
+        }
+        (temporary / "capture-burst.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        temporary.replace(output)
+        return manifest
+    except InspectionError:
+        raise
+    except Exception as exc:
+        raise InspectionError("desktop burst capture failed; run on the same desktop as the native projector") from exc
+    finally:
+        if temporary.exists():
+            shutil.rmtree(temporary, ignore_errors=True)
 
 
 def _validate_capture_input(document: dict) -> dict:

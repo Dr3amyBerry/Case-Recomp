@@ -119,6 +119,44 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.assertEqual((row["width"],row["height"]),(4,3))
         with self.assertRaises(InspectionError): capture_desktop_png(out)
 
+    def test_capture_burst_writes_numbered_private_frames_and_manifest(self):
+        out=self.root/"menu-burst"
+        frames=[Image.new("RGB",(4,3),(index,2,3)) for index in (1,2,3)]
+        with patch("PIL.ImageGrab.grab",side_effect=frames):
+            manifest=capture_desktop_png_burst(out,count=3,interval_ms=0,bbox=(0,0,4,3))
+        self.assertEqual(manifest["format"],BURST_FORMAT)
+        self.assertEqual(manifest["bbox"],[0,0,4,3])
+        self.assertEqual([row["filename"] for row in manifest["samples"]],
+                         ["frames/000001.png","frames/000002.png","frames/000003.png"])
+        self.assertEqual([row["index"] for row in manifest["samples"]],[1,2,3])
+        self.assertEqual({(row["width"],row["height"]) for row in manifest["samples"]},{(4,3)})
+        self.assertTrue(all((out/row["filename"]).is_file() for row in manifest["samples"]))
+        self.assertEqual(json.loads((out/"capture-burst.json").read_text()),manifest)
+        with self.assertRaises(InspectionError): capture_desktop_png_burst(out,count=1)
+
+    def test_capture_burst_rejects_invalid_options_and_dimension_changes(self):
+        with self.assertRaises(InspectionError): capture_desktop_png_burst(self.root/"bad-count",count=0)
+        with self.assertRaises(InspectionError): capture_desktop_png_burst(self.root/"bad-interval",interval_ms=-1)
+        with self.assertRaises(InspectionError): capture_desktop_png_burst(self.root/"bad-box",bbox=(0,0,0,2))
+        out=self.root/"resized"
+        with patch("PIL.ImageGrab.grab",side_effect=[Image.new("RGB",(4,3)),Image.new("RGB",(5,3))]):
+            with self.assertRaisesRegex(InspectionError,"dimensions changed"): capture_desktop_png_burst(out,count=2,interval_ms=0)
+        self.assertFalse(out.exists())
+
+    def test_capture_burst_waits_for_its_schedule_and_cleans_up_grab_failure(self):
+        out=self.root/"scheduled"
+        clock=[0,0,0,0,10_000_000]
+        with patch("caserecomp.runtime_capture.time.monotonic_ns",side_effect=clock), \
+             patch("caserecomp.runtime_capture.time.sleep") as sleep, \
+             patch("PIL.ImageGrab.grab",side_effect=[Image.new("RGB",(4,3)),Image.new("RGB",(4,3))]):
+            capture_desktop_png_burst(out,count=2,interval_ms=10)
+        sleep.assert_called_once_with(0.01)
+        self.assertEqual([row["captured_at_ms"] for row in json.loads((out/"capture-burst.json").read_text())["samples"]],[0,10])
+        failed=self.root/"failed-burst"
+        with patch("PIL.ImageGrab.grab",side_effect=RuntimeError("no desktop")):
+            with self.assertRaisesRegex(InspectionError,"burst capture failed"): capture_desktop_png_burst(failed,count=1)
+        self.assertFalse(failed.exists())
+
     def test_validation_error_branches_and_timing_tolerance(self):
         with self.assertRaises(InspectionError): _validate_capture_input({})
         bad=self.input(); bad["runtime_kind"]="other"
@@ -174,6 +212,10 @@ class RuntimeCaptureTests(unittest.TestCase):
         with patch("caserecomp.runtime_capture.capture_desktop_png",return_value={"width":4,"height":3,"png_sha256":H1,"pixel_sha256":H2}) as mocked:
             self.assertEqual(main(["slice-capture-screen","--output",str(out),"--bbox","0","0","4","3"]),0)
             mocked.assert_called_once()
+        burst=self.root/"cli-burst"
+        with patch("caserecomp.runtime_capture.capture_desktop_png_burst",return_value={"frame_count":2}) as mocked:
+            self.assertEqual(main(["slice-capture-screen","--burst","--count","2","--interval-ms","0","--output",str(burst)]),0)
+            mocked.assert_called_once_with(burst,count=2,interval_ms=0,bbox=None)
 
     def test_cli_trial_finalize_and_compare(self):
         plan_path=self.root/"plan.json"; plan_path.write_text(json.dumps(self.plan),encoding="utf-8")

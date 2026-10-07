@@ -125,9 +125,13 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
-    capture_screen = cmd.add_parser("slice-capture-screen", help="Capture a private PNG from the native projector desktop")
-    capture_screen.add_argument("--output", required=True, type=Path)
+    capture_screen = cmd.add_parser("slice-capture-screen", help="Capture one private PNG, or a private desktop burst, from the native projector")
+    capture_screen.add_argument("--output", required=True, type=Path,
+                                help="New PNG normally; new directory with --burst")
     capture_screen.add_argument("--bbox", nargs=4, type=int, metavar=("LEFT","TOP","RIGHT","BOTTOM"))
+    capture_screen.add_argument("--burst", action="store_true", help="Capture a numbered PNG burst plus capture-burst.json")
+    capture_screen.add_argument("--count", type=int, default=240, help="Burst frame count (default: 240)")
+    capture_screen.add_argument("--interval-ms", type=int, default=16, help="Burst sample interval in ms (default: 16)")
 
     capture_trial = cmd.add_parser("slice-capture-trial", help="Hash one controlled native-projector observation trial")
     capture_trial.add_argument("plan", type=Path)
@@ -287,8 +291,14 @@ def main(argv: list[str] | None = None) -> int:
             )
             write_json_create_only(args.output, record)
         elif args.command == "slice-capture-screen":
-            from .runtime_capture import capture_desktop_png
-            record = capture_desktop_png(args.output, tuple(args.bbox) if args.bbox else None)
+            from .runtime_capture import capture_desktop_png, capture_desktop_png_burst
+            if args.burst:
+                record = capture_desktop_png_burst(
+                    args.output, count=args.count, interval_ms=args.interval_ms,
+                    bbox=tuple(args.bbox) if args.bbox else None,
+                )
+            else:
+                record = capture_desktop_png(args.output, tuple(args.bbox) if args.bbox else None)
         elif args.command == "slice-capture-trial":
             from .runtime_capture import capture_trial_from_files
             from .vertical_slice import write_json_create_only

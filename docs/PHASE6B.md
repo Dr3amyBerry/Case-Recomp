@@ -5,7 +5,7 @@ The repository can now prepare and ingest a private second-source observation fr
 ## Capture pipeline
 
 1. Run the owned original projector on a local desktop.
-2. Use `slice-capture-screen` to create private PNG screenshots at the four stage-entry checkpoints.
+2. Use `slice-capture-screen` to create private PNG screenshots at the four stage-entry checkpoints. For animated stages, use `--burst`: it creates a new private directory containing numbered PNGs and `capture-burst.json`, which records decoded-pixel and PNG hashes for every frame.
 3. Prepare a private capture-input JSON describing the observed entry frame/marker and monotonic navigation timestamps.
 4. `slice-capture-trial` verifies the runtime binary SHA-256 against the private slice plan, hashes decoded RGBA pixels, removes local screenshot paths, and emits a private trial.
 5. Repeat at least twice under controlled conditions.
@@ -16,6 +16,17 @@ The repository can now prepare and ingest a private second-source observation fr
 Internal Score sprite/handler hashes are explicitly **static-bound evidence**. The independent channel is the native-projector identity, stage/marker/frame observation, pixel consensus, navigation sequence and controlled timing probes.
 
 Timing is fail-closed: ordinary transition latency is recorded for QA but never becomes an Android input gate. A non-zero `not_before_ms` is emitted only when repeated trials include explicit rejected-before / accepted-at probes that agree within the configured tolerance.
+
+### Animated-stage burst procedure
+
+Run a burst at the same stage entry in each fresh session, with the same bounding box and cadence:
+
+```powershell
+python -m caserecomp slice-capture-screen --burst --count 240 --interval-ms 16 `
+  --output C:\private\menu-session-1 --bbox 100 100 900 700
+```
+
+`--output` is a create-only directory in this mode. Compare the `pixel_sha256` values in the two private `capture-burst.json` manifests and select a digest present in every session; use each matching `frames/NNNNNN.png` in that session's capture-input JSON. This preserves the existing exact-pixel consensus rule while making the raw capture cadence, frame list and hashes reproducible in the repository. Do not commit the bursts or manifests: they are screenshots of proprietary runtime content.
 
 ## Current status
 
