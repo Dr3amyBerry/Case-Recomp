@@ -35,6 +35,12 @@ interface AudioPort {
     fun play(cue: AudioCue)
 }
 
+interface LifecycleAudioPort : AudioPort {
+    fun onResume()
+    fun onPause()
+    fun onDestroy()
+}
+
 object NoopAudioPort : AudioPort {
     override fun play(cue: AudioCue) = Unit
 }
@@ -73,6 +79,28 @@ interface SessionStore {
     fun load(): String?
     fun save(encoded: String)
     fun clear()
+}
+
+interface SlotSessionStore {
+    fun load(slot: String): String?
+    fun save(slot: String, encoded: String)
+    fun clear(slot: String)
+    fun slots(): Set<String>
+}
+
+class SlotSessionAdapter(private val slots: SlotSessionStore, val slot: String) : SessionStore {
+    init { require(slot.matches(Regex("[A-Za-z0-9._-]{1,64}"))) }
+    override fun load(): String? = slots.load(slot)
+    override fun save(encoded: String) = slots.save(slot, encoded)
+    override fun clear() = slots.clear(slot)
+}
+
+class InMemorySlotSessionStore : SlotSessionStore {
+    private val values = linkedMapOf<String, String>()
+    override fun load(slot: String): String? = values[slot]
+    override fun save(slot: String, encoded: String) { require(slot.matches(Regex("[A-Za-z0-9._-]{1,64}"))); values[slot] = encoded }
+    override fun clear(slot: String) { values.remove(slot) }
+    override fun slots(): Set<String> = values.keys.toSet()
 }
 
 class InMemorySessionStore(initial: String? = null) : SessionStore {
@@ -149,6 +177,8 @@ data class RenderFrame(
     val targets: List<RenderTarget>,
     val foundCount: Int,
     val totalTargets: Int,
+    val designWidth: Int,
+    val designHeight: Int,
 )
 
 object RenderModelBuilder {
@@ -156,7 +186,82 @@ object RenderModelBuilder {
         val scene = session.selectedSceneId?.let { selected -> scenario.scenes.find { it.id == selected } }
         val found = scene?.let { session.found(it.id) }.orEmpty()
         val targets = scene?.targets.orEmpty().map { RenderTarget(it.id, it.bounds, it.z, it.id in found) }
-        return RenderFrame(session.screen, scene?.id, session.frame, targets, found.size, scene?.targets?.size ?: 0)
+        return RenderFrame(session.screen, scene?.id, session.frame, targets, found.size, scene?.targets?.size ?: 0,
+            scenario.designWidth, scenario.designHeight)
+    }
+}
+
+data class RuntimeObservationStep(
+    val sequence: Int,
+    val atMillis: Long,
+    val frame: Int,
+    val screen: String,
+    val scene: String?,
+    val inputKind: String,
+    val eventKinds: List<String>,
+    val observableStateSha256: String,
+    val renderSha256: String,
+)
+
+interface RuntimeObserver {
+    fun record(atMillis: Long, input: Input, result: StepResult, render: RenderFrame)
+}
+
+object NoopRuntimeObserver : RuntimeObserver {
+    override fun record(atMillis: Long, input: Input, result: StepResult, render: RenderFrame) = Unit
+}
+
+class RuntimeTraceRecorder(private val sourcePackageSha256: String) : RuntimeObserver {
+    private val rows = mutableListOf<RuntimeObservationStep>()
+    init { require(sourcePackageSha256.matches(Regex("[0-9a-f]{64}"))) }
+    val steps: List<RuntimeObservationStep> get() = rows.toList()
+
+    override fun record(atMillis: Long, input: Input, result: StepResult, render: RenderFrame) {
+        val session = result.session
+        val state = mapOf(
+            "screen" to session.screen.name, "scene" to session.selectedSceneId, "frame" to session.frame,
+            "found" to session.foundByScene.toSortedMap().mapValues { it.value.toSortedSet().toList() },
+        )
+        val renderValue = mapOf(
+            "screen" to render.screen.name, "scene" to render.sceneId, "frame" to render.frame,
+            "targets" to render.targets.sortedWith(compareBy<RenderTarget> { it.z }.thenBy { it.id }).map {
+                listOf(it.id, it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom, it.z, it.found)
+            },
+        )
+        rows += RuntimeObservationStep(rows.size, atMillis, session.frame, session.screen.name, session.selectedSceneId,
+            inputKind(input), result.events.map(::eventKind), sha256Hex(MiniJson.canonical(state)), sha256Hex(MiniJson.canonical(renderValue)))
+    }
+
+    fun document(): Map<String, Any?> = mapOf(
+        "format" to "case-recomp-runtime-observation", "version" to 1, "kind" to "runtime-draft",
+        "source_package_sha256" to sourcePackageSha256,
+        "steps" to rows.map { row -> mapOf(
+            "sequence" to row.sequence, "at_millis" to row.atMillis, "frame" to row.frame, "screen" to row.screen,
+            "scene" to row.scene, "input_kind" to row.inputKind, "event_kinds" to row.eventKinds,
+            "observable_state_sha256" to row.observableStateSha256, "render_sha256" to row.renderSha256,
+        ) },
+        "promotion_allowed" to false,
+        "reason" to "runtime draft lacks independent Director sprite/handler fingerprints",
+    )
+
+    fun encode(): String = MiniJson.canonical(document()) + "\n"
+
+    private fun inputKind(input: Input): String = when (input) {
+        Input.Start -> "start"
+        is Input.EnterScene -> "enter-scene"
+        is Input.FindObject -> "tap"
+        is Input.AdvanceFrame -> "advance-frame"
+        Input.BackToMap -> "back"
+        Input.Reset -> "reset"
+    }
+    private fun eventKind(event: EngineEvent): String = when (event) {
+        EngineEvent.Started -> "start"
+        is EngineEvent.EnteredScene -> "enter"
+        is EngineEvent.TargetFound -> "target-found"
+        is EngineEvent.FrameReached -> "frame-reached"
+        is EngineEvent.SceneCompleted -> "scene-complete"
+        is EngineEvent.LeftScene -> "leave"
+        EngineEvent.ScenarioCompleted -> "scenario-complete"
     }
 }
 
@@ -165,6 +270,7 @@ class GameRuntime(
     private val clock: GameClock,
     private val store: SessionStore,
     private val audio: AudioPort = NoopAudioPort,
+    private val observer: RuntimeObserver = NoopRuntimeObserver,
 ) {
     private val engine = Engine(scenario.engineScenario())
     var lifecycle: LifecycleState = LifecycleState.NEW
@@ -186,10 +292,12 @@ class GameRuntime(
     fun onResume() {
         check(lifecycle == LifecycleState.STARTED || lifecycle == LifecycleState.PAUSED)
         lifecycle = LifecycleState.RESUMED
+        (audio as? LifecycleAudioPort)?.onResume()
     }
 
     fun onPause() {
         check(lifecycle == LifecycleState.RESUMED)
+        (audio as? LifecycleAudioPort)?.onPause()
         persist()
         lifecycle = LifecycleState.PAUSED
     }
@@ -203,6 +311,7 @@ class GameRuntime(
     fun onDestroy() {
         check(lifecycle != LifecycleState.DESTROYED)
         if (lifecycle != LifecycleState.NEW) persist()
+        (audio as? LifecycleAudioPort)?.onDestroy()
         lifecycle = LifecycleState.DESTROYED
     }
 
@@ -211,10 +320,13 @@ class GameRuntime(
         val result = engine.step(session, input)
         session = result.session
         emitAudio(result.events)
+        observer.record(clock.nowMillis(), input, result, renderFrame())
         return result
     }
 
     fun renderFrame(): RenderFrame = RenderModelBuilder.build(scenario, session)
+    fun firstSceneId(): String = scenario.scenes.first().id
+    fun scenarioId(): String = scenario.id
 
     fun inputForTap(screenX: Float, screenY: Float, viewWidth: Float, viewHeight: Float): Input? {
         if (session.screen != Screen.SCENE) return null

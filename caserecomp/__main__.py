@@ -103,6 +103,16 @@ def main(argv: list[str] | None = None) -> int:
     trace_fixture.add_argument("--output", required=True, type=Path)
     trace_fixture.add_argument("--id", default="verified-synthetic")
 
+    bundle = cmd.add_parser("private-content-package", help="Package a verified local export for app-private Android import")
+    bundle.add_argument("conversion", type=Path, help="Verified convert-local output directory")
+    bundle.add_argument("scenario", type=Path, help="Private or synthetic scenario-v1 JSON")
+    bundle.add_argument("--output", required=True, type=Path, help="Create-only .crcontent ZIP")
+    bundle.add_argument("--bindings", type=Path, help="Optional private scene/target/audio bindings JSON")
+    bundle.add_argument("--trace-plan", type=Path, help="Optional private hash-only Phase 4B trace plan")
+
+    bundle_verify = cmd.add_parser("private-content-verify", help="Verify a private Android content bundle without extracting it")
+    bundle_verify.add_argument("source", type=Path)
+
     args = parser.parse_args(argv)
     try:
         if args.command == "scan":
@@ -135,7 +145,6 @@ def main(argv: list[str] | None = None) -> int:
             from .lingo_index import index_movie
             from .director import exclusive_write
             from .pipeline import guard_destination
-            # Protected tool output; no Lingo name/provenance file may be written inside Git.
             guard_destination(args.source, args.output)
             record = index_movie(args.source, redact=not args.show_names)
             exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
@@ -211,6 +220,13 @@ def main(argv: list[str] | None = None) -> int:
             write_synthetic_fixture(args.output, document)
             record = {"format": document["format"], "version": document["version"], "id": document["id"],
                       "scenes": len(document["scenes"]), "events": len(document["events"])}
+        elif args.command == "private-content-package":
+            from .content_bundle import build_private_content_bundle
+            record = build_private_content_bundle(args.conversion, args.scenario, args.output,
+                                                  bindings_path=args.bindings, trace_plan_path=args.trace_plan)
+        elif args.command == "private-content-verify":
+            from .content_bundle import verify_private_content_bundle
+            record = verify_private_content_bundle(args.source)
         elif args.command == "extract-resources":
             if any(len(tag) != 4 for tag in args.tag):
                 raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")

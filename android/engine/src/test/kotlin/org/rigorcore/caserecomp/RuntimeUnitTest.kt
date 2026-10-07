@@ -56,4 +56,37 @@ class RuntimeUnitTest {
         runtime.onCreate()
         assertEquals(Session(), runtime.session)
     }
+    @Test fun slot_store_audio_lifecycle_and_runtime_trace_are_deterministic() {
+        val slots = InMemorySlotSessionStore()
+        val slotA = SlotSessionAdapter(slots, "slot-1")
+        val slotB = SlotSessionAdapter(slots, "slot-2")
+        slotA.save("A"); slotB.save("B")
+        assertEquals(setOf("slot-1", "slot-2"), slots.slots())
+        assertEquals("A", slotA.load()); slotA.clear(); assertNull(slotA.load())
+
+        class Audio : LifecycleAudioPort {
+            val calls = mutableListOf<String>()
+            override fun play(cue: AudioCue) { calls += "play:${cue.name}" }
+            override fun onResume() { calls += "resume" }
+            override fun onPause() { calls += "pause" }
+            override fun onDestroy() { calls += "destroy" }
+        }
+        val audio = Audio()
+        val source = "c".repeat(64)
+        val observer = RuntimeTraceRecorder(source)
+        val runtime = GameRuntime(scenario(), DeterministicClock(5), InMemorySessionStore(), audio, observer)
+        runtime.onCreate(); runtime.onStart(); runtime.onResume()
+        runtime.dispatch(Input.Start); runtime.dispatch(Input.EnterScene("room")); runtime.dispatch(Input.AdvanceFrame(2))
+        runtime.onPause(); runtime.onStop(); runtime.onDestroy()
+        assertTrue(audio.calls.first() == "resume")
+        assertTrue(audio.calls.contains("pause") && audio.calls.last() == "destroy")
+        assertEquals(3, observer.steps.size)
+        val doc = MiniJson.parse(observer.encode()).jsonObject("trace")
+        assertEquals(false, doc["promotion_allowed"])
+        assertEquals(source, doc["source_package_sha256"])
+        val first = doc["steps"].jsonList("steps").first().jsonObject("step")
+        assertEquals(64, first["observable_state_sha256"].jsonString("hash").length)
+        assertEquals(observer.encode(), observer.encode())
+    }
+
 }

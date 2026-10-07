@@ -34,3 +34,8 @@ Until recovered Lingo, cast, score and target layout have been validated against
 ## Phase 4 boundary
 
 The Python `score-structure` command can privately derive DRCF/CAS*/CASt/VWSC/VWLB timing and reference structure. None of that private report is bundled here. Public Kotlin tests intentionally use `fixtures/synthetic-scenario-v1.json`-equivalent geometry and names, not Huntsville data.
+
+
+## Phase 5 private-content path
+
+The app can import a user-created `.crcontent` ZIP through Android's document picker. The repository and APK contain no commercial media. Imported files are verified and committed under `filesDir/private-content/packages/<sha256>`; images/audio are resolved only through manifest bindings. Long-press the menu screen to open the picker. Save slots and runtime trace drafts also remain under app-private storage. See `../docs/PHASE5.md`.

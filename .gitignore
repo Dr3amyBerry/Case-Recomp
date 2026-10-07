@@ -47,3 +47,7 @@ build/
 local.properties
 .idea/
 *.iml
+*.crcontent
+content-manifest.json
+trace-plan.json
+runtime-draft-*.json

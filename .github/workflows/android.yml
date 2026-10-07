@@ -1,4 +1,4 @@
-name: Android synthetic shell CI
+name: Android synthetic/private-content shell CI
 on:
   push:
   pull_request:
@@ -27,6 +27,35 @@ jobs:
         run: |
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
           test -d "$ANDROID_HOME/build-tools/36.0.0"
-      - name: Build and test synthetic Android shell
+      - name: Build and test Android shell
         working-directory: android
         run: gradle --no-daemon :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug
+
+  instrumented:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run app-private importer instrumentation tests
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          arch: x86_64
+          target: default
+          working-directory: ./android
+          script: gradle --no-daemon :app:connectedDebugAndroidTest
