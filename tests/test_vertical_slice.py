@@ -1,0 +1,98 @@
+from __future__ import annotations
+import json, struct, tempfile, unittest
+from types import SimpleNamespace
+from unittest.mock import patch
+from pathlib import Path
+from caserecomp.inspector import InspectionError
+from caserecomp.__main__ import main
+from caserecomp.vertical_slice import *
+
+H1='1'*64; H2='2'*64; H3='3'*64; H4='4'*64; H5='5'*64
+
+def spec():
+    return {'format':SPEC_FORMAT,'version':1,'source_sha256':H1,'promotable_rules':0,
+      'stages':[
+       {'id':'boot','start_frame':1,'end_frame':9,'entry_sprite_count':1,'entry_behavior_count':0,'script_count':0,'entry_sprite_sha256':H2,'handler_set_sha256':H3},
+       {'id':'menu','start_frame':10,'end_frame':19,'entry_sprite_count':2,'entry_behavior_count':1,'script_count':1,'entry_sprite_sha256':H3,'handler_set_sha256':H4},
+       {'id':'map','start_frame':20,'end_frame':29,'entry_sprite_count':3,'entry_behavior_count':2,'script_count':2,'entry_sprite_sha256':H4,'handler_set_sha256':H5},
+       {'id':'scene','start_frame':30,'end_frame':39,'entry_sprite_count':4,'entry_behavior_count':3,'script_count':3,'entry_sprite_sha256':H5,'handler_set_sha256':H2}],
+      'transitions':[{'from':a,'to':b,'verification':'static-only'} for a,b in TRANSITIONS]}
+
+def observation(kind='independent-original-runtime', controlled=True):
+    s=spec(); return {'format':OBS_FORMAT,'version':1,'source_sha256':H1,'evidence_kind':kind,'timing_trials':2,'controlled_timing':controlled,
+      'stages':[{'id':x['id'],'frame':x['start_frame'],'sprite_sha256':x['entry_sprite_sha256'],'handler_set_sha256':x['handler_set_sha256'],'observable_state_sha256':H5} for x in s['stages']],
+      'transitions':[{'from':'boot','to':'menu','input_kind':'none','elapsed_ms':50},{'from':'menu','to':'map','input_kind':'start','elapsed_ms':100},{'from':'map','to':'scene','input_kind':'enter-scene','elapsed_ms':150}]}
+
+def scenario():
+    return {'format':'case-recomp-scenario','version':1,'id':'synthetic','design':{'width':320,'height':240},
+            'scenes':[{'id':'room','frame_start':1,'frame_end':20,'targets':[{'id':'target','rect':[1,2,3,4],'z':1}]}], 'events':[]}
+
+class VerticalSliceTests(unittest.TestCase):
+    def test_private_label_decoder(self):
+        block=b'menu\0map\0scene'; rows=[(10,0),(20,5),(30,9)]
+        data=struct.pack('>H',3)+b''.join(struct.pack('>HH',*x) for x in rows)+struct.pack('>i',len(block))+block
+        self.assertEqual(decode_private_frame_labels(data),{'menu':10,'map':20,'scene':30})
+        with self.assertRaises(InspectionError): decode_private_frame_labels(data[:-2])
+
+    def test_private_builder_with_synthetic_patched_archive(self):
+        block=b'menu\0map\0scene\0next'; rows=[(10,0),(20,5),(30,9),(40,15)]
+        labels=struct.pack('>H',4)+b''.join(struct.pack('>HH',*x) for x in rows)+struct.pack('>i',len(block))+block
+        class Entry:
+            def __init__(self,tag): self.tag=tag
+        class Archive:
+            kind='movie'; entries={1:Entry('VWSC'),2:Entry('VWLB'),3:Entry('CAS*'),4:Entry('CASt'),5:Entry('Lscr')}
+            def get_resource(self,rid): return {1:b'score',2:labels,3:b'cast',4:b'member',5:b'script'}[rid]
+        class Sprite:
+            frame=1
+            def signature(self): return ('sprite',)
+        behavior=SimpleNamespace(start_frame=1,end_frame=39,cast_member=1,cast_lib=1)
+        score=SimpleNamespace(frame_count=50,sprites=(Sprite(),),behaviors=(behavior,))
+        member=SimpleNamespace(script_number=7)
+        index={'handlers':[{'script_id':5,'name':H2,'bytecode_sha256':H3,'bytecode_size':4}]}
+        with tempfile.TemporaryDirectory() as td:
+            src=Path(td)/'movie.bin';src.write_bytes(b'owned')
+            with patch('caserecomp.vertical_slice.open_archive',return_value=(Archive(),0)), patch('caserecomp.vertical_slice.parse_score',return_value=score), patch('caserecomp.vertical_slice.parse_cast_order',return_value=(4,)), patch('caserecomp.vertical_slice.parse_cast_member',return_value=member), patch('caserecomp.vertical_slice.lingo_script_number',return_value=7), patch('caserecomp.vertical_slice.index_archive',return_value=index):
+                doc=build_private_vertical_slice(src,menu_label='menu',map_label='map',scene_label='scene')
+                self.assertEqual([x['start_frame'] for x in doc['stages']],[1,10,20,30]); self.assertEqual(doc['stages'][-1]['end_frame'],39)
+                self.assertEqual(doc['promotable_rules'],0); validate_private_slice(doc)
+
+    def test_independent_comparison_can_produce_bound_flow_proof(self):
+        result=compare_vertical_slice(spec(),observation())
+        self.assertTrue(result['verified']); self.assertTrue(result['timing_verified'])
+        proof=verified_flow_from_comparison(result,scenario=scenario(),scene_id='room')
+        self.assertEqual([x['not_before_ms'] for x in proof['rules']],[100,150])
+        self.assertEqual(len(proof['scenario_sha256']),64); self.assertIs(validate_verified_flow_proof(proof),proof)
+
+    def test_synthetic_evidence_never_promotes_original_rules(self):
+        result=compare_vertical_slice(spec(),observation('synthetic-test'))
+        self.assertFalse(result['verified'])
+        with self.assertRaises(InspectionError): verified_flow_from_comparison(result,scenario=scenario(),scene_id='room')
+
+    def test_mismatch_semantics_and_uncontrolled_timing_fail_closed(self):
+        bad=observation(); bad['stages'][2]['sprite_sha256']='0'*64
+        self.assertFalse(compare_vertical_slice(spec(),bad)['verified'])
+        bad=observation(); bad['transitions'][1]['input_kind']='none'
+        with self.assertRaises(InspectionError): validate_slice_observation(bad)
+        no_timing=compare_vertical_slice(spec(),observation(controlled=False))
+        self.assertTrue(no_timing['verified']); self.assertFalse(no_timing['timing_verified'])
+        self.assertEqual([x['not_before_ms'] for x in verified_flow_from_comparison(no_timing,scenario=scenario(),scene_id='room')['rules']],[0,0])
+
+    def test_cli_compare_and_flow_proof(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); sp=root/'spec.json'; ob=root/'obs.json'; sc=root/'scenario.json'; cmp=root/'cmp.json'; proof=root/'flow.crflow'
+            sp.write_text(json.dumps(spec()),encoding='utf-8'); ob.write_text(json.dumps(observation()),encoding='utf-8'); sc.write_text(json.dumps(scenario()),encoding='utf-8')
+            self.assertEqual(main(['slice-compare',str(sp),str(ob),'--output',str(cmp)]),0)
+            self.assertEqual(main(['slice-flow-proof',str(cmp),str(sc),'--scene-id','room','--output',str(proof)]),0)
+            self.assertEqual(load_json(proof)['format'],FLOW_FORMAT)
+
+    def test_validation_and_create_only(self):
+        bad=spec(); bad['stages'][1]['start_frame']=1
+        with self.assertRaises(InspectionError): validate_private_slice(bad)
+        proof=verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room')
+        proof['evidence_kind']='synthetic-test'
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(proof)
+        with tempfile.TemporaryDirectory() as td:
+            path=Path(td)/'x.json'; write_json_create_only(path,scenario())
+            with self.assertRaises(InspectionError): write_json_create_only(path,scenario())
+
+if __name__=='__main__': unittest.main()

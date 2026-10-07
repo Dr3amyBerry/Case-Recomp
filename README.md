@@ -8,8 +8,9 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **2 —** parse 39 Afterburner movie/cast archives, map and verify raw/zlib resources and initial load segment (ILS), expose create-only raw extraction.
 - [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests, KEY* cast/alpha relationships, verified raw/PackBits ALFA composition, true-color BITD decoding, explicit third-party recovery adapters and reproducible tests.
 - [x] **4 —** close indexed BITD fidelity, parse Score/cast/timeline structure, define scenario-v1, add fail-closed private behavior traces and expand the deterministic Kotlin runtime.
-- [~] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests are implemented; verified original-game behavior remains pending.
-- [ ] **6–8 —** local asset import, device QA, performance and controlled APK packaging.
+- [x] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests.
+- [~] **6 —** one boot/menu/map/scene vertical slice is structurally mapped; `.crflow` promotion is fail-closed until an independent original-runtime observation matches the private fingerprints.
+- [ ] **7–8 —** device QA, performance and controlled APK packaging.
 
 ## Install
 
@@ -41,6 +42,9 @@ python -m caserecomp trace-plan /private/game/MysteryCaseFiles.exe --output /pri
 python -m caserecomp trace-compare /private/trace-plan.json /private/runtime-observation.json --output /private/trace-compare.json
 python -m caserecomp private-content-package /private/converted /private/scenario.json --output /private/game.crcontent
 python -m caserecomp private-content-verify /private/game.crcontent
+python -m caserecomp slice-plan /private/game/MysteryCaseFiles.exe --menu-label PRIVATE_MENU --map-label PRIVATE_MAP --scene-label PRIVATE_SCENE --output /private/slice.json
+python -m caserecomp slice-compare /private/slice.json /private/original-runtime-observation.json --output /private/slice-compare.json
+python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --scene-id room-1 --output /private/verified.crflow
 
 # Optional independently installed tooling; launches native code only with explicit command
 python -m caserecomp external-export /private/movie.dcr --backend libreshockwave --binary /tools/libreshockwave_asset_extractor --output /private/ls-output
@@ -60,6 +64,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Phase 6 — fail-closed verified vertical slice and `.crflow` proof](docs/PHASE6.md)
 - [Phase 5 — private local content import, asset catalog, slots and emulator tests](docs/PHASE5.md)
 - [Phase 4B — private behavior traces, deterministic persistence and Android shell](docs/PHASE4B.md)
 - [Phase 4 — palette closure, Score structure, scenario-v1 and Kotlin engine](docs/PHASE4.md)

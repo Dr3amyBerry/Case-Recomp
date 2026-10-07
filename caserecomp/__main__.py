@@ -103,6 +103,25 @@ def main(argv: list[str] | None = None) -> int:
     trace_fixture.add_argument("--output", required=True, type=Path)
     trace_fixture.add_argument("--id", default="verified-synthetic")
 
+    slice_plan = cmd.add_parser("slice-plan", help="Build a private boot/menu/map/scene structural plan")
+    slice_plan.add_argument("source", type=Path)
+    slice_plan.add_argument("--output", required=True, type=Path)
+    slice_plan.add_argument("--menu-label", required=True)
+    slice_plan.add_argument("--map-label", required=True)
+    slice_plan.add_argument("--scene-label", required=True)
+    slice_plan.add_argument("--boot-frame", type=int, default=1)
+
+    slice_compare = cmd.add_parser("slice-compare", help="Compare private slice structure with original-runtime observation")
+    slice_compare.add_argument("spec", type=Path)
+    slice_compare.add_argument("observation", type=Path)
+    slice_compare.add_argument("--output", required=True, type=Path)
+
+    slice_proof = cmd.add_parser("slice-flow-proof", help="Emit .crflow only from independently verified original-runtime evidence")
+    slice_proof.add_argument("comparison", type=Path)
+    slice_proof.add_argument("scenario", type=Path)
+    slice_proof.add_argument("--scene-id", required=True)
+    slice_proof.add_argument("--output", required=True, type=Path)
+
     bundle = cmd.add_parser("private-content-package", help="Package a verified local export for app-private Android import")
     bundle.add_argument("conversion", type=Path, help="Verified convert-local output directory")
     bundle.add_argument("scenario", type=Path, help="Private or synthetic scenario-v1 JSON")
@@ -220,6 +239,29 @@ def main(argv: list[str] | None = None) -> int:
             write_synthetic_fixture(args.output, document)
             record = {"format": document["format"], "version": document["version"], "id": document["id"],
                       "scenes": len(document["scenes"]), "events": len(document["events"])}
+        elif args.command == "slice-plan":
+            from .vertical_slice import build_private_vertical_slice, write_json_create_only
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            record = build_private_vertical_slice(args.source, menu_label=args.menu_label,
+                                                  map_label=args.map_label, scene_label=args.scene_label,
+                                                  boot_frame=args.boot_frame)
+            write_json_create_only(args.output, record)
+            print(json.dumps({"format": record["format"], "version": record["version"],
+                              "stages": len(record["stages"]), "promotable_rules": record["promotable_rules"]}, sort_keys=True))
+            return 0
+        elif args.command == "slice-compare":
+            from .vertical_slice import compare_vertical_slice, load_json, write_json_create_only
+            from .pipeline import guard_destination
+            guard_destination(args.spec, args.output); guard_destination(args.observation, args.output)
+            record = compare_vertical_slice(load_json(args.spec), load_json(args.observation))
+            write_json_create_only(args.output, record)
+        elif args.command == "slice-flow-proof":
+            from .vertical_slice import load_json, load_scenario_for_proof, verified_flow_from_comparison, write_json_create_only
+            from .pipeline import guard_destination
+            guard_destination(args.comparison, args.output); guard_destination(args.scenario, args.output)
+            record = verified_flow_from_comparison(load_json(args.comparison), scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id)
+            write_json_create_only(args.output, record)
         elif args.command == "private-content-package":
             from .content_bundle import build_private_content_bundle
             record = build_private_content_bundle(args.conversion, args.scenario, args.output,
