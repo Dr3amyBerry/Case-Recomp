@@ -19,8 +19,22 @@ START_MS="$(printf '%s\n' "$START_OUT" | awk -F: '/TotalTime/{gsub(/ /,"",$2);pr
 test "$START_MS" -le 5000
 
 # Synthetic MENU -> MAP dispatch must autosave before any lifecycle callback.
-adb shell input tap 100 100
+# emulator-runner can report launch complete just before input focus stabilizes,
+# so retry the real UI tap until the synchronous save proves MAP was reached.
 sleep 1
+MAP_READY=0
+for _ in $(seq 1 10); do
+  adb shell input tap 400 300 >/dev/null
+  sleep 0.4
+  if adb exec-out run-as "$PKG" cat shared_prefs/case-recomp-session-slots.xml 2>/dev/null | grep -q 'screen=MAP'; then
+    MAP_READY=1
+    break
+  fi
+done
+test "$MAP_READY" = "1"
+adb exec-out run-as "$PKG" cat shared_prefs/case-recomp-session-slots.xml > "$OUT/save-before-force-stop.xml"
+grep -q 'screen=MAP' "$OUT/save-before-force-stop.xml"
+
 adb shell am force-stop "$PKG"
 adb shell am start -W -n "$ACT" >/dev/null
 sleep 1
