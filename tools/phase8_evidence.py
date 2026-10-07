@@ -40,7 +40,8 @@ def main():
       "reproducible_same_revision":reproducible,
       "contains_original_game_assets":False
     }
-    app_version="0.5.0-phase8-debug-debug"\n    app_ref=f"pkg:generic/case-recomp-synthetic-debug@{app_version}?type=apk"
+    app_version="0.5.0-phase8-debug-debug"
+    app_ref=f"pkg:generic/case-recomp-synthetic-debug@{app_version}?type=apk"
     engine_ref="pkg:generic/case-recomp-engine@0.8-phase8"
     sdk_ref="pkg:generic/android-sdk@36"
     sbom={
