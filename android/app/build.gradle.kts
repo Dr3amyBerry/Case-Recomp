@@ -11,7 +11,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.2.0-phase5-private-import"
+        versionName = "0.3.0-phase6-verified-flow"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

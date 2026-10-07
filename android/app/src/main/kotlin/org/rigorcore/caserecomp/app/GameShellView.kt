@@ -41,7 +41,7 @@ class GameShellView(
         when (model.screen) {
             Screen.MENU -> {
                 canvas.drawText("Tap to start", 28f, 130f, paint)
-                canvas.drawText("Long press to import private .crcontent", 28f, 170f, paint)
+                canvas.drawText(if (privateContent == null) "Long press to import private .crcontent" else "Long press to import verified .crflow", 28f, 170f, paint)
             }
             Screen.MAP -> canvas.drawText("Tap to enter scene", 28f, 130f, paint)
             Screen.COMPLETE -> canvas.drawText("Scenario complete", 28f, 130f, paint)

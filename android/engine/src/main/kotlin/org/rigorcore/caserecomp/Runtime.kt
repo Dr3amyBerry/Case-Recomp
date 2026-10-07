@@ -271,6 +271,7 @@ class GameRuntime(
     private val store: SessionStore,
     private val audio: AudioPort = NoopAudioPort,
     private val observer: RuntimeObserver = NoopRuntimeObserver,
+    private val flowGate: FlowGate = AllowAllFlowGate,
 ) {
     private val engine = Engine(scenario.engineScenario())
     var lifecycle: LifecycleState = LifecycleState.NEW
@@ -280,7 +281,9 @@ class GameRuntime(
 
     fun onCreate() {
         check(lifecycle == LifecycleState.NEW)
-        session = restoreOrFresh()
+        flowGate.onRuntimeCreated(clock.nowMillis())
+        val restored = restoreOrFresh()
+        session = if (flowGate.allowRestored(restored)) restored else Session()
         lifecycle = LifecycleState.CREATED
     }
 
@@ -317,10 +320,12 @@ class GameRuntime(
 
     fun dispatch(input: Input): StepResult {
         check(lifecycle == LifecycleState.RESUMED)
-        val result = engine.step(session, input)
+        val now = clock.nowMillis()
+        val proposed = engine.step(session, input)
+        val result = if (flowGate.allow(session, input, proposed.session, now)) proposed else StepResult(session, emptyList())
         session = result.session
         emitAudio(result.events)
-        observer.record(clock.nowMillis(), input, result, renderFrame())
+        observer.record(now, input, result, renderFrame())
         return result
     }
 

@@ -39,3 +39,7 @@ The Python `score-structure` command can privately derive DRCF/CAS*/CASt/VWSC/VW
 ## Phase 5 private-content path
 
 The app can import a user-created `.crcontent` ZIP through Android's document picker. The repository and APK contain no commercial media. Imported files are verified and committed under `filesDir/private-content/packages/<sha256>`; images/audio are resolved only through manifest bindings. Long-press the menu screen to open the picker. Save slots and runtime trace drafts also remain under app-private storage. See `../docs/PHASE5.md`.
+
+## Phase 6 verified-flow gate
+
+Private imported content is fail-closed: without an app-private `.crflow` proof bound to the scenario SHA-256, navigation remains on MENU. A proof produced from independently observed original-runtime evidence unlocks only MENU→MAP and MAP→one SCENE, with optional controlled timing thresholds. Synthetic content continues to use the unrestricted test gate. Object-finding and other original rules remain blocked until separately verified.
