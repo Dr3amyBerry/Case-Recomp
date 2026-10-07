@@ -45,7 +45,7 @@ python -m caserecomp private-content-package /private/converted /private/scenari
 python -m caserecomp private-content-verify /private/game.crcontent
 python -m caserecomp slice-plan /private/game/MysteryCaseFiles.exe --menu-label PRIVATE_MENU --map-label PRIVATE_MAP --scene-label PRIVATE_SCENE --output /private/slice.json
 python -m caserecomp slice-compare /private/slice.json /private/original-runtime-observation.json --output /private/slice-compare.json
-python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --spec /private/slice.json --observation /private/original-runtime-observation.json --scene-id room-1 --output /private/verified.crflow
+python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --spec /private/slice.json --observation /private/original-runtime-observation.json --package-id PRIVATE_CRCONTENT_PACKAGE_ID --scene-id room-1 --output /private/verified.crflow
 python -m caserecomp slice-capture-screen --output /private/menu.png --bbox 100 100 900 700
 python -m caserecomp slice-capture-trial /private/slice.json /private/trial-input.json --runtime-binary /private/MysteryCaseFiles.exe --output /private/trial-1.json
 python -m caserecomp slice-capture-finalize /private/slice.json /private/trial-1.json /private/trial-2.json --output /private/original-runtime-observation.json

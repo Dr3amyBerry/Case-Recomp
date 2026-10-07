@@ -23,6 +23,7 @@ SPEC_FORMAT = "case-recomp-private-vertical-slice"
 OBS_FORMAT = "case-recomp-vertical-slice-observation"
 COMPARE_FORMAT = "case-recomp-vertical-slice-comparison"
 FLOW_FORMAT = "case-recomp-verified-flow"
+FLOW_VERSION = 2
 VERSION = 1
 STAGES = ("boot", "menu", "map", "scene")
 TRANSITIONS = (("boot", "menu"), ("menu", "map"), ("map", "scene"))
@@ -290,16 +291,21 @@ def validate_slice_comparison(doc: Any) -> dict:
     return doc
 
 
-def verified_flow_from_evidence(spec: dict, observation: dict, comparison: dict, *, scenario: dict, scene_id: str) -> dict:
+def verified_flow_from_evidence(spec: dict, observation: dict, comparison: dict, *,
+                                scenario: dict, scene_id: str, package_id: str) -> dict:
     fresh = compare_vertical_slice(spec, observation)
     validate_slice_comparison(comparison)
     if _digest(fresh) != _digest(comparison):
         raise InspectionError("stored vertical-slice comparison does not match supplied plan/observation")
-    return verified_flow_from_comparison(fresh, scenario=scenario, scene_id=scene_id)
+    return verified_flow_from_comparison(
+        fresh, scenario=scenario, scene_id=scene_id, package_id=package_id,
+    )
 
 
-def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id: str) -> dict:
+def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id: str, package_id: str) -> dict:
     validate_slice_comparison(comparison)
+    if not _is_hash(package_id):
+        raise InspectionError("verified flow requires a private-content package id")
     if comparison.get("verified") is not True:
         raise InspectionError("only a verified vertical-slice comparison can produce flow rules")
     if comparison.get("evidence_kind") != "independent-original-runtime":
@@ -313,7 +319,7 @@ def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id:
     timings = {(row["from"], row["to"]): row["elapsed_ms"] for row in comparison["transitions"]}
     use_timing = comparison.get("timing_verified") is True
     proof = {
-        "format": FLOW_FORMAT, "version": VERSION, "scenario_id": scenario_id,
+        "format": FLOW_FORMAT, "version": FLOW_VERSION, "package_id": package_id, "scenario_id": scenario_id,
         "scenario_sha256": sha256(canonical_bytes(scenario)).hexdigest(),
         "source_sha256": comparison["source_sha256"], "evidence_kind": comparison["evidence_kind"],
         "evidence_chain": {
@@ -332,28 +338,45 @@ def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id:
 
 
 def validate_verified_flow_proof(doc: Any) -> dict:
-    if not isinstance(doc, dict) or doc.get("format") != FLOW_FORMAT or doc.get("version") != VERSION or doc.get("boot_verified") is not True:
+    root_keys = {
+        "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
+        "evidence_kind", "evidence_chain", "boot_verified", "rules",
+    }
+    if not isinstance(doc, dict) or set(doc) != root_keys or doc.get("format") != FLOW_FORMAT \
+            or doc.get("version") != FLOW_VERSION or doc.get("boot_verified") is not True:
         raise InspectionError("invalid verified-flow proof")
     if doc.get("evidence_kind") != "independent-original-runtime":
         raise InspectionError("verified-flow proof requires independent original-runtime evidence")
-    if not isinstance(doc.get("scenario_id"), str) or not doc["scenario_id"] or not _is_hash(doc.get("scenario_sha256")) or not _is_hash(doc.get("source_sha256")):
+    if not _is_hash(doc.get("package_id")) or not isinstance(doc.get("scenario_id"), str) or not doc["scenario_id"] \
+            or not _is_hash(doc.get("scenario_sha256")) or not _is_hash(doc.get("source_sha256")):
         raise InspectionError("invalid verified-flow proof identity")
     evidence_chain = doc.get("evidence_chain")
-    if not isinstance(evidence_chain, dict) or any(not _is_hash(evidence_chain.get(key)) for key in (
-            "spec_sha256", "observation_sha256", "capture_consensus_sha256")):
+    if not isinstance(evidence_chain, dict) or set(evidence_chain) != {
+            "spec_sha256", "observation_sha256", "capture_consensus_sha256"} \
+            or any(not _is_hash(evidence_chain.get(key)) for key in evidence_chain):
         raise InspectionError("invalid verified-flow evidence chain")
     rules = doc.get("rules")
     if not isinstance(rules, list) or len(rules) != 2:
         raise InspectionError("verified-flow proof requires exactly two navigation rules")
-    for row, triple in zip(rules, (("MENU", "start", "MAP"), ("MAP", "enter-scene", "SCENE"))):
-        if not isinstance(row, dict) or (row.get("from_screen"), row.get("input_kind"), row.get("to_screen")) != triple:
+    expected = (
+        ("menu-map", "MENU", "start", "MAP", None),
+        ("map-scene", "MAP", "enter-scene", "SCENE", "scene"),
+    )
+    rule_keys = {"id", "from_screen", "input_kind", "to_screen", "scene_id", "not_before_ms"}
+    for row, (rule_id, from_screen, input_kind, to_screen, scene_mode) in zip(rules, expected):
+        if not isinstance(row, dict) or set(row) != rule_keys \
+                or (row.get("id"), row.get("from_screen"), row.get("input_kind"), row.get("to_screen")) \
+                != (rule_id, from_screen, input_kind, to_screen):
             raise InspectionError("invalid verified-flow rule")
-        if not isinstance(row.get("not_before_ms"), int) or row["not_before_ms"] < 0:
+        timing = row.get("not_before_ms")
+        if isinstance(timing, bool) or not isinstance(timing, int) or timing < 0:
             raise InspectionError("invalid verified-flow timing")
-    if rules[0].get("scene_id") is not None or not isinstance(rules[1].get("scene_id"), str) or not rules[1]["scene_id"]:
-        raise InspectionError("invalid verified-flow scene binding")
+        if scene_mode is None:
+            if row.get("scene_id") is not None:
+                raise InspectionError("invalid verified-flow scene binding")
+        elif not isinstance(row.get("scene_id"), str) or not row["scene_id"]:
+            raise InspectionError("invalid verified-flow scene binding")
     return doc
-
 
 def load_json(path: Path) -> dict:
     try:

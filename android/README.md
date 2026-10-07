@@ -42,7 +42,7 @@ The app can import a user-created `.crcontent` ZIP through Android's document pi
 
 ## Phase 6 verified-flow gate
 
-Private imported content is fail-closed: without an app-private `.crflow` proof bound to the scenario SHA-256, navigation remains on MENU. A proof produced from independently observed original-runtime evidence unlocks only MENU→MAP and MAP→one SCENE, with optional controlled timing thresholds. Synthetic content continues to use the unrestricted test gate. Object-finding and other original rules remain blocked until separately verified.
+Private imported content is fail-closed: without an app-private `.crflow` v2 proof bound to the active package ID, scenario ID/SHA-256 and Phase 6B evidence-chain hashes, navigation remains on MENU. A proof produced from independently observed original-runtime evidence unlocks only MENU→MAP and MAP→one SCENE, with optional controlled timing thresholds. Synthetic content continues to use the unrestricted test gate. Object-finding and other original rules remain blocked until separately verified.
 
 ## Phase 7 QA
 
@@ -52,3 +52,8 @@ Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recrea
 ## Post-Phase-8 physical-device harness
 
 `../tools/android_physical_qa.sh` repeats the synthetic force-stop, upgrade and save-only restore checks on an explicitly selected real device. It rejects emulators and pre-existing installs of the synthetic package, records no ADB serial in its evidence and uninstalls the test package on exit. See `../docs/POST_PHASE8_DEVICE_QA.md`.
+
+
+### Verified-flow v2 import
+
+`VerifiedFlowProofParser` accepts only the exact v2 schema. Legacy v1 proofs, missing/extra evidence fields, invalid hashes, fractional timings and unexpected rule IDs are rejected. `PrivateVerifiedFlowRepository` additionally binds the proof to the active private-content package and revalidates on every load. There is no automatic v1 migration because Android cannot safely reconstruct missing capture provenance.

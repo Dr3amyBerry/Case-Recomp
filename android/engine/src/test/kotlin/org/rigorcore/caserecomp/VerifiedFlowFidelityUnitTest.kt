@@ -7,6 +7,7 @@ import org.junit.Test
 
 class VerifiedFlowFidelityUnitTest {
     private val scenarioHash = "a".repeat(64)
+    private val packageId = "9".repeat(64)
 
     private fun scenario() = ScenarioV1(
         id = "fidelity-flow", designWidth = 100, designHeight = 50,
@@ -14,13 +15,15 @@ class VerifiedFlowFidelityUnitTest {
             listOf(ScenarioTargetV1("target", GameRect(10f, 10f, 30f, 30f), 2)))),
     )
 
-    private fun proof() = VerifiedFlowProofV1(
+    private fun proof() = VerifiedFlowProofV2(
+        packageId = packageId,
         scenarioId = "fidelity-flow", scenarioSha256 = scenarioHash,
         sourceSha256 = "b".repeat(64), evidenceKind = "independent-original-runtime",
+        evidenceChain = VerifiedFlowEvidenceChainV2("c".repeat(64), "d".repeat(64), "e".repeat(64)),
         bootVerified = true,
         rules = listOf(
-            VerifiedFlowRuleV1("menu-map", Screen.MENU, "start", Screen.MAP, notBeforeMs = 25),
-            VerifiedFlowRuleV1("map-scene", Screen.MAP, "enter-scene", Screen.SCENE, "room", 40),
+            VerifiedFlowRuleV2("menu-map", Screen.MENU, "start", Screen.MAP, notBeforeMs = 25),
+            VerifiedFlowRuleV2("map-scene", Screen.MAP, "enter-scene", Screen.SCENE, "room", 40),
         ),
     )
 
@@ -28,7 +31,7 @@ class VerifiedFlowFidelityUnitTest {
         val clock = DeterministicClock()
         val runtime = GameRuntime(
             scenario(), clock, InMemorySessionStore(), RecordingAudioPort(),
-            flowGate = VerifiedFlowGate(proof(), "fidelity-flow", scenarioHash),
+            flowGate = VerifiedFlowGate(proof(), "fidelity-flow", scenarioHash, packageId),
         )
         runtime.onCreate(); runtime.onStart(); runtime.onResume()
 

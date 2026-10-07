@@ -1,9 +1,10 @@
 package org.rigorcore.caserecomp
 
 private const val VERIFIED_FLOW_FORMAT = "case-recomp-verified-flow"
+private const val VERIFIED_FLOW_VERSION = 2
 private val SHA256_HEX = Regex("[0-9a-f]{64}")
 
-data class VerifiedFlowRuleV1(
+data class VerifiedFlowRuleV2(
     val id: String,
     val fromScreen: Screen,
     val inputKind: String,
@@ -12,50 +13,96 @@ data class VerifiedFlowRuleV1(
     val notBeforeMs: Long = 0L,
 ) {
     init {
-        require(id.isNotBlank() && inputKind in setOf("start", "enter-scene"))
         require(notBeforeMs >= 0L)
-        if (inputKind == "enter-scene") require(!sceneId.isNullOrBlank()) else require(sceneId == null)
+        when (id) {
+            "menu-map" -> require(
+                fromScreen == Screen.MENU && inputKind == "start" &&
+                    toScreen == Screen.MAP && sceneId == null
+            )
+            "map-scene" -> require(
+                fromScreen == Screen.MAP && inputKind == "enter-scene" &&
+                    toScreen == Screen.SCENE && !sceneId.isNullOrBlank()
+            )
+            else -> error("unsupported verified-flow rule id")
+        }
     }
 }
 
-data class VerifiedFlowProofV1(
+data class VerifiedFlowEvidenceChainV2(
+    val specSha256: String,
+    val observationSha256: String,
+    val captureConsensusSha256: String,
+) {
+    init {
+        require(SHA256_HEX.matches(specSha256))
+        require(SHA256_HEX.matches(observationSha256))
+        require(SHA256_HEX.matches(captureConsensusSha256))
+    }
+}
+
+data class VerifiedFlowProofV2(
+    val packageId: String,
     val scenarioId: String,
     val scenarioSha256: String,
     val sourceSha256: String,
     val evidenceKind: String,
+    val evidenceChain: VerifiedFlowEvidenceChainV2,
     val bootVerified: Boolean,
-    val rules: List<VerifiedFlowRuleV1>,
+    val rules: List<VerifiedFlowRuleV2>,
 ) {
     init {
+        require(SHA256_HEX.matches(packageId))
         require(scenarioId.isNotBlank())
         require(SHA256_HEX.matches(scenarioSha256) && SHA256_HEX.matches(sourceSha256))
         require(evidenceKind == "independent-original-runtime")
-        require(bootVerified && rules.size == 2 && rules.map { it.id }.toSet().size == rules.size)
-        require(rules[0].fromScreen == Screen.MENU && rules[0].inputKind == "start" && rules[0].toScreen == Screen.MAP)
-        require(rules[1].fromScreen == Screen.MAP && rules[1].inputKind == "enter-scene" && rules[1].toScreen == Screen.SCENE)
+        require(bootVerified)
+        require(rules.map { it.id } == listOf("menu-map", "map-scene"))
     }
 }
 
 object VerifiedFlowProofParser {
-    fun parse(text: String): VerifiedFlowProofV1 {
+    private val rootKeys = setOf(
+        "format", "version", "package_id", "scenario_id", "scenario_sha256", "source_sha256",
+        "evidence_kind", "evidence_chain", "boot_verified", "rules",
+    )
+    private val chainKeys = setOf("spec_sha256", "observation_sha256", "capture_consensus_sha256")
+    private val ruleKeys = setOf("id", "from_screen", "input_kind", "to_screen", "scene_id", "not_before_ms")
+
+    fun parse(text: String): VerifiedFlowProofV2 {
         val root = MiniJson.parse(text).jsonObject("verified-flow")
-        require(root["format"] == VERIFIED_FLOW_FORMAT && root["version"].jsonInt("version") == 1)
+        require(root.keys == rootKeys) { "verified-flow fields" }
+        require(root["format"] == VERIFIED_FLOW_FORMAT && root["version"].jsonInt("version") == VERIFIED_FLOW_VERSION)
+
+        val chain = root["evidence_chain"].jsonObject("evidence_chain")
+        require(chain.keys == chainKeys) { "evidence_chain fields" }
+        val evidence = VerifiedFlowEvidenceChainV2(
+            specSha256 = chain["spec_sha256"].jsonString("spec_sha256"),
+            observationSha256 = chain["observation_sha256"].jsonString("observation_sha256"),
+            captureConsensusSha256 = chain["capture_consensus_sha256"].jsonString("capture_consensus_sha256"),
+        )
+
         val rules = root["rules"].jsonList("rules").map { item ->
             val row = item.jsonObject("rule")
-            VerifiedFlowRuleV1(
+            require(row.keys == ruleKeys) { "verified-flow rule fields" }
+            val sceneValue = row["scene_id"]
+            require(sceneValue == null || sceneValue is String) { "scene_id must be string or null" }
+            VerifiedFlowRuleV2(
                 id = row["id"].jsonString("rule.id"),
                 fromScreen = Screen.valueOf(row["from_screen"].jsonString("from_screen")),
                 inputKind = row["input_kind"].jsonString("input_kind"),
                 toScreen = Screen.valueOf(row["to_screen"].jsonString("to_screen")),
-                sceneId = row["scene_id"] as? String,
-                notBeforeMs = (row["not_before_ms"] as? Number)?.toLong() ?: error("not_before_ms number"),
+                sceneId = sceneValue as? String,
+                notBeforeMs = row["not_before_ms"].jsonInt("not_before_ms").toLong(),
             )
         }
-        return VerifiedFlowProofV1(
+
+        return VerifiedFlowProofV2(
+            packageId = root["package_id"].jsonString("package_id"),
             scenarioId = root["scenario_id"].jsonString("scenario_id"),
             scenarioSha256 = root["scenario_sha256"].jsonString("scenario_sha256"),
             sourceSha256 = root["source_sha256"].jsonString("source_sha256"),
             evidenceKind = root["evidence_kind"].jsonString("evidence_kind"),
+            evidenceChain = evidence,
             bootVerified = root["boot_verified"] as? Boolean ?: error("boot_verified boolean"),
             rules = rules,
         )
@@ -80,13 +127,15 @@ object DenyAllFlowGate : FlowGate {
 }
 
 class VerifiedFlowGate(
-    private val proof: VerifiedFlowProofV1,
+    private val proof: VerifiedFlowProofV2,
     scenarioId: String,
     scenarioSha256: String,
+    packageId: String,
 ) : FlowGate {
     private var stageEnteredAtMillis = 0L
 
     init {
+        require(proof.packageId == packageId)
         require(proof.scenarioId == scenarioId)
         require(proof.scenarioSha256 == scenarioSha256)
     }

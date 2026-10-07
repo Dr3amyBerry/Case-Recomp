@@ -2,7 +2,7 @@ package org.rigorcore.caserecomp.app
 
 import android.content.Context
 import org.rigorcore.caserecomp.VerifiedFlowProofParser
-import org.rigorcore.caserecomp.VerifiedFlowProofV1
+import org.rigorcore.caserecomp.VerifiedFlowProofV2
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -12,7 +12,7 @@ private const val MAX_FLOW_PROOF_BYTES = 1024 * 1024
 class PrivateVerifiedFlowRepository(context: Context) {
     private val directory = File(context.filesDir, "private-flow").apply { mkdirs() }
 
-    fun importProof(input: InputStream, content: LoadedPrivateContent): VerifiedFlowProofV1 {
+    fun importProof(input: InputStream, content: LoadedPrivateContent): VerifiedFlowProofV2 {
         val bytes = readBounded(input)
         val proof = VerifiedFlowProofParser.parse(bytes.toString(Charsets.UTF_8))
         requireBound(proof, content)
@@ -30,7 +30,7 @@ class PrivateVerifiedFlowRepository(context: Context) {
         return proof
     }
 
-    fun loadFor(content: LoadedPrivateContent): VerifiedFlowProofV1? {
+    fun loadFor(content: LoadedPrivateContent): VerifiedFlowProofV2? {
         val file = fileFor(content)
         if (!file.isFile || file.length() !in 1..MAX_FLOW_PROOF_BYTES.toLong()) return null
         return runCatching {
@@ -45,7 +45,8 @@ class PrivateVerifiedFlowRepository(context: Context) {
         return !file.exists() || file.delete()
     }
 
-    private fun requireBound(proof: VerifiedFlowProofV1, content: LoadedPrivateContent) {
+    private fun requireBound(proof: VerifiedFlowProofV2, content: LoadedPrivateContent) {
+        require(proof.packageId == content.manifest.packageId) { "verified flow package mismatch" }
         require(proof.scenarioId == content.scenario.id) { "verified flow scenario mismatch" }
         require(proof.scenarioSha256 == content.manifest.scenarioSha256) { "verified flow scenario hash mismatch" }
     }

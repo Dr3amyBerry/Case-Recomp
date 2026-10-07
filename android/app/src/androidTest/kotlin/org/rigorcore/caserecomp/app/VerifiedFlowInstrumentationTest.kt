@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -32,14 +33,15 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class VerifiedFlowInstrumentationTest {
     private lateinit var context: Context
+    private val scenarioHash = "a".repeat(64)
+    private val packageId = "d".repeat(64)
 
     @Before fun clean() {
         context = ApplicationProvider.getApplicationContext()
         File(context.filesDir, "private-flow").deleteRecursively()
     }
 
-    @Test fun imported_proof_gates_timing_navigation_and_scene_render() {
-        val scenarioHash = "a".repeat(64)
+    private fun loaded(packageOverride: String = packageId): LoadedPrivateContent {
         val assetHash = "c".repeat(64)
         val scenario = ScenarioV1(
             id = "instrumented-flow", designWidth = 100, designHeight = 50,
@@ -47,28 +49,33 @@ class VerifiedFlowInstrumentationTest {
                 listOf(ScenarioTargetV1("target", GameRect(10f, 10f, 30f, 30f), 1)))),
         )
         val manifest = PrivateContentManifestV1(
-            packageId = "d".repeat(64), scenarioPath = "scenario.json", scenarioSha256 = scenarioHash,
+            packageId = packageOverride, scenarioPath = "scenario.json", scenarioSha256 = scenarioHash,
             scenarioId = scenario.id,
             assets = listOf(ContentAssetV1("sha256-" + assetHash, "assets/" + assetHash + ".png", assetHash, 0, "image/png")),
             bindings = ContentBindingsV1(), conversionManifestSha256 = "e".repeat(64),
         )
-        val loaded = LoadedPrivateContent(manifest, scenario, context.filesDir)
-        val proofText = """
-            {"boot_verified":true,"evidence_kind":"independent-original-runtime","format":"case-recomp-verified-flow",
-             "rules":[
-               {"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":100,"scene_id":null,"to_screen":"MAP"},
-               {"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":50,"scene_id":"room","to_screen":"SCENE"}],
-             "scenario_id":"instrumented-flow","scenario_sha256":"SCENARIO_HASH","source_sha256":"SOURCE_HASH","version":1}
-        """.trimIndent().replace("SCENARIO_HASH", scenarioHash).replace("SOURCE_HASH", "f".repeat(64))
+        return LoadedPrivateContent(manifest, scenario, context.filesDir)
+    }
+
+    private fun proofText(packageOverride: String = packageId): String = """
+        {"boot_verified":true,"evidence_kind":"independent-original-runtime",
+         "evidence_chain":{"capture_consensus_sha256":"8888888888888888888888888888888888888888888888888888888888888888","observation_sha256":"7777777777777777777777777777777777777777777777777777777777777777","spec_sha256":"6666666666666666666666666666666666666666666666666666666666666666"},
+         "format":"case-recomp-verified-flow","package_id":"$packageOverride",
+         "rules":[
+           {"from_screen":"MENU","id":"menu-map","input_kind":"start","not_before_ms":100,"scene_id":null,"to_screen":"MAP"},
+           {"from_screen":"MAP","id":"map-scene","input_kind":"enter-scene","not_before_ms":50,"scene_id":"room","to_screen":"SCENE"}],
+         "scenario_id":"instrumented-flow","scenario_sha256":"$scenarioHash","source_sha256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","version":2}
+    """.trimIndent()
+
+    @Test fun imported_v2_proof_gates_timing_navigation_and_scene_render() {
+        val loaded = loaded()
         val repository = PrivateVerifiedFlowRepository(context)
-        val imported = repository.importProof(ByteArrayInputStream(proofText.toByteArray()), loaded)
+        val imported = repository.importProof(ByteArrayInputStream(proofText().toByteArray()), loaded)
         assertNotNull(repository.loadFor(loaded))
-
         val clock = DeterministicClock()
-        val runtime = GameRuntime(scenario, clock, InMemorySessionStore(), RecordingAudioPort(),
-            flowGate = VerifiedFlowGate(imported, scenario.id, scenarioHash))
+        val runtime = GameRuntime(loaded.scenario, clock, InMemorySessionStore(), RecordingAudioPort(),
+            flowGate = VerifiedFlowGate(imported, loaded.scenario.id, scenarioHash, packageId))
         runtime.onCreate(); runtime.onStart(); runtime.onResume()
-
         lateinit var view: GameShellView
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             view = GameShellView(context, runtime, loaded, NoopBitmapAssetLoader)
@@ -86,8 +93,36 @@ class VerifiedFlowInstrumentationTest {
             view.draw(Canvas(Bitmap.createBitmap(200, 100, Bitmap.Config.ARGB_8888)))
         }
         assertEquals(Screen.SCENE, runtime.session.screen)
-        assertTrue(File(context.filesDir, "private-flow/" + manifest.packageId + ".crflow").isFile)
+        assertTrue(File(context.filesDir, "private-flow/" + packageId + ".crflow").isFile)
         assertTrue(repository.clearFor(loaded))
-        assertEquals(null, repository.loadFor(loaded))
+        assertNull(repository.loadFor(loaded))
+    }
+
+    @Test fun legacy_tampered_and_cross_package_imports_fail_without_replacing_valid_proof() {
+        val loaded = loaded()
+        val repository = PrivateVerifiedFlowRepository(context)
+        repository.importProof(ByteArrayInputStream(proofText().toByteArray()), loaded)
+        assertNotNull(repository.loadFor(loaded))
+        val legacy = proofText().replace(""version":2", ""version":1")
+        assertTrue(runCatching { repository.importProof(ByteArrayInputStream(legacy.toByteArray()), loaded) }.isFailure)
+        assertNotNull(repository.loadFor(loaded))
+        val wrongPackage = proofText("9".repeat(64))
+        assertTrue(runCatching { repository.importProof(ByteArrayInputStream(wrongPackage.toByteArray()), loaded) }.isFailure)
+        assertNotNull(repository.loadFor(loaded))
+        val tamperedChain = proofText().replace("6".repeat(64), "not-a-hash")
+        assertTrue(runCatching { repository.importProof(ByteArrayInputStream(tamperedChain.toByteArray()), loaded) }.isFailure)
+        assertNotNull(repository.loadFor(loaded))
+        val stored = File(context.filesDir, "private-flow/" + packageId + ".crflow")
+        stored.writeText(legacy, Charsets.UTF_8)
+        assertNull(repository.loadFor(loaded))
+    }
+
+    @Test fun same_scenario_in_different_package_cannot_reuse_proof() {
+        val repository = PrivateVerifiedFlowRepository(context)
+        val other = loaded("9".repeat(64))
+        assertTrue(runCatching {
+            repository.importProof(ByteArrayInputStream(proofText().toByteArray()), other)
+        }.isFailure)
+        assertNull(repository.loadFor(other))
     }
 }

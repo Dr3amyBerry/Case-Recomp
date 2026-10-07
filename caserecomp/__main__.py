@@ -121,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof.add_argument("scenario", type=Path)
     slice_proof.add_argument("--spec", required=True, type=Path)
     slice_proof.add_argument("--observation", required=True, type=Path)
+    slice_proof.add_argument("--package-id", required=True)
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
@@ -282,6 +283,7 @@ def main(argv: list[str] | None = None) -> int:
             record = verified_flow_from_evidence(
                 load_json(args.spec), load_json(args.observation), load_json(args.comparison),
                 scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id,
+                package_id=args.package_id,
             )
             write_json_create_only(args.output, record)
         elif args.command == "slice-capture-screen":

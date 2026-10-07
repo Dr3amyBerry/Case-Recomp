@@ -7,7 +7,7 @@ from caserecomp.inspector import InspectionError
 from caserecomp.__main__ import main
 from caserecomp.vertical_slice import *
 
-H1='1'*64; H2='2'*64; H3='3'*64; H4='4'*64; H5='5'*64
+H1='1'*64; H2='2'*64; H3='3'*64; H4='4'*64; H5='5'*64; PACKAGE='9'*64
 
 def digest(value):
     return hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()).hexdigest()
@@ -74,14 +74,14 @@ class VerticalSliceTests(unittest.TestCase):
     def test_independent_comparison_can_produce_bound_flow_proof(self):
         result=compare_vertical_slice(spec(),observation())
         self.assertTrue(result['verified']); self.assertTrue(result['timing_verified'])
-        proof=verified_flow_from_comparison(result,scenario=scenario(),scene_id='room')
+        proof=verified_flow_from_comparison(result,scenario=scenario(),scene_id='room',package_id=PACKAGE)
         self.assertEqual([x['not_before_ms'] for x in proof['rules']],[100,150])
         self.assertEqual(len(proof['scenario_sha256']),64); self.assertIs(validate_verified_flow_proof(proof),proof)
 
     def test_synthetic_evidence_never_promotes_original_rules(self):
         result=compare_vertical_slice(spec(),observation('synthetic-test'))
         self.assertFalse(result['verified'])
-        with self.assertRaises(InspectionError): verified_flow_from_comparison(result,scenario=scenario(),scene_id='room')
+        with self.assertRaises(InspectionError): verified_flow_from_comparison(result,scenario=scenario(),scene_id='room',package_id=PACKAGE)
 
     def test_mismatch_semantics_and_uncontrolled_timing_fail_closed(self):
         bad=observation(); bad['stages'][2]['sprite_sha256']='0'*64
@@ -90,21 +90,21 @@ class VerticalSliceTests(unittest.TestCase):
         with self.assertRaises(InspectionError): validate_slice_observation(bad)
         no_timing=compare_vertical_slice(spec(),observation(controlled=False))
         self.assertTrue(no_timing['verified']); self.assertFalse(no_timing['timing_verified'])
-        self.assertEqual([x['not_before_ms'] for x in verified_flow_from_comparison(no_timing,scenario=scenario(),scene_id='room')['rules']],[0,0])
+        self.assertEqual([x['not_before_ms'] for x in verified_flow_from_comparison(no_timing,scenario=scenario(),scene_id='room',package_id=PACKAGE)['rules']],[0,0])
 
     def test_cli_compare_and_flow_proof(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); sp=root/'spec.json'; ob=root/'obs.json'; sc=root/'scenario.json'; cmp=root/'cmp.json'; proof=root/'flow.crflow'
             sp.write_text(json.dumps(spec()),encoding='utf-8'); ob.write_text(json.dumps(observation()),encoding='utf-8'); sc.write_text(json.dumps(scenario()),encoding='utf-8')
             self.assertEqual(main(['slice-compare',str(sp),str(ob),'--output',str(cmp)]),0)
-            self.assertEqual(main(['slice-flow-proof',str(cmp),str(sc),'--spec',str(sp),'--observation',str(ob),'--scene-id','room','--output',str(proof)]),0)
+            self.assertEqual(main(['slice-flow-proof',str(cmp),str(sc),'--spec',str(sp),'--observation',str(ob),'--package-id',PACKAGE,'--scene-id','room','--output',str(proof)]),0)
             self.assertEqual(load_json(proof)['format'],FLOW_FORMAT)
 
     def test_tampered_comparison_and_wrong_plan_binding_fail_closed(self):
         s=spec(); ob=observation(); comparison=compare_vertical_slice(s,ob)
         tampered=json.loads(json.dumps(comparison)); tampered['transitions'][1]['elapsed_ms'] += 1
         with self.assertRaises(InspectionError):
-            verified_flow_from_evidence(s,ob,tampered,scenario=scenario(),scene_id='room')
+            verified_flow_from_evidence(s,ob,tampered,scenario=scenario(),scene_id='room',package_id=PACKAGE)
 
         other=spec(); other['stages'][0]['end_frame']=8
         with self.assertRaises(InspectionError): compare_vertical_slice(other,ob)
@@ -112,10 +112,27 @@ class VerticalSliceTests(unittest.TestCase):
         broken=observation(); broken['capture_evidence']['transition_latency'][1]['samples']=1
         with self.assertRaises(InspectionError): validate_slice_observation(broken)
 
+    def test_flow_v2_requires_package_and_exact_evidence_chain(self):
+        proof=verified_flow_from_comparison(
+            compare_vertical_slice(spec(),observation()), scenario=scenario(), scene_id='room', package_id=PACKAGE,
+        )
+        self.assertEqual(proof['version'],FLOW_VERSION)
+        self.assertEqual(proof['package_id'],PACKAGE)
+        legacy=json.loads(json.dumps(proof)); legacy['version']=1
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(legacy)
+        missing=json.loads(json.dumps(proof)); del missing['evidence_chain']
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(missing)
+        extra=json.loads(json.dumps(proof)); extra['unexpected']=True
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(extra)
+        wrong=json.loads(json.dumps(proof)); wrong['rules'][0]['id']='other'
+        with self.assertRaises(InspectionError): validate_verified_flow_proof(wrong)
+        with self.assertRaises(InspectionError):
+            verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room',package_id='bad')
+
     def test_validation_and_create_only(self):
         bad=spec(); bad['stages'][1]['start_frame']=1
         with self.assertRaises(InspectionError): validate_private_slice(bad)
-        proof=verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room')
+        proof=verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room',package_id=PACKAGE)
         proof['evidence_kind']='synthetic-test'
         with self.assertRaises(InspectionError): validate_verified_flow_proof(proof)
         with tempfile.TemporaryDirectory() as td:

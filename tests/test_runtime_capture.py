@@ -63,7 +63,7 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.assertTrue(observation["controlled_timing"])
         comparison=compare_vertical_slice(self.plan,observation)
         self.assertTrue(comparison["verified"]); self.assertTrue(comparison["timing_verified"])
-        proof=verified_flow_from_comparison(comparison,scenario=scenario(),scene_id="room")
+        proof=verified_flow_from_comparison(comparison,scenario=scenario(),scene_id="room",package_id=H1)
         self.assertEqual([x["not_before_ms"] for x in proof["rules"]],[10,20])
 
     def test_without_gate_probe_navigation_can_verify_but_timing_stays_zero(self):
@@ -73,7 +73,7 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.assertFalse(observation["controlled_timing"])
         comparison=compare_vertical_slice(self.plan,observation)
         self.assertTrue(comparison["verified"]); self.assertFalse(comparison["timing_verified"])
-        proof=verified_flow_from_comparison(comparison,scenario=scenario(),scene_id="room")
+        proof=verified_flow_from_comparison(comparison,scenario=scenario(),scene_id="room",package_id=H1)
         self.assertEqual([x["not_before_ms"] for x in proof["rules"]],[0,0])
 
     def test_visual_or_source_mismatch_fails_closed(self):

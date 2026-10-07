@@ -16,7 +16,7 @@ Controlled timing is optional. Timing is promoted only when the observation expl
 
 ## .crflow proof
 
-`slice-flow-proof` emits `case-recomp-verified-flow` only after an independent-original-runtime comparison passes. The proof is bound to both the private scenario ID and canonical scenario SHA-256. It contains only generic transitions:
+`slice-flow-proof` emits `case-recomp-verified-flow` only after an independent-original-runtime comparison passes. The v2 proof is bound to the private-content package ID, private scenario ID, canonical scenario SHA-256 and the Phase 6B evidence-chain hashes. It contains only generic transitions:
 
 - MENU + start -> MAP
 - MAP + enter-scene -> SCENE
@@ -26,3 +26,20 @@ Boot is evidence-verified outside the Android state machine. Object finding, puz
 ## Current original-game status
 
 The private static plan is complete, but no independent original-runtime observation was available in this environment. Therefore the current verified original-rule count remains **0**. Android Phase 6 is intentionally fail-closed for private content without a valid `.crflow` proof.
+
+
+## Android .crflow v2 boundary
+
+Android accepts only `case-recomp-verified-flow` version 2. Version 1/legacy proofs are rejected rather than migrated because the missing package binding and evidence-chain hashes cannot be reconstructed securely from the old proof alone.
+
+The parser requires an exact schema, including:
+
+- `package_id`,
+- `scenario_id` and `scenario_sha256`,
+- `source_sha256`,
+- `evidence_chain.spec_sha256`,
+- `evidence_chain.observation_sha256`,
+- `evidence_chain.capture_consensus_sha256`,
+- exactly the two expected navigation rule IDs and shapes.
+
+The app repository verifies the proof package ID against the active `.crcontent` manifest before writing it to app-private storage and repeats that validation every time the proof is loaded. A rejected import does not replace an already-valid proof. A stale, legacy or manipulated stored proof loads as no proof, so private content falls back to the deny-all gate.

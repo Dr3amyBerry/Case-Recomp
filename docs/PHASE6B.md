@@ -40,3 +40,10 @@ Native trial handling is now fail-closed at additional boundaries:
 This protects against accidental duplication, stale files and local JSON editing. It is an integrity chain, not remote attestation: a hostile local actor controlling every private input can still fabricate private evidence. Therefore real Huntsville promotion still requires independently obtained native-projector captures and human provenance discipline.
 
 No real Huntsville capture trial has been added to the repository; original rules promoted remain **0**.
+
+
+## Android import boundary
+
+The Python proof emitted after this chain is now `.crflow` v2 and requires the target private-content `package_id`. Android independently validates the complete `evidence_chain` and package/scenario bindings before persistence and again on load.
+
+Legacy v1 proofs are intentionally not migrated. They do not contain enough information to recreate the v2 chain without weakening the fail-closed guarantee. Re-run the private evidence pipeline and explicitly generate a v2 proof instead.
