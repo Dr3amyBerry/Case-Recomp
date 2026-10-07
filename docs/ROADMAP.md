@@ -7,8 +7,9 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 1:** identify edition, installed file layout, PE projector, and Director container signatures; implement read-only hashing inventory and tests.
 - [x] **Phase 2A:** map the main XFIR movie and all 38 compressed Director cast files, parse their Afterburner indices, and validate 7,018 resources.
 - [x] **Phase 2B:** read local zlib and uncompressed resources, reconstruct ILS entries containing 80 compiled Lingo resources, implement selective extraction, tests and docs; determine unsupported SWA set.
-- [ ] **Phase 2C:** run and benchmark ProjectorRays and LibreShockwave locally; prove Lingo bytecode -> handler disassembly and media conversion on this edition. Comparison from upstream READMEs exists, but executable integration has not been verified.
-- [ ] **Phase 3:** semantic asset extraction and validation (bitmaps, alpha, scripts, fonts, text, sounds), verifiable provenance, asset import format.
+- [ ] **Phase 2C:** Real-game comparison of ProjectorRays and LibreShockwave remains pending. Phase 3 adds reproducible pinned build probes and simulated adapter tests, which are not substitutes for full-game decompilation.
+- [x] **Phase 3A:** validated `ediM` JPEG/PNG, ID3/MP3, known PCM/WAV, bytecode extraction, private manifest, SHA-256 verification, and synthetic external-tool adapters.
+- [ ] **Phase 3B:** alpha-accurate BITD/ALFA, font/text resolution, SWA decoding and full Lingo decompilation on real game files.
 - [ ] **Phase 4:** deterministic gameplay state machine and actual level/puzzle recreation from recovered scripts and data.
 - [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
@@ -24,6 +25,10 @@ Source game: Mystery Case Files: Huntsville, Spanish, RealNetworks version 1.0. 
 - **39 containers, 7,018 indexed resources, 6,989 decoded or copied**, 29 known unsupported `snd ` SWA-codec chunks.
 - **80 `Lscr`** compiled scripts in the main movie's initial load segment (not decompiled into Lingo source).
 - Detailed counts, risk assessment and commands: [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md).
+
+## Phase 3 reproducibility
+
+See [PHASE3.md](PHASE3.md). Real main-movie conversion: 165 PNG, 6 MP3, 80 raw compiled Lingo chunks, all 251 outputs verified; 29 SWA and one unknown `ediM` remain unconverted. CI requires >=90% source coverage; pinned public source build probes for upstream tools never receive game content.
 
 ## Parallel nonblocking tracks
 

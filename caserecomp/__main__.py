@@ -36,6 +36,23 @@ def main(argv: list[str] | None = None) -> int:
     verify = cmd.add_parser("verify-local", help="Validate local Director archives; no extracted output")
     verify.add_argument("source", type=Path, help="Local directory containing owned game data")
 
+    convert = cmd.add_parser("convert-local", help="Local verified JPEG/PNG/PCM extraction; proprietary files stay private")
+    convert.add_argument("source", type=Path)
+    convert.add_argument("--output", type=Path, required=True)
+    convert.add_argument("--image-format", choices=("jpg", "png"), default="jpg")
+    convert.add_argument("--include-bytecode", action="store_true", help="Raw Lscr only; not Lingo source")
+    convert.add_argument("--include-raw", action="store_true", help="Retain undecoded ALFA/BITD/XMED and metadata")
+
+    check = cmd.add_parser("verify-export", help="Verify local conversion hashes/paths against manifest")
+    check.add_argument("source", type=Path)
+
+    external = cmd.add_parser("external-export", help="Explicitly invoke a separately installed recovery tool")
+    external.add_argument("source", type=Path)
+    external.add_argument("--output", type=Path, required=True)
+    external.add_argument("--backend", choices=("projectorrays", "libreshockwave"), required=True)
+    external.add_argument("--binary", type=Path, required=True)
+    external.add_argument("--timeout", type=int, default=180)
+
     args = parser.parse_args(argv)
     try:
         if args.command == "scan":
@@ -55,6 +72,16 @@ def main(argv: list[str] | None = None) -> int:
             record = {"source_name": args.source.name, "movie_offset": offset, **archive.summary(resource_details=args.details)}
         elif args.command == "extract-movie":
             record = extract_movie(args.source, args.output)
+        elif args.command == "convert-local":
+            from .pipeline import convert_local
+            record = convert_local(args.source, args.output, image_format=args.image_format,
+                                   include_bytecode=args.include_bytecode, include_raw=args.include_raw)
+        elif args.command == "verify-export":
+            from .pipeline import verify_export
+            record = verify_export(args.source)
+        elif args.command == "external-export":
+            from .backends import run_backend
+            record = run_backend(args.backend, args.source, args.output, args.binary, timeout=args.timeout)
         elif args.command == "extract-resources":
             if any(len(tag) != 4 for tag in args.tag):
                 raise InspectionError("each --tag must be exactly four characters, e.g. 'Lscr'")

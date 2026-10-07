@@ -28,3 +28,17 @@ htmlcov/
 private*/
 local-output/
 *.dcr
+# Generated legacy game media, fixtures, recovered scripts and provenance manifests
+*.ls
+*.lsasm
+*.lscr
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+manifest.json
+.venv/
+dist/
+build/
+*.egg-info/

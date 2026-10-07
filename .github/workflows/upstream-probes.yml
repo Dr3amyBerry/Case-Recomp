@@ -1,0 +1,84 @@
+# Public synthetic-only build checks. Never include the game in GitHub Actions.
+name: Director upstream tools source build probes
+on:
+  push:
+    paths:
+      - '.github/workflows/upstream-probes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  projectorrays:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tool dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev libmpg123-dev zlib1g-dev xxd make g++
+      - name: Build pinned ProjectorRays revision (no proprietary input)
+        run: |
+          git clone --quiet https://github.com/ProjectorRays/ProjectorRays.git /tmp/projectorrays
+          cd /tmp/projectorrays
+          git checkout --detach 6f9bcebf626b43719abe2affcbbcb041d154d666
+          make -j2
+          test -x ./projectorrays
+          ldd ./projectorrays
+      - name: Synthetic fixture-only compatibility smoke (informational)
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tests.test_director import afterburner_fixture
+          Path('/tmp/synthetic.cct').write_bytes(afterburner_fixture())
+          PY
+          set +e
+          timeout 15s /tmp/projectorrays/projectorrays decompile /tmp/synthetic.cct > /tmp/pr-smoke.log 2>&1
+          result=$?
+          set -e
+          echo "Synthetic fixture decompile exit code: $result (fixture does not contain real cast members)"
+          head -n 12 /tmp/pr-smoke.log
+          echo "Build success does not imply real-game decompile success."
+  libreshockwave:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install tool dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build zlib1g-dev
+      - name: Build pinned LibreShockwave asset extractor (no proprietary input)
+        run: |
+          git clone --quiet https://github.com/LibreShockwave/LibreShockwave.git /tmp/libreshockwave
+          cd /tmp/libreshockwave
+          git checkout --detach fca530f9ef388d7ff38fa6c7117feae5bb5411c6
+          ./build.sh --generator Ninja --target libreshockwave_asset_extractor --jobs 2 --no-tests
+          test -x ./cmake-build-debug/cpp/libreshockwave_asset_extractor
+      - name: Synthetic fixture-only compatibility smoke (informational)
+        shell: bash
+        run: |
+          mkdir -p /tmp/synthetic-casts /tmp/extracted-metadata
+          python - <<'PY'
+          from pathlib import Path
+          from tests.test_director import afterburner_fixture
+          Path('/tmp/synthetic-casts/scene.cct').write_bytes(afterburner_fixture())
+          PY
+          set +e
+          timeout 15s /tmp/libreshockwave/cmake-build-debug/cpp/libreshockwave_asset_extractor /tmp/synthetic-casts /tmp/extracted-metadata > /tmp/ls-smoke.log 2>&1
+          result=$?
+          set -e
+          echo "Synthetic fixture export exit code: $result (synthetic cast lacks real assets)"
+          head -n 12 /tmp/ls-smoke.log
+          echo "No game data, extracted assets or tool outputs are uploaded."

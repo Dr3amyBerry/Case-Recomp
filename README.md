@@ -1,49 +1,59 @@
-# Case-Recomp — legacy Director-to-Android research
+# Case-Recomp — Director-to-Android static reconstruction research
 
-An independent, open-source toolkit for **offline static analysis** of a user's own licensed copy of *Mystery Case Files: Huntsville* (Spanish). Long-term goal: a functioning Android implementation that imports user-owned assets locally. **No Android app or playable APK exists yet.**
+A read-only/explicit-local-extraction toolkit for an independently obtained game installation, with the long-term goal of a playable Android port. **No working Android APK exists.** The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
 
-The repository does **not** contain the original Windows executables, cast libraries, decoded multimedia, proprietary Lingo, DRM removal, or bundled commercial content.
+## Phases
 
-## Verified progress
+- [x] **1 —** inspect PE32/projector, classify Director/XFIR containers, create reproducible source-only CI.
+- [x] **2 —** parse 39 Afterburner movie/cast archives, map and verify raw/zlib resources and initial load segment (ILS), expose create-only raw extraction.
+- [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests and verification, explicit third-party recovery adapters, expanded synthetic tests and build probes.
+- [ ] **4–8 —** reconstruct the gameplay state machine, implement Android rendering/touch/audio, import individually licensed user data locally, test on devices and build the APK.
 
-- [x] Phase 1: PE32/Director signature inspector and safe inventory.
-- [x] Phase 2A: locate and validate embedded XFIR movie and 38 CCT files; parse Afterburner `Fver`/`Fcdr`/`ABMP`/`FGEI`/`ILS`, index resources and decode zlib/raw entries.
-- [x] Phase 2B: implement CLI for read-only map / compatibility verification, create-only *local* movie and selected resource extraction, synthetic unit tests, and source-only CI.
-- [ ] Phase 2C: externally benchmark ProjectorRays and LibreShockwave on the same source; Lingo decompilation and full media decoding remain open.
-- [ ] Phase 3+: user-data importer, Android runtime, rendering, sound, gameplay, UI, and APK QA.
+## Install
 
-## Requirements
-
-- Python **3.11+**, standard library only.
-- A separately obtained, legally usable copy of the game. Do **not** place it in the Git repository or upload it to public Actions.
-
-## Run
+Python 3.11+; the base static-analysis commands use only the standard library. Image and MP3 conversion require optional local decoders:
 
 ```bash
-python -m unittest discover -s tests -v
-python -m caserecomp scan /private/game --output /private/out/inventory.json
-python -m caserecomp director-map /private/game/MysteryCaseFiles.exe
-python -m caserecomp director-map /private/game/data/01.cct --details
+python -m pip install -e '.[media]'
+python -m pip install -e '.[dev]'  # for coverage and tests
+python -m coverage run --source=caserecomp -m unittest discover -s tests -q
+python -m coverage report --fail-under=90
+```
+
+## Offline commands
+
+```bash
+python -m caserecomp scan /private/game --output /private/inventory.json
+python -m caserecomp director-map /private/game/MysteryCaseFiles.exe --details
 python -m caserecomp verify-local /private/game/data
+
+# User-selected local extraction, no overwrite, no network
+python -m caserecomp extract-movie /private/game/MysteryCaseFiles.exe --output /private/movie.dcr
+python -m caserecomp extract-resources /private/game/MysteryCaseFiles.exe --tag Lscr --output /private/compiled-chunks
+python -m caserecomp convert-local /private/game/MysteryCaseFiles.exe --output /private/converted --image-format png --include-bytecode
+python -m caserecomp verify-export /private/converted
+
+# Optional independently installed tooling; launches native code only with explicit command
+python -m caserecomp external-export /private/movie.dcr --backend libreshockwave --binary /tools/libreshockwave_asset_extractor --output /private/ls-output
+python -m caserecomp external-export /private/movie.dcr --backend projectorrays --binary /tools/projectorrays --output /private/pr-output
 ```
 
-**Optional raw extraction, locally only:**
+For a directory containing 38 casts, run `convert-local /private/game/data --output /private/casts-export --image-format png`. Output destination must be new, with an existing parent directory, **outside Git repositories and original-game folders**. For proprietary game data, use **private local paths only**; this repository's CI builds the open-source analyzer and uses entirely synthetic miniature test fixtures.
 
-```bash
-python -m caserecomp extract-movie /private/game/MysteryCaseFiles.exe --output /private/out/movie.dcr
-python -m caserecomp extract-resources /private/game/MysteryCaseFiles.exe --tag Lscr --output /private/out/scripts-raw
-python -m caserecomp extract-resources /private/game/data/01.cct --tag ALFA --id 123 --output /private/out/selected-raw
-```
+### Conversion scope and limitations
 
-Outputs are never overwritten. Resource extraction is intentionally filtered to requested IDs/tags and produces **raw binary chunks** rather than readable code or Android-ready files. The tool does not execute source binaries.
+* `ediM` JPEG images are fully decoded/validated using Pillow and written as JPEG or PNG; opaque `ALFA` masks are **not** yet applied. `BITD` and unknown member types are not invented as fake images.
+* `ediM` resources starting `ID3` can be real MP3 streams; `mutagen` checks MPEG audio metadata and the original bytes are preserved. This is not an exhaustive frame-by-frame decoder validation.
+* `snd ` members with the historical SWA compression registry remain explicitly unsupported. Known raw PCM/WAV can be validated and copied as WAV.
+* `Lscr` contains **compiled bytecode**, not readable Lingo. The `--include-bytecode` flag exports the source bytes as `.lscr`. Use separately vetted ProjectorRays or LibreShockwave for decompilation and gameplay reconstruction.
+* External adapter outputs are hashed and provenance-tracked but **not** semantically certified. Third-party tools are not sandboxed by the Python process: use trusted binaries in an OS sandbox.
 
 ## Documentation
 
-- [Reverse-engineering findings, local reproducibility, tool comparison](docs/REVERSE_ENGINEERING.md)
-- [Development roadmap and remaining decisions](docs/ROADMAP.md)
+- [Phase 3 — conversion, Lingo recovery, external-tool evaluation, test matrix](docs/PHASE3.md)
+- [Phase 2 — format reverse engineering](docs/REVERSE_ENGINEERING.md)
+- [Full roadmap and outstanding work](docs/ROADMAP.md)
 
-## Boundaries
+## Licenses and boundaries
 
-The PE scanner and Afterburner reader check sizes, resource IDs, codec types and decompression integrity. The confirmed dataset contains 7,018 Director resources across 39 containers; 6,989 are readable and **29 SWA audio resources require a separate decoder**. These are compatibility metrics, **not** gameplay coverage or decompilation fidelity.
-
-ProjectorRays is MPL-2.0 and LibreShockwave is AGPL-3.0. Neither project is vendored or included here. Any redistribution of game assets, proprietary Lingo or third-party source requires a separate rights/license assessment. This project does not provide commercial game files.
+ProjectorRays is MPL-2.0; LibreShockwave is AGPL-3.0. Neither is included here. Their source compilation is tested on GitHub using **pinned revisions and synthetic fixtures only**, and outputs are never published. ProjectorRays and LibreShockwave licensing, the user's game license, and future Android redistributions need separate review. This toolkit cannot circumvent commercial licensing, game protections, or third-party distribution rights.

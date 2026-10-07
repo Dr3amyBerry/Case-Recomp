@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caserecomp-static"
+version = "0.3.0"
+description = "Local and offline static Director/Afterburner game asset research"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "Case-Recomp contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+images = ["Pillow>=11.3,<13"]
+media = ["Pillow>=11.3,<13", "mutagen>=1.47,<2"]
+dev = ["Pillow>=11.3,<13", "mutagen>=1.47,<2", "coverage>=7.5,<8"]
+
+[project.scripts]
+caserecomp = "caserecomp.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["caserecomp*"]
