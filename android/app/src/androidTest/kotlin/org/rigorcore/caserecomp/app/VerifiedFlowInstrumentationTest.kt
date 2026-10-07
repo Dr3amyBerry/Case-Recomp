@@ -103,7 +103,7 @@ class VerifiedFlowInstrumentationTest {
         val repository = PrivateVerifiedFlowRepository(context)
         repository.importProof(ByteArrayInputStream(proofText().toByteArray()), loaded)
         assertNotNull(repository.loadFor(loaded))
-        val legacy = proofText().replace(""version":2", ""version":1")
+        val legacy = proofText().dropLast(2) + "1}"
         assertTrue(runCatching { repository.importProof(ByteArrayInputStream(legacy.toByteArray()), loaded) }.isFailure)
         assertNotNull(repository.loadFor(loaded))
         val wrongPackage = proofText("9".repeat(64))
