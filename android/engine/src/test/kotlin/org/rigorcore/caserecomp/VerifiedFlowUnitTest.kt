@@ -107,6 +107,7 @@ class VerifiedFlowUnitTest {
         assertEquals(packageId, parsed.packageId)
         assertEquals("c".repeat(64), parsed.evidenceChain.specSha256)
         assertTrue(parsed.bindingSha256.matches(Regex("[0-9a-f]{64}")))
+        assertEquals(text + "\n", VerifiedFlowProofParser.canonicalize("\n  " + text + "  \n"))
 
         fun mutated(block: (MutableMap<String, Any?>) -> Unit): String {
             val root = MiniJson.parse(text).jsonObject("root").toMutableMap()

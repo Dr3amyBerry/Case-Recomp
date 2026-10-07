@@ -114,6 +114,12 @@ object VerifiedFlowProofParser {
             rules = rules,
         )
     }
+
+    fun canonicalize(text: String): String {
+        parse(text)
+        val root = MiniJson.parse(text).jsonObject("verified-flow")
+        return MiniJson.canonical(root) + "\n"
+    }
 }
 
 interface FlowGate {

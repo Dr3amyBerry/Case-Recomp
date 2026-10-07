@@ -1,7 +1,6 @@
 package org.rigorcore.caserecomp.app
 
 import android.content.Context
-import org.rigorcore.caserecomp.MiniJson
 import org.rigorcore.caserecomp.VerifiedFlowProofParser
 import org.rigorcore.caserecomp.VerifiedFlowProofV2
 import java.io.File
@@ -21,7 +20,7 @@ class PrivateVerifiedFlowRepository(context: Context) {
 
         // Persist only the validated canonical document, never caller-controlled
         // whitespace/ordering/encoding bytes that happened to parse equivalently.
-        val canonical = MiniJson.canonical(MiniJson.parse(text).jsonObject("verified-flow")) + "\n"
+        val canonical = VerifiedFlowProofParser.canonicalize(text)
         val canonicalBytes = canonical.toByteArray(Charsets.UTF_8)
         require(canonicalBytes.size <= MAX_FLOW_PROOF_BYTES) { "canonical verified flow exceeds size cap" }
 
