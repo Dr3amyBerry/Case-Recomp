@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "org.rigorcore.caserecomp.app"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.rigorcore.caserecomp.synthetic"
