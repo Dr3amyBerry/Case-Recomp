@@ -97,3 +97,5 @@ GitHub Android CI installs the required SDK, runs JVM unit tests for `:engine` a
 ## Post-Phase-8 source provenance link
 
 A private trace plan is now accepted into a `.crcontent` package only when its `source_sha256` is present in the verified `convert-local` manifest's `source_archives` metadata. Both values originate from SHA-256 over the local Director source bytes. This creates a deterministic integrity link from conversion input to the packaged trace plan without publishing the private source or adding synthetic provenance.
+
+Historical Phase 4B private plans that predate the explicit `observation_contract` field remain accepted if their core source/step schema is valid. When the contract field is present, its generated shape is validated exactly. This preserves the existing private-plan compatibility boundary without weakening the source digest checks.

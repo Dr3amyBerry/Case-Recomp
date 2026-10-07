@@ -114,17 +114,20 @@ def build_private_trace_plan(path: Path, frames: Iterable[int] | None = None) ->
 
 
 def validate_private_plan(doc: dict) -> dict:
-    root_keys = {"format", "version", "kind", "source_sha256", "steps", "observation_contract"}
-    if not isinstance(doc, dict) or set(doc) != root_keys or doc.get("format") != FORMAT \
+    required_root = {"format", "version", "kind", "source_sha256", "steps"}
+    allowed_root = required_root | {"observation_contract"}
+    if not isinstance(doc, dict) or not required_root <= set(doc) or set(doc) - allowed_root \
+            or doc.get("format") != FORMAT \
             or isinstance(doc.get("version"), bool) or not isinstance(doc.get("version"), int) \
             or doc.get("version") != VERSION or doc.get("kind") != "private-plan" \
             or not _hash(doc.get("source_sha256")):
         raise InspectionError("invalid private trace plan")
     contract = doc.get("observation_contract")
-    if not isinstance(contract, dict) or set(contract) != {"required", "optional"} \
+    if contract is not None and (
+            not isinstance(contract, dict) or set(contract) != {"required", "optional"}
             or contract.get("required") != ["frame", "sprite_count", "sprite_sha256",
-                                            "handler_set_sha256", "observable_state_sha256"] \
-            or contract.get("optional") != ["input_kind", "event_kind"]:
+                                            "handler_set_sha256", "observable_state_sha256"]
+            or contract.get("optional") != ["input_kind", "event_kind"]):
         raise InspectionError("invalid private trace observation contract")
     steps = doc.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= MAX_STEPS:

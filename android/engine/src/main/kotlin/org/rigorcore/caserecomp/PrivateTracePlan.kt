@@ -10,9 +10,8 @@ data class PrivateTracePlanV1(
 )
 
 object PrivateTracePlanParser {
-    private val rootKeys = setOf(
-        "format", "version", "kind", "source_sha256", "steps", "observation_contract",
-    )
+    private val requiredRootKeys = setOf("format", "version", "kind", "source_sha256", "steps")
+    private val allowedRootKeys = requiredRootKeys + "observation_contract"
     private val stepKeys = setOf(
         "frame", "sprite_count", "sprite_sha256", "behavior_count", "script_count", "handler_set_sha256",
     )
@@ -33,7 +32,9 @@ object PrivateTracePlanParser {
 
     fun parse(text: String): PrivateTracePlanV1 {
         val root = MiniJson.parse(text).jsonObject("private trace plan")
-        require(root.keys == rootKeys) { "private trace plan fields" }
+        require(root.keys.containsAll(requiredRootKeys) && root.keys.all { it in allowedRootKeys }) {
+            "private trace plan fields"
+        }
         require(root["format"] == PRIVATE_TRACE_FORMAT) { "private trace plan format" }
         require(root["version"] is Long && root["version"] == PRIVATE_TRACE_VERSION.toLong()) {
             "private trace plan version"
@@ -43,13 +44,15 @@ object PrivateTracePlanParser {
         val sourceSha256 = root["source_sha256"].jsonString("source_sha256")
         require(PRIVATE_TRACE_SHA256.matches(sourceSha256)) { "private trace plan source hash" }
 
-        val contract = root["observation_contract"].jsonObject("observation_contract")
-        require(contract.keys == contractKeys) { "private trace observation contract fields" }
-        require(stringList(contract["required"], "observation_contract.required") == requiredObservationFields) {
-            "private trace required observation fields"
-        }
-        require(stringList(contract["optional"], "observation_contract.optional") == optionalObservationFields) {
-            "private trace optional observation fields"
+        root["observation_contract"]?.let { value ->
+            val contract = value.jsonObject("observation_contract")
+            require(contract.keys == contractKeys) { "private trace observation contract fields" }
+            require(stringList(contract["required"], "observation_contract.required") == requiredObservationFields) {
+                "private trace required observation fields"
+            }
+            require(stringList(contract["optional"], "observation_contract.optional") == optionalObservationFields) {
+                "private trace optional observation fields"
+            }
         }
 
         val steps = root["steps"].jsonList("steps")
