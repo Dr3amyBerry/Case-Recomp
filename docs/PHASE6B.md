@@ -105,4 +105,29 @@ A Windows run on the machine holding the owned projector produced a v1 `fixtures
 
 The pre-audit pipeline accepted these placeholders and emitted an `independent-original-runtime` observation. `slice-capture-trial` now rejects a menu/map/scene screenshot that is a single flat color while claiming an observed marker, and both trial building and validation require the four stage screenshots of a trial to be visually distinct.
 
-Result: **0 trials accepted, no consensus, no observation, no comparison, no `.crflow` v2.** The historical 25 ms / 40 ms values are discarded because no observation supports them. Phase 6 stays partial until real native-projector captures, timing probes and a private Huntsville scenario/`.crcontent` exist.
+Result for that historical run: **0 trials accepted.** The historical 25 ms / 40 ms values are discarded because no observation supports them. Phase 6 was then closed with a new native capture run, described below.
+
+
+## Native Windows closure (2026-10-07)
+
+The owned projector was run on the same Windows machine and driven through boot → menu → map → first case scene in fresh processes. Nothing below is committed except digests and aggregate facts; screenshots, scenario, `.crcontent` and `.crflow` stay private.
+
+**Stage identification from static data, not guesses.** Each stage was matched against bitmaps the owned movie places on the Score at that stage's entry frame (mean absolute RGB error, 0–255): boot frame 1 = 0.9, menu = 22.4 (button overlays), map = 10.2, scene = 18.5. The scene reached from the Case 1 map is drawn from a location cast whose member sizes match 82 sprites at Score frame 128 versus at most 1 for any other location cast. The historical plan's scene label (frame 98) is a different location, so the slice plan was regenerated with the frame-128 scene label: stages 1–67, 68–92, 93–127, 128–132.
+
+**Trials.** Two independent sessions (`native-session-3`, `native-session-4`), each a fresh projector process with measured click and visibility timestamps. Menu, map and scene contain looping animations (button art, a magnifier icon, a noise texture), so single-shot captures differ between sessions. Each stage was therefore captured as a ~4 s burst and consensus used a frame that appears byte-for-byte in both sessions (common distinct frames: boot 10, menu 42, map 1, scene 22), choosing the one closest to the static entry bitmap. The exact-pixel consensus rule was not relaxed.
+
+| Artifact | SHA-256 |
+|---|---|
+| source (projector) | `0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d` |
+| `spec_sha256` | `0d61d61842db76404f8a012d8046292f510c6f1bf813f0a3e27fdf98cf3809c1` |
+| `observation_sha256` | `d6f9ce73f9b2c46cae5ee96596462f3b88c5b669f336bbaaf31ee147d5f22b31` |
+| `capture_consensus_sha256` | `cefc7e446471938af7b43e38675253d707f42408b945b507bc7dc651e9437dd8` |
+| private `.crcontent` package ID | `769848b090498b446e5bf9ed5ab298c4775efda67f6499409f8388ec806884b8` |
+| private scenario SHA-256 | `bcfcf4f606726d8326106baf9b16aca662ceb167d24ce522bc6b8e2aa922ae61` |
+| `.crflow` v2 `binding_sha256` | `5847cb8e2734bafaaeb0fbc19a7b78fc23f82bf772271e969ebd2cfc85731667` |
+
+**Promoted rules: 2**, `MENU + start → MAP` and `MAP + enter-scene → SCENE`, both with `not_before_ms = 0`. No gate probes were measured, so `timing_verified` is false and no timing gate is promoted. The menu was observed to ignore an early click for a short period after appearing; that behavior is recorded privately but not quantified at millisecond resolution and is not promoted.
+
+**Private scenario.** One scene (Score frames 128–132, 800×600 design). Its target rectangles are the Score sprite regions present at the scene entry frame. They are structural geometry, not verified findable objects; object finding remains blocked.
+
+**Android validation (private, local emulator API 35, not in CI).** A local-only instrumented test imported the real `.crcontent` (trace-plan source = projector digest) and the v2 proof, and navigation reached SCENE only through the verified gate (deny-all without it). It rejected, without replacing the valid proof: a different source, package or scenario (all with recomputed binding), a nonexistent scene (recomputed binding), an edited evidence chain, a wrong binding and the legacy v1 proof. A correctly bound proof was refused for a package without a trace plan, and a package with a corrupted trace plan was refused at import. On the Python side, a duplicated trial, a stale comparison and a mismatched slice plan were each rejected.

@@ -25,7 +25,7 @@ Boot is evidence-verified outside the Android state machine. Object finding, puz
 
 ## Current original-game status
 
-The private static plan is complete and was re-derived byte-for-byte with current `main` on the Windows machine holding the owned projector. The only native-runtime capture set found there consisted of flat-color placeholder screenshots reused across both trials (see [Phase 6B audit](PHASE6B.md#audit-of-the-2026-10-07-windows-run-historical-branch-featphase6-vertical-slice-flow)), so no independent original-runtime observation exists. The current verified original-rule count remains **0**. Android Phase 6 is intentionally fail-closed for private content without a valid `.crflow` proof.
+The private static plan was re-derived with current `main` on the Windows machine holding the owned projector, with the scene stage set to the location actually reached from the Case 1 map (Score frames 128–132). Two independent native-projector sessions reached exact visual consensus, the comparison verified, and a private `.crflow` v2 bound to a private Huntsville `.crcontent` with trace plan was generated and validated on Android. Verified original navigation rules: **2** (MENU → MAP, MAP → SCENE), with no timing gate (`not_before_ms = 0`). The earlier placeholder capture set was rejected; see [Phase 6B](PHASE6B.md#native-windows-closure-2026-10-07). The proof stays private because it names an original scene marker.
 
 
 ## Android .crflow v2 boundary

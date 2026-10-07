@@ -9,7 +9,7 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests, KEY* cast/alpha relationships, verified raw/PackBits ALFA composition, true-color BITD decoding, explicit third-party recovery adapters and reproducible tests.
 - [x] **4 —** close indexed BITD fidelity, parse Score/cast/timeline structure, define scenario-v1, add fail-closed private behavior traces and expand the deterministic Kotlin runtime.
 - [x] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests.
-- [~] **6 —** boot/menu/map/scene is structurally mapped and Phase 6B adds repeated native-projector screenshot/timing capture; `.crflow` remains fail-closed until those independent observations match. 0 original rules promoted; the first Windows capture run was audited and rejected (placeholder screenshots).
+- [x] **6 —** boot/menu/map/scene verified against two independent native-projector sessions; a private `.crflow` v2 promotes 2 navigation rules (no timing gate). The earlier placeholder capture run was audited and rejected.
 - [x] **7 —** API 26/33/36 emulator QA, lifecycle/persistence, corruption/migration, low-memory/audio interruption and deterministic performance guardrails.
 - [x] **8 —** controlled synthetic debug APK, same-run byte reproducibility evidence, CycloneDX/provenance, external ADB process-kill/upgrade/save-backup QA and API 26/33/36 emulator validation; no production release/signing.
 
