@@ -87,5 +87,7 @@ class VerifiedFlowInstrumentationTest {
         }
         assertEquals(Screen.SCENE, runtime.session.screen)
         assertTrue(File(context.filesDir, "private-flow/" + manifest.packageId + ".crflow").isFile)
+        assertTrue(repository.clearFor(loaded))
+        assertEquals(null, repository.loadFor(loaded))
     }
 }

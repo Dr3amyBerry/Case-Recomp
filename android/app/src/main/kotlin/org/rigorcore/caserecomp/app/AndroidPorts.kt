@@ -12,6 +12,17 @@ class AndroidMonotonicClock : GameClock {
 
 class SharedPreferencesSlotSessionStore(context: Context) : SlotSessionStore {
     private val preferences = context.getSharedPreferences("case-recomp-session-slots", Context.MODE_PRIVATE)
+    private val legacy = context.getSharedPreferences("case-recomp-session", Context.MODE_PRIVATE)
+
+    init {
+        if (!preferences.contains("slot.autosave")) {
+            legacy.getString("snapshot", null)?.let { encoded ->
+                if (preferences.edit().putString("slot.autosave", encoded).commit()) {
+                    legacy.edit().remove("snapshot").commit()
+                }
+            }
+        }
+    }
     private fun key(slot: String): String { require(slot.matches(Regex("[A-Za-z0-9._-]{1,64}"))); return "slot.$slot" }
     override fun load(slot: String): String? = preferences.getString(key(slot), null)
     override fun save(slot: String, encoded: String) { preferences.edit().putString(key(slot), encoded).commit() }

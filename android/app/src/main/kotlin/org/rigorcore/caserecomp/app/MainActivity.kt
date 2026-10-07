@@ -18,6 +18,7 @@ class MainActivity : Activity() {
     private lateinit var contentRepository: PrivateContentRepository
     private lateinit var flowRepository: PrivateVerifiedFlowRepository
     private var loadedContent: LoadedPrivateContent? = null
+    private var bitmapLoader: BitmapAssetLoader = NoopBitmapAssetLoader
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,7 +29,7 @@ class MainActivity : Activity() {
         val scenario = content?.scenario ?: SyntheticContent.scenario()
         val packageId = content?.manifest?.packageId ?: sha256Hex("synthetic-shell-v1")
         val slots = SharedPreferencesSlotSessionStore(this)
-        val audio = content?.let(::LifecycleMediaAudioPort) ?: NoopAudioPort
+        val audio = content?.let { LifecycleMediaAudioPort(this, it) } ?: NoopAudioPort
         val proof = content?.let(flowRepository::loadFor)
         val flowGate = when {
             content == null -> AllowAllFlowGate
@@ -44,7 +45,7 @@ class MainActivity : Activity() {
             flowGate,
         )
         runtime.onCreate()
-        val bitmapLoader = content?.let(::AppPrivateBitmapAssetLoader) ?: NoopBitmapAssetLoader
+        bitmapLoader = content?.let(::AppPrivateBitmapAssetLoader) ?: NoopBitmapAssetLoader
         gameView = GameShellView(this, runtime, content, bitmapLoader)
         gameView.setOnLongClickListener {
             if (loadedContent == null) requestPrivateContentImport() else requestVerifiedFlowImport()
@@ -113,6 +114,11 @@ class MainActivity : Activity() {
     override fun onResume() { super.onResume(); runtime.onResume(); gameView.invalidate() }
     override fun onPause() { runtime.onPause(); super.onPause() }
     override fun onStop() { runtime.onStop(); super.onStop() }
+    override fun onTrimMemory(level: Int) {
+        (bitmapLoader as? MemoryAwareBitmapAssetLoader)?.onTrimMemory(level)
+        super.onTrimMemory(level)
+    }
+
     override fun onDestroy() { runtime.onDestroy(); super.onDestroy() }
 
     companion object {

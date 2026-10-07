@@ -89,4 +89,44 @@ class RuntimeUnitTest {
         assertEquals(observer.encode(), observer.encode())
     }
 
+    @Test fun legacy_v0_snapshot_migrates_and_corrupt_data_fails_closed() {
+        fun sha(value: String): String = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+        val body = listOf(
+            "case-recomp-session-v0",
+            "scenario=unit",
+            "screen=SCENE",
+            "selected=room",
+            "frame=6",
+            "found.room=a",
+        ).joinToString("\n")
+        val migrated = SessionSnapshotCodecV1.decode(body + "\nsha256=" + sha(body) + "\n")
+        assertNotNull(migrated)
+        assertEquals(0L, migrated!!.savedAtMillis)
+        assertEquals(Screen.SCENE, migrated.screen)
+        assertEquals(setOf("a"), migrated.foundByScene["room"])
+        assertNull(SessionSnapshotCodecV1.decode(body + "\nsha256=" + "0".repeat(64) + "\n"))
+        assertNull(SessionSnapshotCodecV1.decode("case-recomp-session-v99\n"))
+    }
+
+    @Test fun audio_interruptions_are_forwarded_without_changing_game_state() {
+        class Audio : InterruptibleAudioPort {
+            val calls = mutableListOf<String>()
+            override fun play(cue: AudioCue) { calls += "play" }
+            override fun onResume() { calls += "resume" }
+            override fun onPause() { calls += "pause" }
+            override fun onDestroy() { calls += "destroy" }
+            override fun onInterruptionStart() { calls += "interrupt-start" }
+            override fun onInterruptionEnd() { calls += "interrupt-end" }
+        }
+        val audio = Audio()
+        val runtime = GameRuntime(scenario(), DeterministicClock(), InMemorySessionStore(), audio)
+        runtime.onCreate(); runtime.onStart(); runtime.onResume()
+        val before = runtime.session
+        runtime.onAudioInterruptionStart()
+        runtime.onAudioInterruptionEnd()
+        assertEquals(before, runtime.session)
+        assertTrue(audio.calls.containsAll(listOf("interrupt-start", "interrupt-end")))
+    }
+
 }

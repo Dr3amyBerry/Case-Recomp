@@ -72,7 +72,18 @@ class PrivateContentRepository(private val context: Context) {
             }
             val finalDir = File(packages, manifest.packageId)
             if (finalDir.exists()) {
-                staging.deleteRecursively()
+                val existingValid = runCatching { loadPackage(finalDir) }.isSuccess
+                if (existingValid) {
+                    staging.deleteRecursively()
+                } else {
+                    val damaged = File(packages, manifest.packageId + ".damaged-" + System.nanoTime())
+                    require(finalDir.renameTo(damaged)) { "cannot quarantine damaged private package" }
+                    if (!staging.renameTo(finalDir)) {
+                        damaged.renameTo(finalDir)
+                        error("cannot replace damaged private package")
+                    }
+                    damaged.deleteRecursively()
+                }
             } else {
                 require(staging.renameTo(finalDir)) { "cannot commit private content import" }
             }
@@ -102,6 +113,15 @@ class PrivateContentRepository(private val context: Context) {
         require(scenarioFile.inputStream().use { digest(it) } == manifest.scenarioSha256)
         val scenario = ScenarioJsonV1.parse(scenarioFile.readText(Charsets.UTF_8))
         require(scenario.id == manifest.scenarioId)
+        manifest.assets.forEach { asset ->
+            val file = checkedFile(root, asset.path)
+            require(file.length() == asset.bytes) { "stored asset size mismatch" }
+            require(file.inputStream().use { digest(it) } == asset.sha256) { "stored asset hash mismatch" }
+        }
+        manifest.tracePlanPath?.let { path ->
+            val file = checkedFile(root, path)
+            require(file.inputStream().use { digest(it) } == manifest.tracePlanSha256) { "stored trace-plan hash mismatch" }
+        }
         return LoadedPrivateContent(manifest, scenario, root)
     }
 

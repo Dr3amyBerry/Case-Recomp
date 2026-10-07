@@ -41,6 +41,11 @@ interface LifecycleAudioPort : AudioPort {
     fun onDestroy()
 }
 
+interface InterruptibleAudioPort : LifecycleAudioPort {
+    fun onInterruptionStart()
+    fun onInterruptionEnd()
+}
+
 object NoopAudioPort : AudioPort {
     override fun play(cue: AudioCue) = Unit
 }
@@ -113,6 +118,7 @@ class InMemorySessionStore(initial: String? = null) : SessionStore {
 
 object SessionSnapshotCodecV1 {
     private const val HEADER = "case-recomp-session-v1"
+    private const val LEGACY_HEADER = "case-recomp-session-v0"
 
     private fun esc(value: String): String = URLEncoder.encode(value, "UTF-8")
     private fun unesc(value: String): String = URLDecoder.decode(value, "UTF-8")
@@ -139,7 +145,9 @@ object SessionSnapshotCodecV1 {
     fun decode(encoded: String): SessionSnapshotV1? {
         val normalized = encoded.removeSuffix("\n")
         val lines = normalized.lines()
-        if (lines.size < 7 || lines.firstOrNull() != HEADER) return null
+        val header = lines.firstOrNull() ?: return null
+        val legacy = header == LEGACY_HEADER
+        if ((!legacy && header != HEADER) || lines.size < if (legacy) 6 else 7) return null
         val checksumRow = lines.last()
         if (!checksumRow.startsWith("sha256=")) return null
         val body = lines.dropLast(1).joinToString("\n")
@@ -158,7 +166,7 @@ object SessionSnapshotCodecV1 {
             val selectedRaw = values.getValue("selected")
             val selected = if (selectedRaw == "-") null else unesc(selectedRaw)
             val frame = values.getValue("frame").toInt()
-            val savedAt = values.getValue("savedAt").toLong()
+            val savedAt = if (legacy) 0L else values.getValue("savedAt").toLong()
             val found = values.filterKeys { it.startsWith("found.") }.map { (key, value) ->
                 val scene = unesc(key.removePrefix("found."))
                 val ids = if (value.isEmpty()) emptySet() else value.split(',').map(::unesc).toSet()
@@ -345,6 +353,14 @@ class GameRuntime(
     fun clearProgress() {
         store.clear()
         session = Session()
+    }
+
+    fun onAudioInterruptionStart() {
+        (audio as? InterruptibleAudioPort)?.onInterruptionStart()
+    }
+
+    fun onAudioInterruptionEnd() {
+        (audio as? InterruptibleAudioPort)?.onInterruptionEnd()
     }
 
     private fun restoreOrFresh(): Session {

@@ -1,5 +1,6 @@
 package org.rigorcore.caserecomp.app
 
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -48,7 +49,8 @@ class PrivateContentInstrumentationTest {
 
         val imageId = loaded.manifest.assets.first { it.mediaType == "image/png" }.id
         assertNotNull(loaded.fileForAsset(imageId))
-        assertNotNull(AppPrivateBitmapAssetLoader(loaded).load(imageId))
+        val bitmapLoader = AppPrivateBitmapAssetLoader(loaded)
+        assertNotNull(bitmapLoader.load(imageId))
 
         val slots = SharedPreferencesSlotSessionStore(context)
         slots.save("slot-1", "one"); slots.save("slot-2", "two")
@@ -76,6 +78,18 @@ class PrivateContentInstrumentationTest {
         assertTrue(android.graphics.Color.red(red) > android.graphics.Color.blue(red))
         assertTrue(observer.file.canonicalPath.startsWith(context.filesDir.canonicalPath))
         assertTrue(observer.file.readText().contains("\"promotion_allowed\":false"))
+
+        val assetFile = loaded.fileForAsset(imageId)!!
+        assetFile.writeBytes(byteArrayOf(1, 2, 3, 4))
+        assertNotNull(bitmapLoader.load(imageId))
+        bitmapLoader.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)
+        assertEquals(null, bitmapLoader.load(imageId))
+
+        val reloaded = repository.importBundle(ByteArrayInputStream(bytes))
+        assertEquals(loaded.manifest.packageId, reloaded.manifest.packageId)
+        assertTrue(repository.clearActive(removeFiles = true))
+        assertEquals(null, repository.loadActive())
+        assertTrue(!loaded.root.exists())
     }
 
     @Test fun importer_rejects_asset_hash_mismatch_without_activating_package() {

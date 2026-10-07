@@ -40,7 +40,10 @@ class PrivateVerifiedFlowRepository(context: Context) {
         }.getOrNull()
     }
 
-    fun clearFor(content: LoadedPrivateContent) { fileFor(content).delete() }
+    fun clearFor(content: LoadedPrivateContent): Boolean {
+        val file = fileFor(content)
+        return !file.exists() || file.delete()
+    }
 
     private fun requireBound(proof: VerifiedFlowProofV1, content: LoadedPrivateContent) {
         require(proof.scenarioId == content.scenario.id) { "verified flow scenario mismatch" }
