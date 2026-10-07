@@ -86,3 +86,23 @@ Android now parses and validates the packaged Phase 4B `trace-plan.json` rather 
 A `.crflow` can be imported or recovered only when the active `.crcontent` contains such a validated trace plan and `crflow.source_sha256 == trace-plan.source_sha256`.
 
 The trace-plan file hash is already bound into the `.crcontent` manifest and package ID, while the `.crflow` is independently bound to that package ID. Combined with the packager-side check against `convert-local source_archives[].sha256`, this closes the local source-integrity chain without adding invented provenance. A content package without a trace plan remains usable for private media/scenario loading but cannot unlock verified original navigation.
+
+
+## Audit of the 2026-10-07 Windows run (historical branch `feat/phase6-vertical-slice-flow`)
+
+A Windows run on the machine holding the owned projector produced a v1 `fixtures/vertical-slice.crflow` claiming two promoted rules (MENU → MAP at 25 ms, MAP → SCENE at 40 ms). That proof was **not** merged. Re-auditing its private inputs against current `main` gave:
+
+| Link | Result |
+|---|---|
+| Projector SHA-256 | `0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d`, genuine owned file |
+| `convert-local source_archives[0].sha256` → `trace-plan.source_sha256` → `slice-plan.source_sha256` | all equal the projector digest |
+| Slice plan regenerated with current `main` | byte-identical to the historical plan (static ranges 1–67, 68–92, 93–97, 98–102 confirmed) |
+| Native screenshots | **not native captures**: each of the four PNGs is one flat RGB color over 800×600, written within 25 ms of each other |
+| Capture trials | 2 files, but both reference the same four PNGs; the second input equals the first except for its trial ID and +1 ms on each `visible_at_ms` |
+| Gate probes | identical hand-authored 24/25 ms and 39/40 ms values in both inputs; no probing log or capture record exists |
+| Scenario binding | `synthetic-phase4` / `room-a`, the canonical hash of the public `fixtures/synthetic-scenario-v1.json`, not a private Huntsville scenario |
+| Private Huntsville `.crcontent` / package ID | none exists |
+
+The pre-audit pipeline accepted these placeholders and emitted an `independent-original-runtime` observation. `slice-capture-trial` now rejects a menu/map/scene screenshot that is a single flat color while claiming an observed marker, and both trial building and validation require the four stage screenshots of a trial to be visually distinct.
+
+Result: **0 trials accepted, no consensus, no observation, no comparison, no `.crflow` v2.** The historical 25 ms / 40 ms values are discarded because no observation supports them. Phase 6 stays partial until real native-projector captures, timing probes and a private Huntsville scenario/`.crcontent` exist.

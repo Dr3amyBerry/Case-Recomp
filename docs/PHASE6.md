@@ -25,7 +25,7 @@ Boot is evidence-verified outside the Android state machine. Object finding, puz
 
 ## Current original-game status
 
-The private static plan is complete, but no independent original-runtime observation was available in this environment. Therefore the current verified original-rule count remains **0**. Android Phase 6 is intentionally fail-closed for private content without a valid `.crflow` proof.
+The private static plan is complete and was re-derived byte-for-byte with current `main` on the Windows machine holding the owned projector. The only native-runtime capture set found there consisted of flat-color placeholder screenshots reused across both trials (see [Phase 6B audit](PHASE6B.md#audit-of-the-2026-10-07-windows-run-historical-branch-featphase6-vertical-slice-flow)), so no independent original-runtime observation exists. The current verified original-rule count remains **0**. Android Phase 6 is intentionally fail-closed for private content without a valid `.crflow` proof.
 
 
 ## Android .crflow v2 boundary
