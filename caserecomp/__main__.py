@@ -125,6 +125,12 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
+    scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
+    scene_proof.add_argument("observation", type=Path)
+    scene_proof.add_argument("scenario", type=Path)
+    scene_proof.add_argument("--package-id", required=True)
+    scene_proof.add_argument("--output", required=True, type=Path)
+
     capture_screen = cmd.add_parser("slice-capture-screen", help="Capture one private PNG, or a private desktop burst, from the native projector")
     capture_screen.add_argument("--output", required=True, type=Path,
                                 help="New PNG normally; new directory with --burst")
@@ -287,6 +293,17 @@ def main(argv: list[str] | None = None) -> int:
             record = verified_flow_from_evidence(
                 load_json(args.spec), load_json(args.observation), load_json(args.comparison),
                 scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id,
+                package_id=args.package_id,
+            )
+            write_json_create_only(args.output, record)
+        elif args.command == "scene-proof":
+            from .verified_scene import verified_scene_from_observation
+            from .vertical_slice import load_json, load_scenario_for_proof, write_json_create_only
+            from .pipeline import guard_destination
+            for source in (args.observation, args.scenario):
+                guard_destination(source, args.output)
+            record = verified_scene_from_observation(
+                load_json(args.observation), scenario=load_scenario_for_proof(args.scenario),
                 package_id=args.package_id,
             )
             write_json_create_only(args.output, record)

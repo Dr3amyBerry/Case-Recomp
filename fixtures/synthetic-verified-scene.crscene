@@ -1,0 +1,55 @@
+{
+  "binding_sha256": "a78b869b412025c3b5e674407ad353ebbdc3b5d193c1efbff6c469568171de29",
+  "evidence_chain": {
+    "observation_sha256": "9e4301417850ec4ea13e2e367f2f0b155f316c1795a3da9ae0c7c5d2a152a447",
+    "trial_set_sha256": "d2e2df0075da021fe8723c4a8ce5b302a655d15c4f050e026a0f0d7c34fe41e0"
+  },
+  "evidence_kind": "independent-original-runtime",
+  "format": "case-recomp-verified-scene",
+  "package_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "rules": {
+    "completion": {
+      "acknowledge_region": [
+        25,
+        25,
+        35,
+        35
+      ],
+      "kind": "acknowledge-then-map",
+      "locks_scene": true
+    },
+    "counter_start": 5,
+    "find_effect": {
+      "counter_delta": -1,
+      "hide_target": true
+    },
+    "miss_effect": "none"
+  },
+  "scenario_id": "synthetic-scene-proof",
+  "scenario_sha256": "7fb53ee6fad110b1acba138284e2660786ff3683b2e8782e771f0e6d39013be9",
+  "scene_id": "room",
+  "source_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+  "targets": [
+    {
+      "id": "dot",
+      "mask": {
+        "bits": "4OA=",
+        "height": 2,
+        "left": 40,
+        "top": 30,
+        "width": 3
+      }
+    },
+    {
+      "id": "ring",
+      "mask": {
+        "bits": "/8CAQIBAgECAQIBAgECAQIBA/8A=",
+        "height": 10,
+        "left": 4,
+        "top": 4,
+        "width": 10
+      }
+    }
+  ],
+  "version": 1
+}
