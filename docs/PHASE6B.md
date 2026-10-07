@@ -1,6 +1,6 @@
 # Phase 6B — native runtime capture consensus
 
-The repository can now prepare and ingest a private second-source observation from the original native projector. This environment cannot execute that Windows projector (Wine is unavailable), so no Huntsville `.crflow` is claimed here.
+Phase 6 is **closed**. Two independent native Windows projector sessions were accepted and a private Huntsville `.crflow` v2 promotes **2 navigation rules**. The earlier placeholder attempt was rejected; it is preserved below as historical audit evidence. Gameplay inside the first scene is the next phase.
 
 ## Capture pipeline
 
@@ -30,7 +30,7 @@ python -m caserecomp slice-capture-screen --burst --count 240 --interval-ms 16 `
 
 ## Current status
 
-The private static Huntsville ranges remain 1–67, 68–92, 93–97 and 98–102. Because no native-projector screenshots were captured in this environment, original rules promoted in this run remain **0**.
+The accepted Windows run uses ranges 1-67, 68-92, 93-127 and 128-132. MENU to MAP and MAP to SCENE are verified, both with `not_before_ms = 0`. No timing gate or hidden-object interaction was promoted by Phase 6. See the native Windows closure below for the accepted evidence and digests.
 
 
 ## Post-Phase-8 hardening
@@ -50,7 +50,7 @@ Native trial handling is now fail-closed at additional boundaries:
 
 This protects against accidental duplication, stale files and local JSON editing. It is an integrity chain, not remote attestation: a hostile local actor controlling every private input can still fabricate private evidence. Therefore real Huntsville promotion still requires independently obtained native-projector captures and human provenance discipline.
 
-No real Huntsville capture trial has been added to the repository; original rules promoted remain **0**.
+Real Huntsville captures and proofs remain private, outside the repository. The accepted private run promotes **2 navigation rules**; public tests contain synthetic evidence only.
 
 
 ## Android import boundary

@@ -6,7 +6,7 @@ Phase 6 narrows gameplay reconstruction to one private flow: boot, menu, map and
 
 `slice-plan` hashes the entry sprite state and the set of compiled handlers structurally linked through Score/CAS*/CASt/Lscr for four stages selected by **user-supplied private marker names**. Marker names are never emitted; only their hashes are retained.
 
-Private validation on the owned Spanish Huntsville movie produced four ordered ranges: frames 1–67, 68–92, 93–97 and 98–102. Entry sprite counts are 1, 19, 61 and 95; linked script counts are 0, 15, 18 and 17. These facts do not prove navigation semantics.
+The historical static plan used frames 1-67, 68-92, 93-97 and 98-102. It was superseded by the accepted Windows run: frames 1-67, 68-92, 93-127 and 128-132, selecting the scene actually reached from the Case 1 map. Static structure alone does not prove navigation semantics; the accepted run also supplies independent runtime evidence.
 
 ## Independent observation requirement
 
