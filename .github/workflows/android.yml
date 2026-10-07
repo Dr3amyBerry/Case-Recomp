@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [26, 33, 36]
+        api-level: [26]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,8 +73,8 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: bash ../tools/phase8_emulator_qa.sh "$PHASE8_API"
-      - name: Upload API 33 external runtime metrics
-        if: matrix.api-level == 33 && always()
+      - name: Upload API 26 external runtime metrics
+        if: matrix.api-level == 26 && always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: case-recomp-phase8-runtime-metrics-${{ github.sha }}

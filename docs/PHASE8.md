@@ -8,7 +8,7 @@ The artifact bundle contains the debug APK, SHA-256 checksum, build provenance, 
 
 ## External emulator QA
 
-An API 33 external ADB harness runs outside the instrumentation process. It measures cold start, captures meminfo/gfxinfo, force-stops and relaunches the app to verify process-kill persistence, performs an in-place `adb install -r` upgrade and verifies the synthetic save remains, and performs a deliberate save-slot-only backup/restore using `run-as`.
+An API 26 external ADB harness runs outside the instrumentation process. It measures cold start, captures meminfo/gfxinfo, force-stops and relaunches the app to verify process-kill persistence, performs an in-place `adb install -r` upgrade and verifies the synthetic save remains, and performs a deliberate save-slot-only backup/restore using `run-as`.
 
 OS/cloud backup intentionally remains disabled because app-private imports can contain locally owned commercial game media. The backup/restore test therefore covers only the synthetic save-slot file.
 
@@ -24,3 +24,7 @@ These are emulator guardrails, not production promises. Real-device budgets requ
 ## Release boundary
 
 No release variant, release signing, store upload or production artifact is generated. Huntsville remains fail-closed without native-projector capture consensus and a matching private `.crflow`.
+
+## Emulator scope
+
+Phase 8 runtime metrics use API 26 because repeated GitHub-hosted API 33/36 emulator boots failed before ADB/test execution in this phase. Phase 7 retains a fully green API 26/33/36 instrumentation run as compatibility evidence; Phase 8 still compiles and targets SDK 36. This is an infrastructure boundary, not a bypass of failed product tests.
