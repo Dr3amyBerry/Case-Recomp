@@ -16,7 +16,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--apk",required=True); p.add_argument("--baseline-apk",required=True)
     p.add_argument("--output",required=True); p.add_argument("--git-sha",required=True)
-    p.add_argument("--commit-timestamp",required=True); p.add_argument("--first-build-sha")
+    p.add_argument("--commit-timestamp",required=True); p.add_argument("--first-build-sha",required=True)
     a=p.parse_args()
     apk=pathlib.Path(a.apk); baseline=pathlib.Path(a.baseline_apk)
     out=pathlib.Path(a.output); out.mkdir(parents=True,exist_ok=True)
@@ -24,7 +24,7 @@ def main():
     with zipfile.ZipFile(apk) as z:
         entries=sorted((i.filename,i.file_size,i.CRC) for i in z.infolist())
     entry_digest=hashlib.sha256(json.dumps(entries,separators=(",",":")).encode()).hexdigest()
-    reproducible=(not a.first_build_sha) or a.first_build_sha==digest
+    reproducible=a.first_build_sha==digest
     baseline_record=apk_record(baseline,"case-recomp-synthetic-baseline.apk",7)
     candidate_record=apk_record(apk,"case-recomp-synthetic-debug.apk",8)
     provenance={
@@ -32,7 +32,7 @@ def main():
       "subject":[candidate_record],
       "builder":{"id":"github-actions/android.yml:package-debug"},
       "invocation":{"variant":"debug","release_variant_enabled":False,"production_signing_configured":False},
-      "materials":[{"uri":"git+https://github.com/Dr3amyBerry/Case-Recomp","digest":{"sha256":a.git_sha}}],
+      "materials":[{"uri":"git+https://github.com/Dr3amyBerry/Case-Recomp","digest":{"sha1":a.git_sha}}],
       "git_sha":a.git_sha,"commit_timestamp":a.commit_timestamp,
       "artifact":{**candidate_record,"zip_entry_manifest_sha256":entry_digest},
       "upgrade_baseline":baseline_record,
@@ -40,7 +40,7 @@ def main():
       "reproducible_same_revision":reproducible,
       "contains_original_game_assets":False
     }
-    app_ref="pkg:generic/case-recomp-synthetic-debug@0.5.0-phase8-debug?type=apk"
+    app_version="0.5.0-phase8-debug-debug"\n    app_ref=f"pkg:generic/case-recomp-synthetic-debug@{app_version}?type=apk"
     engine_ref="pkg:generic/case-recomp-engine@0.8-phase8"
     sdk_ref="pkg:generic/android-sdk@36"
     sbom={
@@ -50,7 +50,7 @@ def main():
           {"type":"application","name":"Gradle","version":"9.6.0"},
           {"type":"application","name":"Android Gradle Plugin","version":"9.4.1"},
           {"type":"application","name":"JDK","version":"17"}]},
-        "component":{"bom-ref":app_ref,"type":"application","name":"case-recomp-synthetic-debug","version":"0.5.0-phase8-debug-debug",
+        "component":{"bom-ref":app_ref,"type":"application","name":"case-recomp-synthetic-debug","version":app_version,
           "hashes":[{"alg":"SHA-256","content":digest}],
           "properties":[{"name":"caserecomp:containsOriginalGameAssets","value":"false"},
                         {"name":"caserecomp:releaseVariantEnabled","value":"false"}]}},
