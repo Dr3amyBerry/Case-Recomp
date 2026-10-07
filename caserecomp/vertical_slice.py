@@ -156,6 +156,18 @@ def validate_slice_observation(doc: Any) -> dict:
         raise InspectionError("invalid vertical-slice observation")
     if doc.get("evidence_kind") not in {"independent-original-runtime", "synthetic-test"}:
         raise InspectionError("unsupported vertical-slice evidence kind")
+    if doc.get("evidence_kind") == "independent-original-runtime":
+        capture = doc.get("capture_evidence")
+        if not isinstance(capture, dict) or capture.get("format") != "case-recomp-native-capture-consensus" \
+                or capture.get("version") != 1 or capture.get("runtime_kind") != "native-projector":
+            raise InspectionError("independent observation requires native capture consensus")
+        if not isinstance(capture.get("trial_count"), int) or capture["trial_count"] < 2 \
+                or capture.get("visual_consensus") is not True or capture.get("static_fingerprints_bound") is not True:
+            raise InspectionError("independent observation lacks repeated visual consensus")
+        stage_pixels = capture.get("stage_pixel_sha256")
+        if not isinstance(stage_pixels, dict) or set(stage_pixels) != set(STAGES) \
+                or any(not _is_hash(value) for value in stage_pixels.values()):
+            raise InspectionError("invalid native capture stage pixel hashes")
     stages = doc.get("stages")
     if not isinstance(stages, list) or [x.get("id") if isinstance(x, dict) else None for x in stages] != list(STAGES):
         raise InspectionError("invalid observed stages")
@@ -191,7 +203,9 @@ def compare_vertical_slice(spec: dict, observation: dict) -> dict:
         checks.append({"id": expected["id"], "verified": not reasons, "reasons": reasons,
                        "observable_state_sha256": actual["observable_state_sha256"]})
     structural = all(row["verified"] for row in checks)
-    independent = observation["evidence_kind"] == "independent-original-runtime"
+    capture = observation.get("capture_evidence", {})
+    independent = observation["evidence_kind"] == "independent-original-runtime" \
+        and capture.get("visual_consensus") is True and capture.get("trial_count", 0) >= 2
     verified = structural and independent
     return {
         "format": COMPARE_FORMAT, "version": VERSION, "source_sha256": spec["source_sha256"],

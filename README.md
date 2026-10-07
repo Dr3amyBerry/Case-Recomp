@@ -9,7 +9,7 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **3 —** JPEG-to-JPEG/PNG and ID3/MP3 conversion, known PCM/WAV validation, bytecode export, local SHA-256 manifests, KEY* cast/alpha relationships, verified raw/PackBits ALFA composition, true-color BITD decoding, explicit third-party recovery adapters and reproducible tests.
 - [x] **4 —** close indexed BITD fidelity, parse Score/cast/timeline structure, define scenario-v1, add fail-closed private behavior traces and expand the deterministic Kotlin runtime.
 - [x] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests.
-- [~] **6 —** one boot/menu/map/scene vertical slice is structurally mapped; `.crflow` promotion is fail-closed until an independent original-runtime observation matches the private fingerprints.
+- [~] **6 —** boot/menu/map/scene is structurally mapped and Phase 6B adds repeated native-projector screenshot/timing capture; `.crflow` remains fail-closed until those independent observations match.
 - [ ] **7–8 —** device QA, performance and controlled APK packaging.
 
 ## Install
@@ -45,6 +45,9 @@ python -m caserecomp private-content-verify /private/game.crcontent
 python -m caserecomp slice-plan /private/game/MysteryCaseFiles.exe --menu-label PRIVATE_MENU --map-label PRIVATE_MAP --scene-label PRIVATE_SCENE --output /private/slice.json
 python -m caserecomp slice-compare /private/slice.json /private/original-runtime-observation.json --output /private/slice-compare.json
 python -m caserecomp slice-flow-proof /private/slice-compare.json /private/scenario.json --scene-id room-1 --output /private/verified.crflow
+python -m caserecomp slice-capture-screen --output /private/menu.png --bbox 100 100 900 700
+python -m caserecomp slice-capture-trial /private/slice.json /private/trial-input.json --runtime-binary /private/MysteryCaseFiles.exe --output /private/trial-1.json
+python -m caserecomp slice-capture-finalize /private/slice.json /private/trial-1.json /private/trial-2.json --output /private/original-runtime-observation.json
 
 # Optional independently installed tooling; launches native code only with explicit command
 python -m caserecomp external-export /private/movie.dcr --backend libreshockwave --binary /tools/libreshockwave_asset_extractor --output /private/ls-output
@@ -64,6 +67,8 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Phase 6B — native runtime capture consensus](docs/PHASE6B.md)
+- [Phase 7 QA preparation](docs/PHASE7_QA.md)
 - [Phase 6 — fail-closed verified vertical slice and `.crflow` proof](docs/PHASE6.md)
 - [Phase 5 — private local content import, asset catalog, slots and emulator tests](docs/PHASE5.md)
 - [Phase 4B — private behavior traces, deterministic persistence and Android shell](docs/PHASE4B.md)

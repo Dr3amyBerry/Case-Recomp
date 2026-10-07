@@ -19,9 +19,14 @@ def spec():
       'transitions':[{'from':a,'to':b,'verification':'static-only'} for a,b in TRANSITIONS]}
 
 def observation(kind='independent-original-runtime', controlled=True):
-    s=spec(); return {'format':OBS_FORMAT,'version':1,'source_sha256':H1,'evidence_kind':kind,'timing_trials':2,'controlled_timing':controlled,
+    s=spec(); doc={'format':OBS_FORMAT,'version':1,'source_sha256':H1,'evidence_kind':kind,'timing_trials':2,'controlled_timing':controlled,
       'stages':[{'id':x['id'],'frame':x['start_frame'],'sprite_sha256':x['entry_sprite_sha256'],'handler_set_sha256':x['handler_set_sha256'],'observable_state_sha256':H5} for x in s['stages']],
       'transitions':[{'from':'boot','to':'menu','input_kind':'none','elapsed_ms':50},{'from':'menu','to':'map','input_kind':'start','elapsed_ms':100},{'from':'map','to':'scene','input_kind':'enter-scene','elapsed_ms':150}]}
+    if kind=='independent-original-runtime':
+        doc['capture_evidence']={'format':'case-recomp-native-capture-consensus','version':1,'runtime_kind':'native-projector',
+          'trial_count':2,'visual_consensus':True,'static_fingerprints_bound':True,
+          'stage_pixel_sha256':{stage:H2 for stage in STAGES}}
+    return doc
 
 def scenario():
     return {'format':'case-recomp-scenario','version':1,'id':'synthetic','design':{'width':320,'height':240},

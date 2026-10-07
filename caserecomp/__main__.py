@@ -122,6 +122,22 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
+    capture_screen = cmd.add_parser("slice-capture-screen", help="Capture a private PNG from the native projector desktop")
+    capture_screen.add_argument("--output", required=True, type=Path)
+    capture_screen.add_argument("--bbox", nargs=4, type=int, metavar=("LEFT","TOP","RIGHT","BOTTOM"))
+
+    capture_trial = cmd.add_parser("slice-capture-trial", help="Hash one controlled native-projector observation trial")
+    capture_trial.add_argument("plan", type=Path)
+    capture_trial.add_argument("capture_input", type=Path)
+    capture_trial.add_argument("--runtime-binary", required=True, type=Path)
+    capture_trial.add_argument("--output", required=True, type=Path)
+
+    capture_finalize = cmd.add_parser("slice-capture-finalize", help="Require repeated visual consensus and emit slice observation")
+    capture_finalize.add_argument("plan", type=Path)
+    capture_finalize.add_argument("trials", nargs="+", type=Path)
+    capture_finalize.add_argument("--timing-tolerance-ms", type=int, default=16)
+    capture_finalize.add_argument("--output", required=True, type=Path)
+
     bundle = cmd.add_parser("private-content-package", help="Package a verified local export for app-private Android import")
     bundle.add_argument("conversion", type=Path, help="Verified convert-local output directory")
     bundle.add_argument("scenario", type=Path, help="Private or synthetic scenario-v1 JSON")
@@ -261,6 +277,19 @@ def main(argv: list[str] | None = None) -> int:
             from .pipeline import guard_destination
             guard_destination(args.comparison, args.output); guard_destination(args.scenario, args.output)
             record = verified_flow_from_comparison(load_json(args.comparison), scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id)
+            write_json_create_only(args.output, record)
+        elif args.command == "slice-capture-screen":
+            from .runtime_capture import capture_desktop_png
+            record = capture_desktop_png(args.output, tuple(args.bbox) if args.bbox else None)
+        elif args.command == "slice-capture-trial":
+            from .runtime_capture import capture_trial_from_files
+            from .vertical_slice import write_json_create_only
+            record = capture_trial_from_files(args.plan, args.capture_input, args.runtime_binary)
+            write_json_create_only(args.output, record)
+        elif args.command == "slice-capture-finalize":
+            from .runtime_capture import finalize_capture_from_files
+            from .vertical_slice import write_json_create_only
+            record = finalize_capture_from_files(args.plan, args.trials, timing_tolerance_ms=args.timing_tolerance_ms)
             write_json_create_only(args.output, record)
         elif args.command == "private-content-package":
             from .content_bundle import build_private_content_bundle

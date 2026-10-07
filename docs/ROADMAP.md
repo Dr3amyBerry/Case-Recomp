@@ -15,8 +15,8 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 3B.3 (remaining media):** independently corroborate the System-Windows `-102` entries exercised by the title and verify all five indexed BITD members pixel-for-pixel against LibreShockwave. Runtime behavior semantics remain a Phase 4/5 task.
 - [x] **Phase 4:** bounded DRCF/CAS*/CASt/VWSC/VWLB parser, scenario-v1, indexed BITD closure, private trace-plan/compare gate, synthetic trace promotion and deterministic Kotlin replay are implemented. No original rule is promoted without an independent observable trace.
 - [x] **Phase 5:** private `.crcontent` import, SHA-256 catalog, app-private storage, v0→v1 manifest migration, private bitmap/audio ports, save slots, runtime-draft observer and emulator instrumentation are implemented.
-- [~] **Phase 6:** the first boot/menu/map/scene path is structurally fingerprinted and a fail-closed `.crflow` proof format exists. Static validation found four ordered ranges (1–67, 68–92, 93–97, 98–102), but **0 original rules are promoted** until an independent original-runtime observation matches the Score/sprite/handler evidence.
-- [ ] **Phase 7:** integration, device and regression QA, performance, safety; target >90% coverage for maintainable new code.
+- [~] **Phase 6:** the first boot/menu/map/scene path is structurally fingerprinted; Phase 6B adds a native-projector screenshot/timing capture consensus and `.crflow` proof gate. Static validation found ranges 1–67, 68–92, 93–97 and 98–102. **0 original rules are promoted in CI** because no native Windows projector run is available there.
+- [ ] **Phase 7:** execute the prepared QA matrix across min/mid/target Android APIs, device aspect ratios, lifecycle/recreation, performance budgets and private-import corruption cases; keep >=90% coverage.
 - [ ] **Phase 8:** debug APK via controlled CI; review signing, licensing, production distribution and any store requirements separately.
 
 ## Verified baseline (2026-10-06)
