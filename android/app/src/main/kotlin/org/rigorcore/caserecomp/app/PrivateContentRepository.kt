@@ -102,7 +102,23 @@ class PrivateContentRepository(private val context: Context) {
         return runCatching { loadPackage(root) }.getOrNull()
     }
 
-    fun clearActive() { prefs.edit().remove("active-package").commit() }
+    fun clearActive(removeFiles: Boolean = false): Boolean {
+        val id = prefs.getString("active-package", null)
+        val cleared = prefs.edit().remove("active-package").commit()
+        if (removeFiles && id != null && id.matches(Regex("[0-9a-f]{64}"))) {
+            File(packages, id).deleteRecursively()
+        }
+        return cleared
+    }
+
+    fun removePackage(packageId: String): Boolean {
+        require(packageId.matches(Regex("[0-9a-f]{64}"))) { "invalid private package id" }
+        if (prefs.getString("active-package", null) == packageId) {
+            prefs.edit().remove("active-package").commit()
+        }
+        val root = File(packages, packageId)
+        return !root.exists() || root.deleteRecursively()
+    }
 
     private fun loadPackage(root: File): LoadedPrivateContent {
         require(root.isDirectory && root.parentFile?.canonicalFile == packages.canonicalFile)
