@@ -51,3 +51,8 @@ local.properties
 content-manifest.json
 trace-plan.json
 runtime-draft-*.json
+
+# Phase 8 generated CI evidence
+phase8-artifact/
+phase8-download/
+phase8-runtime/

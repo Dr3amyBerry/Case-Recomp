@@ -66,3 +66,92 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: gradle --no-daemon :app:connectedDebugAndroidTest
+
+
+  package-debug:
+    name: reproducible synthetic debug artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Verify release variant is disabled
+        working-directory: android
+        shell: bash
+        run: |
+          if gradle --no-daemon :app:tasks --all | grep -q '^assembleRelease '; then
+            echo "release variant must remain disabled in Phase 8" >&2
+            exit 1
+          fi
+      - name: Build twice and generate Phase 8 evidence
+        shell: bash
+        run: |
+          cd android
+          gradle --no-daemon clean :app:assembleDebug
+          FIRST="$(sha256sum app/build/outputs/apk/debug/app-debug.apk | awk '{print $1}')"
+          gradle --no-daemon clean :app:assembleDebug
+          cd ..
+          COMMIT_TS="$(git show -s --format=%cI HEAD)"
+          python tools/phase8_evidence.py             --apk android/app/build/outputs/apk/debug/app-debug.apk             --output phase8-artifact             --git-sha "$GITHUB_SHA"             --commit-timestamp "$COMMIT_TS"             --first-build-sha "$FIRST"
+      - name: Upload synthetic debug evidence bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: case-recomp-phase8-synthetic-debug-${{ github.sha }}
+          path: phase8-artifact
+          if-no-files-found: error
+          retention-days: 14
+
+  external-qa:
+    name: external process/upgrade/backup QA (API 36)
+    needs: package-debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: case-recomp-phase8-synthetic-debug-${{ github.sha }}
+          path: phase8-download
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run external ADB QA on exact uploaded APK
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          arch: x86_64
+          target: default
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash tools/android_external_qa.sh phase8-download/case-recomp-synthetic-debug.apk phase8-runtime
+      - name: Upload runtime metrics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: case-recomp-phase8-runtime-metrics-${{ github.sha }}
+          path: phase8-runtime
+          if-no-files-found: warn
+          retention-days: 14

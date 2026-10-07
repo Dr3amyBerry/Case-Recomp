@@ -11,7 +11,7 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **5 —** private `.crcontent` importer, SHA-256 asset catalog, app-private storage, manifest migration, private bitmap/audio ports, save slots, runtime observer and emulator tests.
 - [~] **6 —** boot/menu/map/scene is structurally mapped and Phase 6B adds repeated native-projector screenshot/timing capture; `.crflow` remains fail-closed until those independent observations match.
 - [x] **7 —** API 26/33/36 emulator QA, lifecycle/persistence, corruption/migration, low-memory/audio interruption and deterministic performance guardrails.
-- [ ] **8 —** real-device regression/performance and controlled APK packaging.
+- [~] **8 —** controlled synthetic debug APK, reproducible CI evidence, SBOM/provenance and external ADB process/upgrade/backup QA; no production release/signing.
 
 ## Install
 
@@ -68,6 +68,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 
 ## Documentation
 
+- [Phase 8 — controlled synthetic debug packaging](docs/PHASE8.md)
 - [Phase 6B — native runtime capture consensus](docs/PHASE6B.md)
 - [Phase 7 QA preparation](docs/PHASE7_QA.md)
 - [Phase 6 — fail-closed verified vertical slice and `.crflow` proof](docs/PHASE6.md)
