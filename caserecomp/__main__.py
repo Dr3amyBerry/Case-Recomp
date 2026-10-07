@@ -48,11 +48,17 @@ def main(argv: list[str] | None = None) -> int:
     convert.add_argument("--decode-swa", action="store_true", help="Opt-in local FFmpeg WAV decode of SWA MPEG payloads")
     convert.add_argument("--ffmpeg", type=Path, help="Trusted local FFmpeg executable, used only with --decode-swa")
 
+    script_index = cmd.add_parser("lingo-index", help="Recover Lnam/LctX/Lscr handler names and bytecode boundaries")
+    script_index.add_argument("source", type=Path)
+    script_index.add_argument("--output", required=True, type=Path, help="Private create-only JSON report")
+    script_index.add_argument("--show-names", action="store_true", help="Display original handler names in private report")
+
     compare = cmd.add_parser("compare-lingo", help="Compare two local Lingo .ls recovery directories, structurally")
     compare.add_argument("left", type=Path)
     compare.add_argument("right", type=Path)
     compare.add_argument("--output", required=True, type=Path, help="Create-only local JSON report")
     compare.add_argument("--redact-names", action="store_true", help="Use SHA-256 handler identifiers")
+    compare.add_argument("--reference-movie", type=Path, help="Optional original local Director movie; cross-check handler names only")
 
     check = cmd.add_parser("verify-export", help="Verify local conversion hashes/paths against manifest")
     check.add_argument("source", type=Path)
@@ -91,10 +97,26 @@ def main(argv: list[str] | None = None) -> int:
             record = convert_local(args.source, args.output, image_format=args.image_format,
                                    include_bytecode=args.include_bytecode, include_raw=args.include_raw,
                                    alpha_mode=args.alpha_mode, decode_swa=args.decode_swa, ffmpeg=args.ffmpeg)
-        elif args.command == "compare-lingo":
-            from .lingo_compare import compare_directories
+        elif args.command == "lingo-index":
+            from .lingo_index import index_movie
             from .director import exclusive_write
+            from .pipeline import guard_destination
+            # Protected tool output; no Lingo name/provenance file may be written inside Git.
+            guard_destination(args.source, args.output)
+            record = index_movie(args.source, redact=not args.show_names)
+            exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
+            print(json.dumps({k: v for k, v in record.items() if k != "handlers"}, sort_keys=True))
+            return 0
+        elif args.command == "compare-lingo":
+            from .lingo_compare import compare_directories, compare_against_movie
+            from .director import exclusive_write
+            from .pipeline import guard_destination
+            guard_destination(args.left, args.output)
             record = compare_directories(args.left, args.right, redact=args.redact_names)
+            if args.reference_movie:
+                guard_destination(args.reference_movie, args.output)
+                record["compiled_index_crosscheck"] = compare_against_movie(
+                    args.left, args.right, args.reference_movie, redact=args.redact_names)
             exclusive_write(args.output, (json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode())
         elif args.command == "verify-export":
             from .pipeline import verify_export

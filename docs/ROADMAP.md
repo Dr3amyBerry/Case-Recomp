@@ -11,7 +11,8 @@ Work is committed directly to `main`; no branches created unless explicitly requ
 - [x] **Phase 3A:** validated `ediM` JPEG/PNG, ID3/MP3, known PCM/WAV, bytecode extraction, private manifest, SHA-256 verification, and synthetic external-tool adapters.
 - [x] **Phase 3B.1:** read KEY* allocated/used table records and associate CASt/ediM/ALFA without guessing by adjacent resource IDs; publish synthetic tests and reproducible proof.
 - [x] **Phase 3B.2 (partial):** 1,968 verified JPEG+ALFA pixel compositions and 29 SWA MPEG→WAV local decodes; 21 BITD stream probes. Full BITD color fidelity and recovered Lingo semantics remain open.
-- [ ] **Phase 3B.3:** resolve 20 unusual ALFA resources, BITD native geometry/palette, original-runtime fidelity and real-game Lingo handler comparison.
+- [x] **Phase 3B.3 (partial):** verified 80 compiled Lscr script directories, 1,608 Lnam names, 527 handler spans (287 distinct); optional source-recovery name cross-check against original index. No readable original Lingo recovered yet.
+- [ ] **Phase 3B.3 (remaining):** resolve 20 unusual ALFA masks, BITD native geometry/palette, original-runtime fidelity and genuine game-source Lingo decompiler comparison.
 - [ ] **Phase 4:** deterministic gameplay state machine and actual level/puzzle recreation from recovered scripts and data.
 - [ ] **Phase 5:** Android frontend and runtime (touch, aspect ratio, sound, renderer, lifecycle, persistence and accessibility).
 - [ ] **Phase 6:** install-time licensed-asset importer and media compatibility, without repackaged commercial data.
@@ -50,3 +51,7 @@ No production credentials are requested or stored. No APK is claimed until devic
 ## Phase 3B.2 results
 
 See [PHASE3B_MEDIA.md](PHASE3B_MEDIA.md). Real-game private output (39 containers) produced 2,223 hash-verified files and was discarded after QA. Kotlin prototype: [../android/README.md](../android/README.md). No APK is claimed.
+
+## Phase 3B.3 handler index (additional verified result)
+
+Read-only `lingo-index` analyses the original embedded Director movie without executing it. Real-file validation: 1,608 Lnam symbols, 92 LctX entries, 80 Lscr scripts, 527 compiled handler spans, and 287 unique casefolded names (27 repeated names). Bytecode not decompiled into Lingo; see [PHASE3B_LINGO_INDEX.md](PHASE3B_LINGO_INDEX.md). `compare-lingo --reference-movie` provides structural name recall checks for future *local* decompiler outputs only.

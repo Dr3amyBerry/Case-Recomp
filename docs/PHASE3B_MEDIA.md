@@ -50,3 +50,13 @@ python -m coverage report --fail-under=90
 4. Android `android/engine` is a **pure Kotlin, tested architectural prototype** (menu, map, scene, targets, letterbox input) using synthetic scenarios. It is not an Android application and does not implement proprietary level design or original game logic. Its asset importer, renderer, timer, audio mixer, save data and in-game scripted behavior are future work.
 
 **Safety:** third-party executables consume untrusted binary inputs; execute only on trusted software in an isolated environment without sensitive credentials or networks. Files remain private and outputs must stay outside Git repositories. CI does not have access to game files.
+
+## Follow-up — verified Lingo handler directory
+
+In parallel with visual/audio conversion, `lingo-index` now traces **80** original
+`Lscr` bytecode containers through `LctX` into a **1,608**-symbol `Lnam` table.
+It structurally validates **527** handler bytecode spans (**287** distinct names).
+These are symbol names and body hashes, **not recovered Lingo text**. The
+`compare-lingo --reference-movie` mode checks independently recovered `.ls`
+handler names against the original index if such results exist. Details and
+limitations: [PHASE3B_LINGO_INDEX.md](PHASE3B_LINGO_INDEX.md).

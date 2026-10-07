@@ -79,3 +79,22 @@ Use `--alpha-mode strict` to stop and rollback on an unsupported paired mask.
 palette/depth fidelity and original-game Lingo semantics are open. See
 [Phase 3B media research](docs/PHASE3B_MEDIA.md) and the
 [Android engine prototype](android/README.md).
+
+## Phase 3B.3 — structural handler index
+
+An additional read-only command joins the embedded Director `Lnam` symbol table,
+`LctX` script context and `Lscr` handler boundaries. Original-game counts were
+verified locally: 1,608 names, 80 scripts, 527 handler records. This is *not*
+source-code decompilation; it does not disclose proprietary bytecode by default.
+
+```bash
+python -m caserecomp lingo-index /private/game/MysteryCaseFiles.exe \
+  --output /private/game-reports/handler-index.json
+python -m caserecomp compare-lingo /private/projectorrays-ls /private/libreshockwave-ls \
+  --reference-movie /private/game/MysteryCaseFiles.exe \
+  --redact-names --output /private/game-reports/handler-crosscheck.json
+```
+
+**Both** output locations must be new and outside Git repos; the second command
+needs real `.ls` outputs from independently vetted tools and makes no semantic
+claim. See [Phase 3B.3 Lingo index research](docs/PHASE3B_LINGO_INDEX.md).
