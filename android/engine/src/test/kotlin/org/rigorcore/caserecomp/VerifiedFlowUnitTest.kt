@@ -83,13 +83,13 @@ class VerifiedFlowUnitTest {
         assertTrue(parsed.bootVerified)
         assertEquals(packageId, parsed.packageId)
         assertEquals("c".repeat(64), parsed.evidenceChain.specSha256)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""version":2", ""version":1")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""independent-original-runtime"", ""synthetic-test"")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""spec_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",", "")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""package_id":"$packageId",", "")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""boot_verified":true", ""unexpected":1,"boot_verified":true")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""not_before_ms":0", ""not_before_ms":0.5")) }.isFailure)
-        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace(""id":"menu-map"", ""id":"other"")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"version\\\":2", "\\\"version\\\":1")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"independent-original-runtime\\\"", "\\\"synthetic-test\\\"")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"spec_sha256\\\":\\\"${"c".repeat(64)}\\\",", "")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"package_id\\\":\\\"$packageId\\\",", "")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"boot_verified\\\":true", "\\\"unexpected\\\":1,\\\"boot_verified\\\":true")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"not_before_ms\\\":0", "\\\"not_before_ms\\\":0.5")) }.isFailure)
+        assertTrue(runCatching { VerifiedFlowProofParser.parse(text.replace("\\\"id\\\":\\\"menu-map\\\"", "\\\"id\\\":\\\"other\\\"")) }.isFailure)
     }
 
     @Test fun package_and_scenario_binding_and_default_deny_are_fail_closed() {
