@@ -141,6 +141,13 @@ class VerifiedFlowUnitTest {
         }.isFailure)
     }
 
+    @Test fun python_generated_binding_vector_is_accepted_by_kotlin() {
+        val url = requireNotNull(javaClass.getResource("/verified-flow-v2-python-vector.json"))
+        val parsed = VerifiedFlowProofParser.parse(url.readText())
+        assertEquals("1f0645b60bb17ed028c3e97aa43de49f030ab9b1fa532a147de94377ca7bdd83", parsed.bindingSha256)
+        assertEquals(packageId, parsed.packageId)
+    }
+
     @Test fun package_and_scenario_binding_and_default_deny_are_fail_closed() {
         assertTrue(runCatching { VerifiedFlowGate(proof(), "flow", scenarioHash, "8".repeat(64)) }.isFailure)
         assertTrue(runCatching { VerifiedFlowGate(proof(), "flow", "c".repeat(64), packageId) }.isFailure)

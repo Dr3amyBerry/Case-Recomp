@@ -134,6 +134,15 @@ class VerticalSliceTests(unittest.TestCase):
         with self.assertRaises(InspectionError):
             verified_flow_from_comparison(compare_vertical_slice(spec(),observation()),scenario=scenario(),scene_id='room',package_id='bad')
 
+    def test_shared_python_android_v2_binding_vector(self):
+        path=Path(__file__).parents[1]/'android/engine/src/test/resources/verified-flow-v2-python-vector.json'
+        proof=json.loads(path.read_text(encoding='utf-8'))
+        binding=proof.pop('binding_sha256')
+        self.assertEqual('1f0645b60bb17ed028c3e97aa43de49f030ab9b1fa532a147de94377ca7bdd83',binding)
+        self.assertEqual(binding,digest(proof))
+        proof['binding_sha256']=binding
+        self.assertIs(validate_verified_flow_proof(proof),proof)
+
     def test_validation_and_create_only(self):
         bad=spec(); bad['stages'][1]['start_frame']=1
         with self.assertRaises(InspectionError): validate_private_slice(bad)
