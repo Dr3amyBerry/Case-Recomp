@@ -1,0 +1,24 @@
+# Exclude proprietary binaries, casts, licensed media, and generated reports.
+*.exe
+*.dll
+*.cct
+*.cst
+*.dcr
+*.dxr
+*.dir
+*.cab
+*.swf
+*.apk
+*.aab
+inventory*.json
+sample_inventory.json
+/private/
+/game-data/
+/extracted/
+/reports/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+.DS_Store
