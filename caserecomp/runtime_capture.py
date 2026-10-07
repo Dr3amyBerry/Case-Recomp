@@ -41,6 +41,10 @@ def _is_hash(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and set(value) <= _HEX
 
 
+def _document_digest(value: Any) -> str:
+    return sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def _load(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -139,6 +143,7 @@ def build_capture_trial(plan: dict, capture_input: dict, runtime_binary: Path) -
     source_sha = _hash_file(runtime_binary)
     if source_sha != plan["source_sha256"]:
         raise InspectionError("native runtime binary does not match vertical-slice source")
+    plan_sha = _document_digest(plan)
     stages = []
     for expected, row in zip(plan["stages"], capture_input["stages"]):
         if row["frame"] != expected["start_frame"]:
@@ -160,6 +165,7 @@ def build_capture_trial(plan: dict, capture_input: dict, runtime_binary: Path) -
         transitions.append(out)
     return {
         "format": TRIAL_FORMAT, "version": VERSION, "source_sha256": source_sha,
+        "plan_sha256": plan_sha,
         "runtime_kind": "native-projector", "trial_id_sha256": sha256(capture_input["trial_id"].encode()).hexdigest(),
         "controlled": True, "stages": stages, "transitions": transitions,
         "privacy": {"local_paths_removed": True, "original_media_embedded": False},
@@ -169,17 +175,26 @@ def build_capture_trial(plan: dict, capture_input: dict, runtime_binary: Path) -
 def validate_capture_trial(document: Any) -> dict:
     if not isinstance(document, dict) or document.get("format") != TRIAL_FORMAT or document.get("version") != VERSION:
         raise InspectionError("invalid runtime capture trial")
-    if document.get("runtime_kind") != "native-projector" or document.get("controlled") is not True or not _is_hash(document.get("source_sha256")):
+    if document.get("runtime_kind") != "native-projector" or document.get("controlled") is not True \
+            or not _is_hash(document.get("source_sha256")) or not _is_hash(document.get("plan_sha256")):
         raise InspectionError("invalid runtime capture provenance")
     if not _is_hash(document.get("trial_id_sha256")):
         raise InspectionError("invalid capture trial identifier")
+    privacy = document.get("privacy")
+    if not isinstance(privacy, dict) or privacy.get("local_paths_removed") is not True \
+            or privacy.get("original_media_embedded") is not False:
+        raise InspectionError("capture trial privacy boundary is invalid")
     stages = document.get("stages")
     if not isinstance(stages, list) or [x.get("id") if isinstance(x, dict) else None for x in stages] != list(STAGES):
         raise InspectionError("invalid captured stages")
     for index, row in enumerate(stages):
-        if not isinstance(row.get("frame"), int) or row["frame"] < 1 or (index > 0 and row.get("marker_observed") is not True):
+        marker = row.get("marker_observed")
+        if not isinstance(row.get("frame"), int) or row["frame"] < 1 \
+                or not isinstance(marker, bool) or (index > 0 and marker is not True):
             raise InspectionError("invalid captured stage")
-        if not isinstance(row.get("width"), int) or not isinstance(row.get("height"), int) or row["width"] <= 0 or row["height"] <= 0:
+        width, height = row.get("width"), row.get("height")
+        if not isinstance(width, int) or not isinstance(height, int) or width <= 0 or height <= 0 \
+                or width * height > 64_000_000:
             raise InspectionError("invalid captured dimensions")
         if not _is_hash(row.get("png_sha256")) or not _is_hash(row.get("pixel_sha256")):
             raise InspectionError("invalid captured image digest")
@@ -187,21 +202,36 @@ def validate_capture_trial(document: Any) -> dict:
     if not isinstance(transitions, list) or len(transitions) != len(TRANSITIONS):
         raise InspectionError("invalid captured transitions")
     for row, expected, input_kind in zip(transitions, TRANSITIONS, _ALLOWED_INPUTS):
-        if (row.get("from"), row.get("to"), row.get("input_kind")) != (*expected, input_kind):
+        if not isinstance(row, dict) or (row.get("from"), row.get("to"), row.get("input_kind")) != (*expected, input_kind):
             raise InspectionError("invalid captured transition")
-        if not isinstance(row.get("latency_ms"), int) or row["latency_ms"] < 0:
-            raise InspectionError("invalid captured transition latency")
+        start, visible, latency = row.get("input_at_ms"), row.get("visible_at_ms"), row.get("latency_ms")
+        if not isinstance(start, int) or not isinstance(visible, int) or not isinstance(latency, int) \
+                or start < 0 or visible < start or latency != visible - start:
+            raise InspectionError("invalid captured transition timing")
+        probe = row.get("gate_probe")
+        if probe is not None:
+            if not isinstance(probe, dict) or set(probe) != {"rejected_before_ms", "accepted_at_ms"}:
+                raise InspectionError("invalid captured timing gate probe")
+            rejected, accepted = probe["rejected_before_ms"], probe["accepted_at_ms"]
+            if not isinstance(rejected, int) or not isinstance(accepted, int) or rejected < 0 or accepted <= rejected:
+                raise InspectionError("invalid captured timing gate probe")
     return document
-
 
 def finalize_capture_trials(plan: dict, trials: list[dict], *, timing_tolerance_ms: int = 16) -> dict:
     validate_private_slice(plan)
     if len(trials) < 2 or timing_tolerance_ms < 0:
         raise InspectionError("capture consensus requires at least two controlled trials")
+    plan_sha = _document_digest(plan)
+    trial_ids = []
     for trial in trials:
         validate_capture_trial(trial)
         if trial["source_sha256"] != plan["source_sha256"]:
             raise InspectionError("capture trial source mismatch")
+        if trial["plan_sha256"] != plan_sha:
+            raise InspectionError("capture trial vertical-slice plan mismatch")
+        trial_ids.append(trial["trial_id_sha256"])
+    if len(set(trial_ids)) != len(trial_ids):
+        raise InspectionError("capture consensus requires distinct controlled trial ids")
     stage_pixel: dict[str, str] = {}
     stage_dimensions: dict[str, list[int]] = {}
     observation_stages = []
@@ -256,6 +286,7 @@ def finalize_capture_trials(plan: dict, trials: list[dict], *, timing_tolerance_
         "capture_evidence": {
             "format": CONSENSUS_FORMAT, "version": VERSION, "runtime_kind": "native-projector",
             "trial_count": len(trials), "visual_consensus": True, "static_fingerprints_bound": True,
+            "plan_sha256": plan_sha, "trial_set_sha256": _document_digest(sorted(trial_ids)),
             "stage_pixel_sha256": stage_pixel, "stage_dimensions": stage_dimensions,
             "transition_latency": latency_summary, "timing_tolerance_ms": timing_tolerance_ms,
         },

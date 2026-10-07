@@ -119,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof = cmd.add_parser("slice-flow-proof", help="Emit .crflow only from independently verified original-runtime evidence")
     slice_proof.add_argument("comparison", type=Path)
     slice_proof.add_argument("scenario", type=Path)
+    slice_proof.add_argument("--spec", required=True, type=Path)
+    slice_proof.add_argument("--observation", required=True, type=Path)
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
@@ -273,10 +275,14 @@ def main(argv: list[str] | None = None) -> int:
             record = compare_vertical_slice(load_json(args.spec), load_json(args.observation))
             write_json_create_only(args.output, record)
         elif args.command == "slice-flow-proof":
-            from .vertical_slice import load_json, load_scenario_for_proof, verified_flow_from_comparison, write_json_create_only
+            from .vertical_slice import load_json, load_scenario_for_proof, verified_flow_from_evidence, write_json_create_only
             from .pipeline import guard_destination
-            guard_destination(args.comparison, args.output); guard_destination(args.scenario, args.output)
-            record = verified_flow_from_comparison(load_json(args.comparison), scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id)
+            for source in (args.comparison, args.scenario, args.spec, args.observation):
+                guard_destination(source, args.output)
+            record = verified_flow_from_evidence(
+                load_json(args.spec), load_json(args.observation), load_json(args.comparison),
+                scenario=load_scenario_for_proof(args.scenario), scene_id=args.scene_id,
+            )
             write_json_create_only(args.output, record)
         elif args.command == "slice-capture-screen":
             from .runtime_capture import capture_desktop_png

@@ -164,10 +164,32 @@ def validate_slice_observation(doc: Any) -> dict:
         if not isinstance(capture.get("trial_count"), int) or capture["trial_count"] < 2 \
                 or capture.get("visual_consensus") is not True or capture.get("static_fingerprints_bound") is not True:
             raise InspectionError("independent observation lacks repeated visual consensus")
+        if not _is_hash(capture.get("plan_sha256")) or not _is_hash(capture.get("trial_set_sha256")):
+            raise InspectionError("native capture consensus is not bound to a plan/trial set")
         stage_pixels = capture.get("stage_pixel_sha256")
         if not isinstance(stage_pixels, dict) or set(stage_pixels) != set(STAGES) \
                 or any(not _is_hash(value) for value in stage_pixels.values()):
             raise InspectionError("invalid native capture stage pixel hashes")
+        stage_dimensions = capture.get("stage_dimensions")
+        if not isinstance(stage_dimensions, dict) or set(stage_dimensions) != set(STAGES):
+            raise InspectionError("invalid native capture stage dimensions")
+        for value in stage_dimensions.values():
+            if not isinstance(value, list) or len(value) != 2 or any(not isinstance(x, int) or x <= 0 for x in value) \
+                    or value[0] * value[1] > 64_000_000:
+                raise InspectionError("invalid native capture stage dimensions")
+        latency = capture.get("transition_latency")
+        if not isinstance(latency, list) or len(latency) != len(TRANSITIONS):
+            raise InspectionError("invalid native capture latency evidence")
+        for row, expected in zip(latency, TRANSITIONS):
+            if not isinstance(row, dict) or (row.get("from"), row.get("to")) != expected \
+                    or row.get("samples") != capture["trial_count"] or not isinstance(row.get("gate_verified"), bool):
+                raise InspectionError("invalid native capture latency evidence")
+            values = (row.get("min_ms"), row.get("median_ms"), row.get("max_ms"))
+            if any(not isinstance(x, int) or x < 0 for x in values) or not values[0] <= values[1] <= values[2]:
+                raise InspectionError("invalid native capture latency evidence")
+        tolerance = capture.get("timing_tolerance_ms")
+        if not isinstance(tolerance, int) or tolerance < 0:
+            raise InspectionError("invalid native capture timing tolerance")
     stages = doc.get("stages")
     if not isinstance(stages, list) or [x.get("id") if isinstance(x, dict) else None for x in stages] != list(STAGES):
         raise InspectionError("invalid observed stages")
@@ -187,6 +209,11 @@ def validate_slice_observation(doc: Any) -> dict:
     trials = doc.get("timing_trials", 1)
     if not isinstance(trials, int) or trials < 1 or not isinstance(doc.get("controlled_timing", False), bool):
         raise InspectionError("invalid observation timing evidence")
+    if doc.get("evidence_kind") == "independent-original-runtime":
+        capture = doc["capture_evidence"]
+        gates = [row["gate_verified"] for row in capture["transition_latency"]]
+        if doc.get("controlled_timing") is True and (trials < 2 or not all(gates[1:])):
+            raise InspectionError("controlled timing lacks repeated verified gate probes")
     return doc
 
 
@@ -204,11 +231,16 @@ def compare_vertical_slice(spec: dict, observation: dict) -> dict:
                        "observable_state_sha256": actual["observable_state_sha256"]})
     structural = all(row["verified"] for row in checks)
     capture = observation.get("capture_evidence", {})
+    spec_sha = _digest(spec)
+    if observation["evidence_kind"] == "independent-original-runtime" and capture.get("plan_sha256") != spec_sha:
+        raise InspectionError("native capture consensus is bound to a different vertical-slice plan")
     independent = observation["evidence_kind"] == "independent-original-runtime" \
         and capture.get("visual_consensus") is True and capture.get("trial_count", 0) >= 2
     verified = structural and independent
     return {
         "format": COMPARE_FORMAT, "version": VERSION, "source_sha256": spec["source_sha256"],
+        "spec_sha256": spec_sha, "observation_sha256": _digest(observation),
+        "capture_consensus_sha256": _digest(capture) if independent else None,
         "evidence_kind": observation["evidence_kind"], "verified": verified,
         "stage_checks": checks, "transitions": observation["transitions"],
         "timing_trials": int(observation.get("timing_trials", 1)),
@@ -217,8 +249,58 @@ def compare_vertical_slice(spec: dict, observation: dict) -> dict:
     }
 
 
+def validate_slice_comparison(doc: Any) -> dict:
+    if not isinstance(doc, dict) or doc.get("format") != COMPARE_FORMAT or doc.get("version") != VERSION \
+            or not _is_hash(doc.get("source_sha256")) or not _is_hash(doc.get("spec_sha256")) \
+            or not _is_hash(doc.get("observation_sha256")):
+        raise InspectionError("invalid vertical-slice comparison")
+    if doc.get("evidence_kind") not in {"independent-original-runtime", "synthetic-test"} \
+            or not isinstance(doc.get("verified"), bool) or not isinstance(doc.get("timing_verified"), bool):
+        raise InspectionError("invalid vertical-slice comparison status")
+    capture_sha = doc.get("capture_consensus_sha256")
+    if doc["evidence_kind"] == "independent-original-runtime":
+        if not _is_hash(capture_sha):
+            raise InspectionError("verified comparison lacks native capture consensus binding")
+    elif capture_sha is not None:
+        raise InspectionError("synthetic comparison cannot carry native capture consensus")
+    checks = doc.get("stage_checks")
+    if not isinstance(checks, list) or [row.get("id") if isinstance(row, dict) else None for row in checks] != list(STAGES):
+        raise InspectionError("invalid vertical-slice comparison stage checks")
+    for row in checks:
+        if not isinstance(row.get("verified"), bool) or not isinstance(row.get("reasons"), list) \
+                or any(not isinstance(reason, str) for reason in row["reasons"]) \
+                or not _is_hash(row.get("observable_state_sha256")):
+            raise InspectionError("invalid vertical-slice comparison stage check")
+    transitions = doc.get("transitions")
+    if not isinstance(transitions, list) or len(transitions) != len(TRANSITIONS):
+        raise InspectionError("invalid vertical-slice comparison transitions")
+    for row, expected, expected_input in zip(transitions, TRANSITIONS, ("none", "start", "enter-scene")):
+        if not isinstance(row, dict) or (row.get("from"), row.get("to"), row.get("input_kind")) != (*expected, expected_input) \
+                or not isinstance(row.get("elapsed_ms"), int) or row["elapsed_ms"] < 0:
+            raise InspectionError("invalid vertical-slice comparison transition")
+    trials = doc.get("timing_trials")
+    if not isinstance(trials, int) or trials < 1:
+        raise InspectionError("invalid vertical-slice comparison timing evidence")
+    structurally_verified = all(row["verified"] for row in checks)
+    should_verify = structurally_verified and doc["evidence_kind"] == "independent-original-runtime"
+    if doc["verified"] is not should_verify:
+        raise InspectionError("vertical-slice comparison verification flag is inconsistent")
+    if doc["timing_verified"] and (not doc["verified"] or trials < 2):
+        raise InspectionError("vertical-slice comparison timing flag is inconsistent")
+    return doc
+
+
+def verified_flow_from_evidence(spec: dict, observation: dict, comparison: dict, *, scenario: dict, scene_id: str) -> dict:
+    fresh = compare_vertical_slice(spec, observation)
+    validate_slice_comparison(comparison)
+    if _digest(fresh) != _digest(comparison):
+        raise InspectionError("stored vertical-slice comparison does not match supplied plan/observation")
+    return verified_flow_from_comparison(fresh, scenario=scenario, scene_id=scene_id)
+
+
 def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id: str) -> dict:
-    if not isinstance(comparison, dict) or comparison.get("format") != COMPARE_FORMAT or comparison.get("version") != VERSION or comparison.get("verified") is not True:
+    validate_slice_comparison(comparison)
+    if comparison.get("verified") is not True:
         raise InspectionError("only a verified vertical-slice comparison can produce flow rules")
     if comparison.get("evidence_kind") != "independent-original-runtime":
         raise InspectionError("verified flow requires independent original-runtime evidence")
@@ -234,6 +316,11 @@ def verified_flow_from_comparison(comparison: dict, *, scenario: dict, scene_id:
         "format": FLOW_FORMAT, "version": VERSION, "scenario_id": scenario_id,
         "scenario_sha256": sha256(canonical_bytes(scenario)).hexdigest(),
         "source_sha256": comparison["source_sha256"], "evidence_kind": comparison["evidence_kind"],
+        "evidence_chain": {
+            "spec_sha256": comparison["spec_sha256"],
+            "observation_sha256": comparison["observation_sha256"],
+            "capture_consensus_sha256": comparison["capture_consensus_sha256"],
+        },
         "boot_verified": True, "rules": [
             {"id": "menu-map", "from_screen": "MENU", "input_kind": "start", "to_screen": "MAP",
              "scene_id": None, "not_before_ms": timings[("menu", "map")] if use_timing else 0},
@@ -251,6 +338,10 @@ def validate_verified_flow_proof(doc: Any) -> dict:
         raise InspectionError("verified-flow proof requires independent original-runtime evidence")
     if not isinstance(doc.get("scenario_id"), str) or not doc["scenario_id"] or not _is_hash(doc.get("scenario_sha256")) or not _is_hash(doc.get("source_sha256")):
         raise InspectionError("invalid verified-flow proof identity")
+    evidence_chain = doc.get("evidence_chain")
+    if not isinstance(evidence_chain, dict) or any(not _is_hash(evidence_chain.get(key)) for key in (
+            "spec_sha256", "observation_sha256", "capture_consensus_sha256")):
+        raise InspectionError("invalid verified-flow evidence chain")
     rules = doc.get("rules")
     if not isinstance(rules, list) or len(rules) != 2:
         raise InspectionError("verified-flow proof requires exactly two navigation rules")

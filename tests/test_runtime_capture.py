@@ -123,6 +123,22 @@ class RuntimeCaptureTests(unittest.TestCase):
         self.assertFalse(obs["controlled_timing"])
         with self.assertRaises(InspectionError): finalize_capture_trials(self.plan,[a])
 
+    def test_duplicate_trials_and_edited_trial_evidence_fail_closed(self):
+        a=build_capture_trial(self.plan,self.input("same"),self.binary)
+        duplicate=build_capture_trial(self.plan,self.input("same",40),self.binary)
+        with self.assertRaises(InspectionError): finalize_capture_trials(self.plan,[a,duplicate])
+
+        tampered=json.loads(json.dumps(a)); tampered["transitions"][1]["latency_ms"] += 1
+        with self.assertRaises(InspectionError): validate_capture_trial(tampered)
+        tampered=json.loads(json.dumps(a)); tampered["transitions"][1]["gate_probe"]={"rejected_before_ms":9}
+        with self.assertRaises(InspectionError): validate_capture_trial(tampered)
+        tampered=json.loads(json.dumps(a)); tampered["privacy"]["local_paths_removed"]=False
+        with self.assertRaises(InspectionError): validate_capture_trial(tampered)
+
+        other_plan=json.loads(json.dumps(self.plan)); other_plan["stages"][0]["end_frame"]=8
+        b=build_capture_trial(self.plan,self.input("two",40),self.binary)
+        with self.assertRaises(InspectionError): finalize_capture_trials(other_plan,[a,b])
+
     def test_load_and_capture_failure_branches(self):
         missing=self.root/"missing.json"
         with self.assertRaises(InspectionError): _load(missing)

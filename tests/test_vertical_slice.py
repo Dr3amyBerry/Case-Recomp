@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, struct, tempfile, unittest
+import hashlib, json, struct, tempfile, unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 from pathlib import Path
@@ -8,6 +8,9 @@ from caserecomp.__main__ import main
 from caserecomp.vertical_slice import *
 
 H1='1'*64; H2='2'*64; H3='3'*64; H4='4'*64; H5='5'*64
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()).hexdigest()
 
 def spec():
     return {'format':SPEC_FORMAT,'version':1,'source_sha256':H1,'promotable_rules':0,
@@ -21,11 +24,18 @@ def spec():
 def observation(kind='independent-original-runtime', controlled=True):
     s=spec(); doc={'format':OBS_FORMAT,'version':1,'source_sha256':H1,'evidence_kind':kind,'timing_trials':2,'controlled_timing':controlled,
       'stages':[{'id':x['id'],'frame':x['start_frame'],'sprite_sha256':x['entry_sprite_sha256'],'handler_set_sha256':x['handler_set_sha256'],'observable_state_sha256':H5} for x in s['stages']],
-      'transitions':[{'from':'boot','to':'menu','input_kind':'none','elapsed_ms':50},{'from':'menu','to':'map','input_kind':'start','elapsed_ms':100},{'from':'map','to':'scene','input_kind':'enter-scene','elapsed_ms':150}]}
+      'transitions':[{'from':'boot','to':'menu','input_kind':'none','elapsed_ms':0},{'from':'menu','to':'map','input_kind':'start','elapsed_ms':100 if controlled else 0},{'from':'map','to':'scene','input_kind':'enter-scene','elapsed_ms':150 if controlled else 0}]}
     if kind=='independent-original-runtime':
         doc['capture_evidence']={'format':'case-recomp-native-capture-consensus','version':1,'runtime_kind':'native-projector',
           'trial_count':2,'visual_consensus':True,'static_fingerprints_bound':True,
-          'stage_pixel_sha256':{stage:H2 for stage in STAGES}}
+          'plan_sha256':digest(s),'trial_set_sha256':H3,
+          'stage_pixel_sha256':{stage:H2 for stage in STAGES},
+          'stage_dimensions':{stage:[8,6] for stage in STAGES},
+          'transition_latency':[
+            {'from':'boot','to':'menu','samples':2,'min_ms':20,'max_ms':21,'median_ms':20,'gate_verified':False},
+            {'from':'menu','to':'map','samples':2,'min_ms':40,'max_ms':41,'median_ms':40,'gate_verified':controlled},
+            {'from':'map','to':'scene','samples':2,'min_ms':45,'max_ms':46,'median_ms':45,'gate_verified':controlled}],
+          'timing_tolerance_ms':16}
     return doc
 
 def scenario():
@@ -87,8 +97,20 @@ class VerticalSliceTests(unittest.TestCase):
             root=Path(td); sp=root/'spec.json'; ob=root/'obs.json'; sc=root/'scenario.json'; cmp=root/'cmp.json'; proof=root/'flow.crflow'
             sp.write_text(json.dumps(spec()),encoding='utf-8'); ob.write_text(json.dumps(observation()),encoding='utf-8'); sc.write_text(json.dumps(scenario()),encoding='utf-8')
             self.assertEqual(main(['slice-compare',str(sp),str(ob),'--output',str(cmp)]),0)
-            self.assertEqual(main(['slice-flow-proof',str(cmp),str(sc),'--scene-id','room','--output',str(proof)]),0)
+            self.assertEqual(main(['slice-flow-proof',str(cmp),str(sc),'--spec',str(sp),'--observation',str(ob),'--scene-id','room','--output',str(proof)]),0)
             self.assertEqual(load_json(proof)['format'],FLOW_FORMAT)
+
+    def test_tampered_comparison_and_wrong_plan_binding_fail_closed(self):
+        s=spec(); ob=observation(); comparison=compare_vertical_slice(s,ob)
+        tampered=json.loads(json.dumps(comparison)); tampered['transitions'][1]['elapsed_ms'] += 1
+        with self.assertRaises(InspectionError):
+            verified_flow_from_evidence(s,ob,tampered,scenario=scenario(),scene_id='room')
+
+        other=spec(); other['stages'][0]['end_frame']=8
+        with self.assertRaises(InspectionError): compare_vertical_slice(other,ob)
+
+        broken=observation(); broken['capture_evidence']['transition_latency'][1]['samples']=1
+        with self.assertRaises(InspectionError): validate_slice_observation(broken)
 
     def test_validation_and_create_only(self):
         bad=spec(); bad['stages'][1]['start_frame']=1
