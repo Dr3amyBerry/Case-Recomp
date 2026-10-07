@@ -4,27 +4,56 @@ Phase 8 produces only a synthetic debug APK. The release variant is disabled in 
 
 ## CI evidence bundle
 
-The artifact bundle contains the debug APK, SHA-256 checksum, build provenance, CycloneDX 1.6 SBOM and build/runtime reports. The build job performs two clean debug builds from the same revision and requires byte-identical APK SHA-256 values.
+The artifact bundle contains two **synthetic** APKs used only for QA:
+
+- `case-recomp-synthetic-baseline.apk` — versionCode 7, used to test Android's upgrade path.
+- `case-recomp-synthetic-debug.apk` — versionCode 8, the controlled Phase 8 candidate.
+
+The candidate is built twice from the same revision and must be byte-identical. The bundle also contains SHA-256 sums, build provenance, a CycloneDX 1.6 SBOM and a reproducible build report. Provenance records the Git material, builder, toolchain, variant, release-disabled state and both APK hashes.
 
 ## External emulator QA
 
-An API 26 external ADB harness runs outside the instrumentation process. It measures cold start, captures meminfo/gfxinfo, force-stops and relaunches the app to verify process-kill persistence, performs an in-place `adb install -r` upgrade and verifies the synthetic save remains, and performs a deliberate save-slot-only backup/restore using `run-as`.
+API 26 runs an ADB harness **outside** the instrumentation process. It:
 
-OS/cloud backup intentionally remains disabled because app-private imports can contain locally owned commercial game media. The backup/restore test therefore covers only the synthetic save-slot file.
+1. installs versionCode 7,
+2. measures cold startup,
+3. enters synthetic MAP and immediately force-stops the process,
+4. verifies the autosaved state after relaunch,
+5. upgrades in-place to versionCode 8 and verifies the save survives,
+6. performs an app-level backup/restore of the synthetic save slot using `run-as`,
+7. measures total PSS and gfxinfo,
+8. verifies OS backup remains disabled.
 
-## Preliminary budgets
+The runtime now persists each accepted state transition before audio/observer side effects, so abrupt process termination does not rely on lifecycle callbacks.
+
+API 26/33/36 all run the complete Android instrumentation suite. Runtime metrics are uploaded only from API 26 to keep measurements comparable.
+
+## Preliminary emulator budgets
 
 - debug APK <= 15 MiB
-- emulator cold start <= 5000 ms
+- cold startup <= 5000 ms
 - total PSS <= 256 MiB
-- render jank target <= 25% (reported; promote to hard gate only after stable frame-stat parsing)
+- render jank <= 25% when the platform exposes a parseable `gfxinfo` jank percentage
 
-These are emulator guardrails, not production promises. Real-device budgets require representative physical hardware.
+These are broad regression guardrails, not production performance promises. A missing jank percentage is reported as `null`, never fabricated.
 
-## Release boundary
+## Backup boundary
 
-No release variant, release signing, store upload or production artifact is generated. Huntsville remains fail-closed without native-projector capture consensus and a matching private `.crflow`.
+Android OS/cloud backup is intentionally disabled because app-private imports can contain locally owned commercial media. QA therefore backs up and restores **only the synthetic save-slot XML**. No `.crcontent`, `.crflow` or imported media is backed up by the Phase 8 harness.
 
-## Emulator scope
+## Release/debug separation
 
-Phase 8 runtime metrics use API 26 because repeated GitHub-hosted API 33/36 emulator boots failed before ADB/test execution in this phase. Phase 7 retains a fully green API 26/33/36 instrumentation run as compatibility evidence; Phase 8 still compiles and targets SDK 36. This is an infrastructure boundary, not a bypass of failed product tests.
+- release variant disabled by `androidComponents`
+- no `assembleRelease` task accepted by CI
+- no production signing config
+- debug package is `org.rigorcore.caserecomp.synthetic.debug`
+- debug manifest keeps `allowBackup=false`, cleartext disabled and an explicit synthetic label
+- no store upload or production artifact step exists
+
+## Huntsville boundary
+
+Huntsville remains fail-closed. No native-projector capture consensus is present in CI, so no original-game `.crflow` is generated or bundled.
+
+## Remaining production work
+
+Physical-device profiling, production rights review, production signing policy and any distribution decision remain outside Phase 8.

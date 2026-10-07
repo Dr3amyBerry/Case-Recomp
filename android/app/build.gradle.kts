@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
 }
 
+val phase8VersionCode = providers.gradleProperty("phase8VersionCode").orElse("8").get().toInt()
+
 android {
     namespace = "org.rigorcore.caserecomp.app"
     compileSdk = 36
@@ -10,7 +12,7 @@ android {
         applicationId = "org.rigorcore.caserecomp.synthetic"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        versionCode = phase8VersionCode
         versionName = "0.5.0-phase8-debug"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

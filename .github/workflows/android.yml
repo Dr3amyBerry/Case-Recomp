@@ -31,62 +31,10 @@ jobs:
         working-directory: android
         run: gradle --no-daemon :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug
 
-  instrumented:
-    name: instrumented (API ${{ matrix.api-level }})
-    needs: package-debug
-    runs-on: ubuntu-latest
-    env:
-      PHASE8_API: ${{ matrix.api-level }}
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        api-level: [26]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.6.0'
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: case-recomp-phase8-synthetic-debug-${{ github.sha }}
-          path: phase8-download
-      - name: Enable KVM
-        shell: bash
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - name: Run lifecycle/private-content instrumentation suite
-        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
-        with:
-          api-level: ${{ matrix.api-level }}
-          arch: x86_64
-          target: default
-          working-directory: ./android
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: bash ../tools/phase8_emulator_qa.sh "$PHASE8_API"
-      - name: Upload API 26 external runtime metrics
-        if: matrix.api-level == 26 && always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: case-recomp-phase8-runtime-metrics-${{ github.sha }}
-          path: phase8-runtime
-          if-no-files-found: warn
-          retention-days: 14
-
-
   package-debug:
     name: reproducible synthetic debug artifact
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -109,16 +57,18 @@ jobs:
             echo "release variant must remain disabled in Phase 8" >&2
             exit 1
           fi
-      - name: Build twice and generate Phase 8 evidence
+      - name: Build baseline, candidate twice, and generate evidence
         shell: bash
         run: |
           cd android
-          gradle --no-daemon clean :app:assembleDebug
+          gradle --no-daemon clean :app:assembleDebug -Pphase8VersionCode=7
+          cp app/build/outputs/apk/debug/app-debug.apk ../phase8-baseline.apk
+          gradle --no-daemon clean :app:assembleDebug -Pphase8VersionCode=8
           FIRST="$(sha256sum app/build/outputs/apk/debug/app-debug.apk | awk '{print $1}')"
-          gradle --no-daemon clean :app:assembleDebug
+          gradle --no-daemon clean :app:assembleDebug -Pphase8VersionCode=8
           cd ..
           COMMIT_TS="$(git show -s --format=%cI HEAD)"
-          python tools/phase8_evidence.py             --apk android/app/build/outputs/apk/debug/app-debug.apk             --output phase8-artifact             --git-sha "$GITHUB_SHA"             --commit-timestamp "$COMMIT_TS"             --first-build-sha "$FIRST"
+          python tools/phase8_evidence.py             --apk android/app/build/outputs/apk/debug/app-debug.apk             --baseline-apk phase8-baseline.apk             --output phase8-artifact             --git-sha "$GITHUB_SHA"             --commit-timestamp "$COMMIT_TS"             --first-build-sha "$FIRST"
       - name: Upload synthetic debug evidence bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -127,3 +77,53 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  instrumented:
+    name: instrumented (API ${{ matrix.api-level }})
+    needs: package-debug
+    runs-on: ubuntu-latest
+    env:
+      PHASE8_API: ${{ matrix.api-level }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 33, 36]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: case-recomp-phase8-synthetic-debug-${{ github.sha }}
+          path: phase8-download
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run instrumented and external lifecycle QA
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: default
+          working-directory: ./android
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: bash ../tools/phase8_emulator_qa.sh "$PHASE8_API"
+      - name: Upload API 26 external runtime metrics
+        if: matrix.api-level == 26 && always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: case-recomp-phase8-runtime-metrics-${{ github.sha }}
+          path: phase8-runtime
+          if-no-files-found: warn
+          retention-days: 14

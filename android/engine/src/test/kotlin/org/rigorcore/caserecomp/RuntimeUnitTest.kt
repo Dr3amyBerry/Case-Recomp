@@ -49,6 +49,21 @@ class RuntimeUnitTest {
         assertEquals(listOf(AudioCue.START, AudioCue.TARGET_FOUND), audio.cues)
     }
 
+    @Test fun accepted_state_transition_is_autosaved_before_lifecycle_callbacks() {
+        val store = InMemorySessionStore()
+        val first = GameRuntime(scenario(), DeterministicClock(42), store)
+        first.onCreate(); first.onStart(); first.onResume()
+        first.dispatch(Input.Start)
+        val encoded = store.load()
+        assertNotNull(encoded)
+        assertEquals(Screen.MAP, SessionSnapshotCodecV1.decode(encoded!!)!!.screen)
+
+        // Model an abrupt external process kill: no onPause/onStop/onDestroy callbacks.
+        val restarted = GameRuntime(scenario(), DeterministicClock(100), store)
+        restarted.onCreate()
+        assertEquals(Screen.MAP, restarted.session.screen)
+    }
+
     @Test fun invalid_or_incompatible_persistence_fails_closed() {
         val clock = DeterministicClock()
         val bad = SessionSnapshotV1("other", Screen.MAP, null, 1, emptyMap(), 0)

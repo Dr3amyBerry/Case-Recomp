@@ -329,9 +329,11 @@ class GameRuntime(
     fun dispatch(input: Input): StepResult {
         check(lifecycle == LifecycleState.RESUMED)
         val now = clock.nowMillis()
-        val proposed = engine.step(session, input)
-        val result = if (flowGate.allow(session, input, proposed.session, now)) proposed else StepResult(session, emptyList())
+        val before = session
+        val proposed = engine.step(before, input)
+        val result = if (flowGate.allow(before, input, proposed.session, now)) proposed else StepResult(before, emptyList())
         session = result.session
+        if (session != before) persist()
         emitAudio(result.events)
         observer.record(now, input, result, renderFrame())
         return result
