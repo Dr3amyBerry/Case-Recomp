@@ -11,6 +11,7 @@ from PIL import Image
 from caserecomp.__main__ import main
 from caserecomp.inspector import InspectionError
 from caserecomp.runtime_capture import *
+from caserecomp.runtime_capture import _hash_file, _pixel_fingerprint
 from caserecomp.vertical_slice import compare_vertical_slice, verified_flow_from_comparison
 
 H1="1"*64; H2="2"*64; H3="3"*64; H4="4"*64; H5="5"*64
