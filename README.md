@@ -70,6 +70,13 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 * The ProjectorRays adapter requests `--dump-scripts` in a private output directory; recovered `.ls` files are hashed as **unverified Lingo**, not claimed correct.
 * External adapter outputs are hashed and provenance-tracked but **not** semantically certified. Third-party tools are not sandboxed by the Python process: use trusted binaries in an OS sandbox.
 
+## Current architecture and evidence inventory
+
+- [Game files, private Drive working folders, Director/Lingo route and actual Android playability](docs/PROJECT_AUDIT_2026-10-07.md)
+- [Old system versus new engine: keep, reconsider and future deletion candidates (no deletion)](docs/RETIREMENT_CANDIDATES.md)
+
+The whole-game target is the Kotlin Director/Lingo interpreter. The current Android Activity still uses the older synthetic `GameRuntime` until the new engine is proven on-device.
+
 ## Documentation
 
 - [Post-Phase-8 — physical-device synthetic QA](docs/POST_PHASE8_DEVICE_QA.md)

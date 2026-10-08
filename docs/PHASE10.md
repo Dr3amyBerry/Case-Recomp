@@ -31,3 +31,7 @@ The remaining ~250 called methods are defined by the game's own parent scripts a
 ## Private artefacts (never committed)
 
 Decompiled Lingo, the bytecode bundle, inventories and every game-derived file live under `C:\private\`. The repository holds only the generic reader, VM and runtime code, plus synthetic tests.
+
+## Private-source audit and transition ownership
+
+See [PROJECT_AUDIT_2026-10-07.md](PROJECT_AUDIT_2026-10-07.md) for the original game Drive inventory, private Phase 6/9 and M3 folders, manifest cross-checks and honest Android playability gates. A local M3 log records a splash/menu/map/scene sequence plus three object finds but **no original-game Android success is established**. See [RETIREMENT_CANDIDATES.md](RETIREMENT_CANDIDATES.md): the older `GameRuntime` and proof import paths remain active in `MainActivity` and must not be removed without a working migration.

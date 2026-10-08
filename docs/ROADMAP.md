@@ -68,3 +68,7 @@ See [PHASE4.md](PHASE4.md). Private validation identifies 203 Score frames, 120 
 ## Phase 4B trace baseline
 
 The private `trace-plan` command generated 29 hash-only observation checkpoints for the owned main movie. This is a verification plan, **not** proof of gameplay semantics. Phase 6 subsequently verified two navigation rules with independent native runtime observations; those proofs remain private. Hidden-object gameplay is still unverified. Public promotion tests use synthetic data only. See [PHASE4B.md](PHASE4B.md) and [Phase 6B](PHASE6B.md).
+
+## Phase 10 integration and legacy ownership
+
+The selected full-game route is the generic Lingo VM + Director runtime + renderer, not manually transcribing every original rule. The local private M3 smoke log records navigation into a scene and three finds; the engine is **not yet connected to `MainActivity`**, so an original-game playable Android APK is not demonstrated. Preserve old shell/proof code until replacement and parity. See [project/private evidence audit](PROJECT_AUDIT_2026-10-07.md) and [no-delete retirement candidates](RETIREMENT_CANDIDATES.md).
