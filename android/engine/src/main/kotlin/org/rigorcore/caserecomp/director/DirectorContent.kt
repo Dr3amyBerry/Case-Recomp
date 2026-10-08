@@ -103,6 +103,18 @@ class DirectorContent private constructor(
     fun sound(castFile: String, member: MemberData): Pair<ByteArray, String>? =
         listOf("wav", "mp3").firstNotNullOfOrNull { ext -> read(mediaPath(castFile, member, ext))?.let { it to ext } }
 
+    /**
+     * Size `baFileSize`/FileIO report for a bundled external cast, -1 when the movie has no such
+     * cast. The original file is not packaged, so this is its packaged media plus a header: titles
+     * compare it against thresholds to tell a downloaded cast from a stub (an empty cast stays small).
+     */
+    fun castFileSize(path: String): Int {
+        val cast = movie.externalCast(path) ?: return -1
+        val prefix = "media/${DirectorMovie.castKey(cast.file)}/"
+        val media = entries.entries.sumOf { (name, record) -> if (name.startsWith(prefix)) record.first else 0L }
+        return (CAST_HEADER_BYTES + media).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
     override fun close() = zip.close()
 
     companion object {
@@ -111,6 +123,7 @@ class DirectorContent private constructor(
         private const val MAX_ENTRY_BYTES = 256L * 1024 * 1024
         private const val MAX_PACKAGE_BYTES = 1024L * 1024 * 1024
         private const val MAX_ENTRIES = 20_000
+        private const val CAST_HEADER_BYTES = 1024L
         private val HASH = Regex("[0-9a-f]{64}")
 
         fun open(file: File, decoder: ImageDecoder): DirectorContent {

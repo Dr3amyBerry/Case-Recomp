@@ -127,17 +127,18 @@ internal class DirectorStageView(
         outAttrs.imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI
         return object : BaseInputConnection(this, false) {
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-                text?.forEach { sendCharacter(it.toString()) }
+                // IMEs may commit a newline instead of an editor action.
+                text?.forEach { sendCharacter(if (it == '\n') RETURN else it.toString()) }
                 invalidate()
                 return true
             }
             override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
-                if (beforeLength > 0) sendCharacter("backspace")
+                if (beforeLength > 0) sendCharacter(BACKSPACE)
                 invalidate()
                 return true
             }
             override fun performEditorAction(actionCode: Int): Boolean {
-                sendCharacter("return")
+                sendCharacter(RETURN)
                 invalidate()
                 return true
             }
@@ -155,9 +156,9 @@ internal class DirectorStageView(
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val key = when (keyCode) {
-            KeyEvent.KEYCODE_ENTER -> "return"
-            KeyEvent.KEYCODE_DEL -> "backspace"
-            KeyEvent.KEYCODE_ESCAPE -> "escape"
+            KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> RETURN
+            KeyEvent.KEYCODE_DEL -> BACKSPACE
+            KeyEvent.KEYCODE_ESCAPE -> ESCAPE
             else -> event.unicodeChar.takeIf { it > 0 }?.toChar()?.toString() ?: return super.onKeyDown(keyCode, event)
         }
         sendCharacter(key)
@@ -170,5 +171,12 @@ internal class DirectorStageView(
     fun release() {
         pauseFrames()
         bitmap.recycle()
+    }
+
+    private companion object {
+        // Director's `the key` is the character itself: RETURN, BACKSPACE and ESC are control characters.
+        const val RETURN = "\r"
+        const val BACKSPACE = "\b"
+        const val ESCAPE = "\u001b"
     }
 }

@@ -179,7 +179,7 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
         "height" -> LInt(height)
         "rect" -> LRect(LInt(0), LInt(0), LInt(width), LInt(height))
         "regpoint" -> LPoint(LInt(regX), LInt(regY))
-        "image" -> image ?: throw LingoError("member $name has no image")
+        "image" -> image ?: throw LingoError("member ${this.name} has no image")
         "depth" -> LInt(image?.depth ?: 32)
         "scriptinstancelist" -> LingoValue.LList()
         else -> overrides[p] ?: when (p) {

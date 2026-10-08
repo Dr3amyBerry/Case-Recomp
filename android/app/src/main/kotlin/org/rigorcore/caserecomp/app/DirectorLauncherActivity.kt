@@ -131,10 +131,8 @@ class DirectorLauncherActivity : Activity() {
             val output = AndroidDirectorSound(this, loaded)
             try {
                 val movie = loaded.movie
-                // Existing original-game FileIO/Buddy API probes must be able to discover bundled casts.
-                val xtras = StandardXtras(store, castFileSize = { path ->
-                    if (movie.externalCast(path) != null) 1 else -1
-                })
+                // Original-game FileIO/Buddy API probes must find bundled casts with a realistic size.
+                val xtras = StandardXtras(store, castFileSize = loaded::castFileSize)
                 require(movie.stageWidth in 1..2048 && movie.stageHeight in 1..2048 &&
                     movie.stageWidth.toLong() * movie.stageHeight <= 4L * 1024 * 1024 &&
                     movie.frameCount in 1..100_000 && movie.channelCount in 6..8_192) {

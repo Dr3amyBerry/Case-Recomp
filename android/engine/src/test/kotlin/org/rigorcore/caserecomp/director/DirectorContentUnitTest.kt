@@ -79,6 +79,14 @@ class DirectorContentUnitTest {
         }
     }
 
+    @Test fun bundled_cast_files_report_a_size_from_their_packaged_media() {
+        DirectorContent.open(pack(files), decoder).use { content ->
+            // Header plus media/art/*: big enough that a cast is not mistaken for a missing download stub.
+            assertEquals(1024 + files.getValue("media/art/1.png").size, content.castFileSize("C:\\game\\Art.cct"))
+            assertEquals(-1, content.castFileSize("missing.cct"))
+        }
+    }
+
     @Test fun rejects_missing_unlisted_and_duplicate_manifest_paths() {
         assertThrows(LingoError::class.java) {
             DirectorContent.open(pack(files, listed = files - "media/internal/3.png"), decoder)
