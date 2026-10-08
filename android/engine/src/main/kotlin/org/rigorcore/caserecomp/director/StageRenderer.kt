@@ -50,8 +50,11 @@ class StageRenderer(
      * pixels. Only where it is drawn moves; hit-testing and Lingo see the authored position.
      */
     nudges: Map<String, Pair<Int, Int>> = emptyMap(),
+    /** Scoped drawing offsets: sprite number and member name must both match. */
+    scopedNudges: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
 ) {
     private val nudges = nudges.mapKeys { it.key.lowercase() }
+    private val scopedNudges = scopedNudges.mapKeys { (key, _) -> key.first to key.second.lowercase() }
 
     /** Stage size in Director pixels. */
     val width = runtime.movie.stageWidth
@@ -91,7 +94,10 @@ class StageRenderer(
         if (stageItem.right <= 0 || stageItem.bottom <= 0 || stageItem.left >= width || stageItem.top >= height) {
             if (stageItem.rotation == 0.0) return
         }
-        val (dx, dy) = if (nudges.isEmpty()) 0 to 0 else nudges[stageItem.member.name.lowercase()] ?: (0 to 0)
+        val name = stageItem.member.name.lowercase()
+        val (baseX, baseY) = nudges[name] ?: (0 to 0)
+        val (scopedX, scopedY) = scopedNudges[stageItem.sprite to name] ?: (0 to 0)
+        val dx = baseX + scopedX; val dy = baseY + scopedY
         val item = if (scale == 1 && dx == 0 && dy == 0) stageItem else stageItem.copy(
             left = (stageItem.left + dx) * scale, top = (stageItem.top + dy) * scale,
             right = (stageItem.right + dx) * scale, bottom = (stageItem.bottom + dy) * scale)

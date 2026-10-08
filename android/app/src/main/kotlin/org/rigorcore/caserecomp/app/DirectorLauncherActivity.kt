@@ -216,7 +216,7 @@ class DirectorLauncherActivity : Activity() {
                 val display = resources.displayMetrics
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
-                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile))
+                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges)
                 return Session(loaded, runtime, renderer, output, profile)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }

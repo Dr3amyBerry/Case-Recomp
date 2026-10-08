@@ -155,3 +155,31 @@ semantics, audio lifecycle concerns, memory budgeting and the fixed active-packa
 hub behavior were not changed. See the history audit for their evidence and limits.
 No production release is published. Mystery P.I. work is stopped until explicit
 human approval of Stage 1, as required by the user's checkpoint.
+
+## Follow-up requested by the reviewer: name-entry vertical alignment
+
+The reviewer reported the pre-existing name/caret height mismatch with the baked-in
+Agente caption. Profile revision 2 now supplies (0,+6) stage-pixel drawing offsets
+for sprite 33/member enterNameField1 and sprite 31/member cursor. These offsets are
+always enabled for a verified Huntsville snapshot, independently of legacy JSON.
+The shared name member on user-list sprite 277 stays at its authored location.
+
+StageRenderer gains an optional generic scopedNudges map, keyed by sprite number
+AND member name, with an empty default. It combines scoped offsets with the existing
+optional member offsets before stage scaling. There are no title conditionals in
+Director, no changed text calibration, Lingo positions, saves or package identifiers.
+This follow-up intentionally corrects the old appearance at the user's request;
+the original Stage 1 preservation results above describe the earlier revision.
+
+WSA reproduces Dream in the real name dialog before/after. Name and caret now draw
+6 stage pixels lower (7.2 screen pixels at this viewport), near the caption baseline.
+Recorded sprite rectangles remain unchanged. Private captures are under
+private/huntsville/profile-isolation/2026-10-08/name-alignment/. The user-list capture
+is not pixel-identical because of runtime/hover animation; its exclusion is checked
+by scoped-offset tests, without claiming a deterministic whole-dialog comparison.
+
+Updated Kotlin suite: 11 app + 82 engine tests pass; all 18 Android tests pass on WSA.
+Two new tests check profile isolation and actual scoped composition at scales 1/2,
+including a shared member on another sprite, a mismatched member, unchanged bounds
+and empty-default rendering. Previous font pixel-equivalence tests still pass.
+This build remains PENDIENTE_VALIDACION_HUMANA; no Stage 2 authorization is inferred.

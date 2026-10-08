@@ -73,6 +73,27 @@ class StageRendererUnitTest {
         assertEquals(blue, px(12, 15))
     }
 
+    @Test fun scoped_offsets_move_only_the_matching_sprite_drawing_at_every_scale() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        rt.start()
+        val green = 0xFF00FF00.toInt()
+        val text = TextRasterizer { _, w, h -> LingoImage(w, h, 32, IntArray(w * h) { green }) }
+        rt.sprite(3).setProp("member", LString("label"))
+        rt.sprite(3).setProp("rect", LingoValue.LRect(LInt(10), LInt(10), LInt(16), LInt(14)))
+        val bounds = rt.sprite(4).bounds().toList()
+        for (scale in listOf(1, 2)) {
+            val frame = StageRenderer(rt, text, scale = scale,
+                scopedNudges = mapOf((4 to "LABEL") to (0 to 3), (3 to "different") to (0 to 3))).render()
+            fun px(x: Int, y: Int) = frame.pixels[y * scale * frame.width + x * scale]
+            assertEquals("old position cleared", blue, px(32, 10))
+            assertEquals("offset scales with the stage", green, px(32, 15))
+            assertEquals("same member on another sprite stays put", green, px(12, 10))
+            assertEquals(bounds, rt.sprite(4).bounds().toList())
+        }
+        val ordinary = StageRenderer(rt, text).render()
+        assertEquals("default rendering unchanged", green, ordinary.pixels[10 * ordinary.width + 32])
+    }
+
     @Test fun scaled_stage_doubles_bitmaps_exactly_and_draws_text_at_full_resolution() {
         val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
         rt.start()

@@ -62,6 +62,7 @@ internal data class DirectorPresentationProfile(
     val revision: Int,
     val text: DirectorTextPresentation,
     val approvedLegacyNudges: Map<String, Pair<Int, Int>> = emptyMap(),
+    val scopedNudges: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
 ) {
     /** Legacy file requests only reviewed offsets. It cannot choose a profile or supply code. */
     fun legacyNudges(json: String): Map<String, Pair<Int, Int>> {
@@ -89,7 +90,7 @@ internal object DirectorPresentationProfiles {
     // Calibrations from 6c03811, 252ba53, cfeadd2 and 747d659. Values unchanged.
     // See docs/HUNTSVILLE_PRESENTATION_ISOLATION.md for evidence and retirement criteria.
     val HUNTSVILLE_ES = DirectorPresentationProfile(
-        id = "huntsville-es-presentation", schemaVersion = 1, revision = 1,
+        id = "huntsville-es-presentation", schemaVersion = 1, revision = 2,
         text = DirectorTextPresentation(
             defaultFont = FontPresentation(linePitchScale = 1.25f),
             fontRules = listOf(
@@ -109,6 +110,12 @@ internal object DirectorPresentationProfiles {
         ),
         // Optional, preserving the existing file-driven behavior: not enabled when no file exists.
         approvedLegacyNudges = mapOf("cluesFoundLabel" to (-5 to 0)),
+        // Align the name and caret with the baked-in Agent caption. The same text member
+        // is used by the user list (sprite 277), which must keep its authored position.
+        scopedNudges = mapOf(
+            (33 to "enterNameField1") to (0 to 6),
+            (31 to "cursor") to (0 to 6),
+        ),
     )
 
     private const val KNOWN_LINGO = "da9c8c41c04cedc8b4cfd30f95f2c0aa905f207238d2ee9e8fd082daf2e5a718"
