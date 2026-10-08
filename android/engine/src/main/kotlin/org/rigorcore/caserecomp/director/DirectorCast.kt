@@ -136,8 +136,10 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
     /** Flash members take their size from the movie's stage. */
     private fun flashSize(): Pair<Int, Int>? = if (type != "flash") null else
         runtime.flashMovie(this)?.bounds?.let { it.width.toInt() to it.height.toInt() }
-    val regX: Int get() = overrides["regpoint"]?.let { (it as LPoint).h.toInt() } ?: data?.regX ?: 0
-    val regY: Int get() = overrides["regpoint"]?.let { (it as LPoint).v.toInt() } ?: data?.regY ?: 0
+    // A bitmap made with new(#bitmap) registers at the centre of its image, as in Director.
+    val regX: Int get() = overrides["regpoint"]?.let { (it as LPoint).h.toInt() } ?: data?.regX ?: if (runtimeBitmap) width / 2 else 0
+    val regY: Int get() = overrides["regpoint"]?.let { (it as LPoint).v.toInt() } ?: data?.regY ?: if (runtimeBitmap) height / 2 else 0
+    private val runtimeBitmap: Boolean get() = data == null && type == "bitmap"
 
     val fontSize: Int get() = overrides["fontsize"]?.toInt() ?: data?.textStyle?.fontSize ?: 12
 
@@ -256,6 +258,16 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
         private val TAG = Regex("<[^>]*>")
         private val BREAK = Regex("(?i)<br\\s*/?>|</p>|</tr>")
         private val CELL_END = Regex("(?i)</td>")
+        private val TABLE_START = Regex("(?i)<table\\b[^>]*>")
+
+        /**
+         * A table is a block: it opens its own paragraph, so one at the start of the body (or
+         * after inline text) leaves a line before its first row, as Director's HTML import does.
+         */
+        private fun tableParagraphs(html: String): String = TABLE_START.replace(html) { m ->
+            val before = html.substring(0, m.range.first).replace(BREAK, "\r").replace(TAG, "")
+            if (before.endsWith("\r")) m.value else "<br>" + m.value
+        }
         private val FONT_TAG = Regex("(?i)<font\\b([^>]*)>")
         private val ROW = Regex("(?is)<tr\\b.*?</tr>")
         private val CELL_WIDTH = Regex("(?i)<td\\b[^>]*\\bwidth\\s*=\\s*\"?(\\d+)")
@@ -266,7 +278,7 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
             Regex("(?i)\\b$name\\s*=\\s*(?:'([^']*)'|\"([^\"]*)\"|([^\\s>]+))").find(attrs)?.groupValues?.drop(1)?.firstOrNull { it.isNotEmpty() }
 
         /** Plain text of the simple HTML that titles assign to text members: rows end lines, cells are tab separated. */
-        fun htmlToText(html: String): String = html.replace(BREAK, "\r").replace(CELL_END, "\t").replace(TAG, "")
+        fun htmlToText(html: String): String = tableParagraphs(html).replace(BREAK, "\r").replace(CELL_END, "\t").replace(TAG, "")
             .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&nbsp;", " ").replace("&amp;", "&")
             .replace(Regex("\t+\r"), "\r").trimEnd('\r', '\t')
     }

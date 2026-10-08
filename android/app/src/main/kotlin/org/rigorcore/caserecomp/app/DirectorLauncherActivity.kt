@@ -32,6 +32,8 @@ class DirectorLauncherActivity : Activity() {
     private var stage: DirectorStageView? = null
     private var ready = false
     private var workerToken = 0
+    /** Debug-only adb automation bridge (see [DirectorDebugBridge]). */
+    private var bridge: DirectorDebugBridge? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +42,7 @@ class DirectorLauncherActivity : Activity() {
             return
         }
         repository = PrivateDirectorRepository(this)
+        bridge = DirectorDebugBridge { runtime }.also { it.register(this) }
         showStartScreen("Director/Lingo private debug")
         if (savedInstanceState == null) pendingSave = intent.getStringExtra(EXTRA_IMPORT_SAVE)
         val external = intent.getStringExtra(EXTRA_IMPORT_EXTERNAL)
@@ -235,6 +238,7 @@ class DirectorLauncherActivity : Activity() {
     }
     override fun onDestroy() {
         workerToken++
+        bridge?.let { runCatching { unregisterReceiver(it) } }; bridge = null
         disposeSession()
         super.onDestroy()
     }

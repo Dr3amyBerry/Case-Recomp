@@ -45,7 +45,7 @@ internal class DirectorStageView(
                 if (!runtime.quitRequested) {
                     val start = android.os.SystemClock.uptimeMillis()
                     runtime.tick()
-                    invalidate()
+                    redraw()
                     logStats(start)
                     // Late frames are not made up in a burst: resync when more than one frame behind.
                     nextFrameAt = maxOf(nextFrameAt + intervalMillis, start - intervalMillis)
@@ -89,7 +89,7 @@ internal class DirectorStageView(
     fun resumeFrames() {
         if (active || runtime.quitRequested) return
         active = true
-        invalidate()
+        redraw()
         nextFrameAt = android.os.SystemClock.uptimeMillis() + intervalMillis
         postDelayed(advance, intervalMillis)
     }
@@ -99,17 +99,57 @@ internal class DirectorStageView(
         removeCallbacks(advance)
     }
 
+    private var stageDirty = true
+
+    /** The VM state changed: compose a new stage frame on the next draw. */
+    private fun redraw() {
+        stageDirty = true
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(Color.BLACK)
         val drawStart = android.os.SystemClock.uptimeMillis()
-        val frame = renderer.render()
-        composeWork += android.os.SystemClock.uptimeMillis() - drawStart
-        bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
+        // Compose only after the VM advanced or took input; overlay-only redraws reuse the frame.
+        if (stageDirty) {
+            stageDirty = false
+            val frame = renderer.render()
+            composeWork += android.os.SystemClock.uptimeMillis() - drawStart
+            bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
+        }
         val area = viewport.fit(width, height)
         destination.set(area.left, area.top, area.left + area.width, area.top + area.height)
         canvas.drawBitmap(bitmap, null, destination, drawPaint)
+        drawTouchMark(canvas)
         drawWork += android.os.SystemClock.uptimeMillis() - drawStart
+    }
+
+    /** Where the last touch landed (view pixels) and when: a ring that grows and fades out. */
+    private var markX = 0f
+    private var markY = 0f
+    private var markAt = 0L
+    private val markPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+
+    private fun markTouch(x: Float, y: Float) {
+        markX = x; markY = y; markAt = android.os.SystemClock.uptimeMillis()
+    }
+
+    private fun drawTouchMark(canvas: Canvas) {
+        if (markAt == 0L) return
+        val t = (android.os.SystemClock.uptimeMillis() - markAt) / TOUCH_MARK_MILLIS.toFloat()
+        if (t >= 1f) { markAt = 0L; return }
+        val density = resources.displayMetrics.density
+        val radius = (10f + 14f * t) * density
+        val alpha = ((1f - t) * 255).toInt()
+        // A dark halo under a light ring stays visible on bright and dark scenes alike.
+        markPaint.strokeWidth = 4f * density
+        markPaint.color = Color.argb(alpha / 2, 0, 0, 0)
+        canvas.drawCircle(markX, markY, radius, markPaint)
+        markPaint.strokeWidth = 2f * density
+        markPaint.color = Color.argb(alpha, 255, 255, 255)
+        canvas.drawCircle(markX, markY, radius, markPaint)
+        postInvalidateOnAnimation()
     }
 
     /**
@@ -137,7 +177,7 @@ internal class DirectorStageView(
             onRuntimeError?.invoke(e)
             return true
         }
-        invalidate()
+        redraw()
         checkQuit()
         return true
     }
@@ -151,6 +191,7 @@ internal class DirectorStageView(
                 down = true
                 requestFocus()
                 removeCallbacks(liftPointer)
+                if (!mouse) markTouch(event.x, event.y)
                 input {
                     if (mouse) pressAt(point.first, point.second)
                     else {
@@ -225,17 +266,17 @@ internal class DirectorStageView(
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
                 // IMEs may commit a newline instead of an editor action.
                 text?.forEach { sendCharacter(if (it == '\n') RETURN else it.toString()) }
-                invalidate()
+                redraw()
                 return true
             }
             override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
                 if (beforeLength > 0) sendCharacter(BACKSPACE)
-                invalidate()
+                redraw()
                 return true
             }
             override fun performEditorAction(actionCode: Int): Boolean {
                 sendCharacter(RETURN)
-                invalidate()
+                redraw()
                 return true
             }
         }
@@ -284,7 +325,7 @@ internal class DirectorStageView(
             else -> event.unicodeChar.takeIf { it > 0 }?.toChar()?.toString() ?: return super.onKeyDown(keyCode, event)
         }
         sendCharacter(key)
-        invalidate()
+        redraw()
         return true
     }
 
@@ -303,6 +344,8 @@ internal class DirectorStageView(
         const val TOUCH_ROLLOVER_MILLIS = 100L
         /** How long the pointer lingers after a release before it leaves the stage. */
         const val TOUCH_LIFT_MILLIS = 150L
+        /** Lifetime of the ring drawn where a touch lands. */
+        const val TOUCH_MARK_MILLIS = 450L
         // Director's `the key` is the character itself: RETURN, BACKSPACE and ESC are control characters.
         const val RETURN = "\r"
         const val BACKSPACE = "\b"

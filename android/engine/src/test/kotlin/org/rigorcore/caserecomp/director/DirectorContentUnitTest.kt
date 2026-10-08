@@ -83,6 +83,17 @@ class DirectorContentUnitTest {
         }
     }
 
+    @Test fun bitmaps_made_at_run_time_register_at_their_centre() {
+        DirectorContent.open(pack(files), decoder).use { content ->
+            val rt = DirectorRuntime(content.movie, content.lingo, content)
+            val logo = rt.member(org.rigorcore.caserecomp.lingo.LingoValue.LString("logo"), null)
+            val tile = logo.lib.newMember("bitmap")
+            tile.setProp("image", LingoImage(70, 60))
+            assertEquals(listOf(35, 30), listOf(tile.regX, tile.regY))
+            assertEquals("authored members keep their registration", listOf(0, 0), listOf(logo.regX, logo.regY))
+        }
+    }
+
     @Test fun bundled_cast_files_report_a_size_from_their_packaged_media() {
         DirectorContent.open(pack(files), decoder).use { content ->
             // Header plus media/art/*: big enough that a cast is not mistaken for a missing download stub.
@@ -123,14 +134,17 @@ class DirectorContentUnitTest {
             member.setProp("html", org.rigorcore.caserecomp.lingo.LingoValue.LString(
                 "<TABLE><TR><TD WIDTH=10><font size=5 color=#FFFFFF face='Arial'>A</FONT></TD><TD WIDTH=4></TD>" +
                     "<TD WIDTH=20>B</TD></TR><TR><TD>C</TD><TD></TD><TD>D</TD></TR></TABLE>"))
-            assertEquals("A\t\tB\rC\t\tD", member.text)
+            // The table opens its own paragraph after the (empty) body text.
+            assertEquals("\rA\t\tB\rC\t\tD", member.text)
             assertEquals(listOf(10, 14), member.tabStops)
             assertEquals(listOf(18, 0xFFFFFFFF.toInt(), "Arial"), listOf(member.fontSize, member.textColor, member.font))
             val metrics = object : TextMetrics {
                 override fun width(member: CastMember, text: String) = text.length
                 override fun lineHeight(member: CastMember) = 1
             }
-            assertEquals(listOf(0 to "A", 10 to "", 14 to "B"), TextLayout.lines(member, 40, metrics).first().segments)
+            assertEquals(listOf(0 to "A", 10 to "", 14 to "B"), TextLayout.lines(member, 40, metrics)[1].segments)
+            member.setProp("html", org.rigorcore.caserecomp.lingo.LingoValue.LString("<p>Top</p><table><tr><td>X</td></tr></table>"))
+            assertEquals("no extra line when the table already starts a line", "Top\rX", member.text)
         }
     }
 
