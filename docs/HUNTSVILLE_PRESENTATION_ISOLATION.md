@@ -134,14 +134,14 @@ Baseline filenames ending scene-dialog/map-report do not prove an open modal: th
 bridge reported no active Flash button. Nine deterministic private JVM screenshots are pixel-identical before/after, including
 name entry and map prompts; this uses the unchanged AWT test rasterizer, so it does
 not independently validate Android font fidelity. Original WSA save preferences
-were restored byte-for-byte after testing.
+and all 11 original app-private files were restored byte-for-byte after testing.
 No assertion of modal/puzzle visual fidelity
 is made from those filenames or from JVM tests.
 
 Debug, test and signed release APK builds succeeded. Release app ID, version code,
 signing key and storage remain unchanged. Game resources are imported privately;
 no commercial game files are packaged in the review APK. Artifact hash, source
-commit and installation instructions are recorded in the review delivery document.
+commit and installation instructions are recorded in [the review delivery document](HUNTSVILLE_REVIEW_BUILD.md).
 
 ## Human checkpoint and existing problems
 
