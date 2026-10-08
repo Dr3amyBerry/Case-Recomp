@@ -17,13 +17,19 @@ class DirectorPresentationProfilesUnitTest {
     @Test fun complete_known_bundle_pair_selects_reviewed_profile() {
         assertSame(profile, DirectorPresentationProfiles.select(known))
         assertEquals(1, profile.schemaVersion)
-        assertEquals(2, profile.revision)
+        assertEquals(3, profile.revision)
     }
 
-    @Test fun name_alignment_is_scoped_to_verified_dialog_sprites() {
-        assertEquals(mapOf((33 to "enterNameField1") to (0 to 6), (31 to "cursor") to (0 to 6)), profile.scopedNudges)
-        assertNull(profile.scopedNudges[277 to "enterNameField1"])
+    @Test fun user_interface_alignment_is_scoped_to_verified_sprites_and_members() {
+        assertEquals(0 to 6, profile.scopedNudges[33 to "enterNameField1"])
+        assertEquals(12 to 6, profile.scopedNudges[31 to "cursor"])
+        assertEquals(6 to 0, profile.scopedNudges[19 to "changeUserA"])
+        assertEquals(6 to 0, profile.scopedNudges[19 to "changeUserB"])
+        for (row in 1..5) assertEquals(0 to 6, profile.scopedNudges[(276 + row) to "enterNameField$row"])
+        assertEquals(2, profile.interactiveNudges.size)
+        assertTrue(profile.interactiveNudges.keys.all { it.first == 19 })
         assertTrue(DirectorPresentationProfiles.GENERIC.scopedNudges.isEmpty())
+        assertTrue(DirectorPresentationProfiles.GENERIC.interactiveNudges.isEmpty())
     }
 
     @Test fun matching_one_bundle_or_claiming_source_identity_cannot_enable_profile() {

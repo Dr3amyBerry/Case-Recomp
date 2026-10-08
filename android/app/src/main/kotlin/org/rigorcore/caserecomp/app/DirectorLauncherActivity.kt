@@ -206,7 +206,7 @@ class DirectorLauncherActivity : Activity() {
                     movie, loaded.lingo, media = loaded, sound = output,
                     clock = SystemClock::elapsedRealtime,
                     environment = DirectorEnvironment(moviePath = "C:\\CaseRecomp\\", platform = "Windows,32", runMode = "Projector"),
-                    extensions = xtras, textMetrics = text,
+                    extensions = xtras, textMetrics = text, spriteHitOffsets = profile.interactiveNudges,
                     // Keep a scene's decoded cast in memory, within a third of this app's heap.
                     mediaCacheBytes = (Runtime.getRuntime().maxMemory() / 3).coerceIn(32L shl 20, 256L shl 20),
                 )

@@ -65,7 +65,16 @@ class DirectorRuntime(
     val textMetrics: TextMetrics = TextMetrics.Approximate,
     /** Budget for decoded member media; ports size it to the device's heap. */
     private val mediaCacheBytes: Long = DEFAULT_MEDIA_CACHE_BYTES,
+    /** Optional player-side offsets for controls whose drawing has been translated. */
+    spriteHitOffsets: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
 ) : LingoHost {
+    private val spriteHitOffsets = spriteHitOffsets.mapKeys { (key, _) -> key.first to key.second.lowercase() }
+    private fun Sprite.hitOffset(): Pair<Int, Int> = spriteHitOffsets[number to member?.name?.lowercase()] ?: (0 to 0)
+    private fun Sprite.presentedHit(x: Int, y: Int): Boolean {
+        val (dx, dy) = hitOffset()
+        return hit(x - dx, y - dy)
+    }
+
     val vm = LingoVm(bundle, this, random)
     private val startTime = clock()
     val castLibs: List<CastLib> = movie.castLibs.sortedBy { it.number }.map { CastLib(this, it.number, it.name, it.filePath) }
@@ -277,7 +286,8 @@ class DirectorRuntime(
     /** Topmost Flash sprite under a stage point with its movie coordinates. */
     private fun flashAt(x: Int, y: Int): Pair<Sprite, Pair<Double, Double>>? {
         val top = spriteAt(x, y) ?: return null
-        val point = top.flash.toMovie(x, y) ?: return null
+        val (dx, dy) = top.hitOffset()
+        val point = top.flash.toMovie(x - dx, y - dy) ?: return null
         return top to point
     }
 
@@ -360,7 +370,7 @@ class DirectorRuntime(
     /** Topmost sprite under a stage point (highest locZ, then highest channel). */
     fun spriteAt(x: Int, y: Int): Sprite? = sprites.asReversed()
         .sortedByDescending { it.locZ }
-        .firstOrNull { it.span != null && it.hit(x, y) }
+        .firstOrNull { it.span != null && it.presentedHit(x, y) }
 
     /**
      * Topmost *active* sprite under a point: one whose behaviours handle a mouse event. Mouse
@@ -369,7 +379,7 @@ class DirectorRuntime(
      */
     fun activeSpriteAt(x: Int, y: Int): Sprite? = sprites.asReversed()
         .sortedByDescending { it.locZ }
-        .firstOrNull { it.span != null && it.handlesMouse() && it.hit(x, y) }
+        .firstOrNull { it.span != null && it.handlesMouse() && it.presentedHit(x, y) }
 
     private fun Sprite.handlesMouse() = instances.any { instance -> MOUSE_EVENTS.any { instance.script.handler(it) != null } }
 
@@ -396,7 +406,7 @@ class DirectorRuntime(
         flashAt(x, y)?.let { (s, p) -> s.flash.player?.mouseUp(p.first, p.second) }
         val target = downSprite
         downSprite = null
-        if (target != null && target.span != null && !target.hit(x, y)) {
+        if (target != null && target.span != null && !target.presentedHit(x, y)) {
             sendSprite(target, "mouseUpOutside", emptyList())
         } else {
             spriteEvent(target ?: activeSpriteAt(x, y), "mouseUp")

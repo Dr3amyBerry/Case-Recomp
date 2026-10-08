@@ -94,6 +94,20 @@ class StageRendererUnitTest {
         assertEquals("default rendering unchanged", green, ordinary.pixels[10 * ordinary.width + 32])
     }
 
+    @Test fun input_offsets_follow_the_matching_control_without_changing_lingo_bounds() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L },
+            spriteHitOffsets = mapOf((3 to "BOX") to (6 to 0), (4 to "wrong member") to (6 to 0)))
+        rt.start()
+        assertEquals(1, rt.spriteAt(31, 1)?.number)
+        assertEquals(3, rt.spriteAt(37, 1)?.number)
+        assertEquals(4, rt.spriteAt(32, 12)?.number)
+        assertEquals(listOf(30, 0, 34, 4), rt.sprite(3).bounds().toList())
+        val ordinary = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        ordinary.start()
+        assertEquals(3, ordinary.spriteAt(31, 1)?.number)
+        assertEquals(1, ordinary.spriteAt(37, 1)?.number)
+    }
+
     @Test fun scaled_stage_doubles_bitmaps_exactly_and_draws_text_at_full_resolution() {
         val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
         rt.start()

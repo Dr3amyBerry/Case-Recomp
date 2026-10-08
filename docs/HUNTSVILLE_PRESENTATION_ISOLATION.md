@@ -183,3 +183,32 @@ Two new tests check profile isolation and actual scoped composition at scales 1/
 including a shared member on another sprite, a mismatched member, unchanged bounds
 and empty-default rendering. Previous font pixel-equivalence tests still pass.
 This build remains PENDIENTE_VALIDACION_HUMANA; no Stage 2 authorization is inferred.
+
+## Follow-up: cursor spacing, change-user button and user-list rows
+
+Profile revision 3 implements the reviewer's three additional requests:
+
+- Name-dialog caret (sprite 31/member cursor): offset (+12,+6), leaving a small
+  horizontal gap after the final glyph. The previous vertical correction is kept.
+- Menu change-user button (sprite 19): (+6,0) for BOTH changeUserA and changeUserB,
+  preserving its alignment through rollover swaps.
+- Agent-list names (sprites 277..281/members enterNameField1..5): (0,+6), including
+  the first row. Name-dialog sprite 33 remains (0,+6).
+
+Only a verified Huntsville snapshot receives these values. No font metrics or
+commercial game data are changed. The button's input area follows its drawing:
+DirectorRuntime accepts an optional empty-default spriteHitOffsets map keyed by
+sprite and member. Sprite lookup, active lookup, release-outside and Flash coordinate
+conversion use the translated point. The app supplies only the two menu-button
+entries. Lingo rectangles and saves remain unchanged. Generic packages have no
+input/drawing offsets; rows/caret keep their existing input behavior.
+
+WSA captures in private/huntsville/profile-isolation/2026-10-08/user-alignment/
+show the separated caret, button placement and lower list row (the saved test user
+is Robot). Tapping the moved button at its displayed position opens the user list;
+New then opens the name dialog, where Dream was entered without confirming/saving.
+Kotlin: 11 app + 83 engine tests pass. All 18 Android tests pass, including the
+unchanged 1,152-case text comparison. The new input-offset test checks moved and
+old control areas, wrong-member exclusion, default behavior and unchanged bounds.
+Private app data is restored after these checks. Human visual acceptance remains
+pending, and Stage 2 is still gated by explicit approval.
