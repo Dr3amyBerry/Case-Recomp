@@ -155,12 +155,21 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) return false
         if (m.type == "flash") return flash.toMovie(x, y)?.let { (mx, my) -> flash.player!!.hits(mx, my) } ?: true
         if (ink != 8 && ink != 36) return true
+        if (m.type == "text") return textHit(m, x - b[0], y - b[1], b[2] - b[0])
         val image = m.pixels ?: return true
         if (!image.useAlpha || b[2] == b[0] || b[3] == b[1]) return true
         var ix = (x - b[0]) * image.width / (b[2] - b[0])
         val iy = (y - b[1]) * image.height / (b[3] - b[1])
         if (flipH) ix = image.width - 1 - ix
         return image.pixels[iy * image.width + ix] ushr 24 != 0
+    }
+
+    /** A matte/transparent text box is solid only where its laid-out lines are; clicks elsewhere fall through. */
+    private fun textHit(m: CastMember, x: Int, y: Int, width: Int): Boolean {
+        val metrics = runtime.textMetrics
+        val step = TextLayout.lineHeight(m, metrics).coerceAtLeast(1)
+        val line = TextLayout.lines(m, width, metrics).getOrNull(y / step) ?: return false
+        return line.text.isNotBlank() && x >= line.x && x < line.x + metrics.width(m, line.text)
     }
 
     /** Enter a new span (or none): drop Lingo changes and behaviours of the previous span. */

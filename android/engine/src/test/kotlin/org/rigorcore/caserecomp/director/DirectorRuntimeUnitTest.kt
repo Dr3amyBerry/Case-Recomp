@@ -116,7 +116,7 @@ class DirectorRuntimeUnitTest {
                 SpriteRun(1, 1, 1 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = false),
                 SpriteRun(1, 1, 2 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = true),
                 SpriteRun(1, 1, 3 + o, 0, 1, 2, 100, 100, 25, 6, 0, false, false, stretch = false),
-                SpriteRun(1, 1, 4 + o, 0, 1, 3, 100, 100, 25, 6, 0, false, false, stretch = false),
+                SpriteRun(1, 1, 4 + o, 8, 1, 3, 100, 100, 25, 6, 0, false, false, stretch = false),
             ),
             spans = emptyList(),
         )
@@ -126,6 +126,8 @@ class DirectorRuntimeUnitTest {
         assertEquals(listOf(25, 6), listOf(rt.sprite(2).width, rt.sprite(2).height))
         assertEquals("shapes keep the score rect", 25, rt.sprite(3).width)
         assertEquals("text boxes take the member rect", listOf(30, 10), listOf(rt.sprite(4).width, rt.sprite(4).height))
+        // Matte text is solid only over its laid-out characters ("Hi" is ~13 px wide here).
+        assertEquals(listOf(true, false), listOf(rt.sprite(4).hit(101, 101), rt.sprite(4).hit(125, 101)))
     }
 
     @Test fun playback_labels_go_and_frame_script_loop() {

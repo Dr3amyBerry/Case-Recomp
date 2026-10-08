@@ -85,6 +85,9 @@ internal class DirectorStageView(
                     if (point == null) return false
                     down = true
                     requestFocus()
+                    if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
+                        android.util.Log.d(TAG, "down ${point.first},${point.second} -> sprite ${runtime.activeSpriteAt(point.first, point.second)?.number}")
+                    }
                     runtime.mouseDown(point.first, point.second)
                 }
                 MotionEvent.ACTION_MOVE -> point?.let { runtime.mouseMove(it.first, it.second) }
@@ -174,6 +177,7 @@ internal class DirectorStageView(
     }
 
     private companion object {
+        const val TAG = "CaseRecompDirector"
         // Director's `the key` is the character itself: RETURN, BACKSPACE and ESC are control characters.
         const val RETURN = "\r"
         const val BACKSPACE = "\b"

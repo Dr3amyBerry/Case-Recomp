@@ -378,6 +378,7 @@ object SwfParser {
             val t = stripErroneousHeader(tables)
             image = t.copyOfRange(0, t.size - 2) + image.copyOfRange(2, image.size)
         }
+        image = joinTablesAndImage(image)
         val (w, h) = jpegSize(image)
         val alpha = if (code == 35 && r.pos < body.size) inflate(body, r.pos).takeIf { it.size >= w * h } else null
         return SwfBitmap(id, w, h, jpeg = image, alpha = alpha)
@@ -387,6 +388,28 @@ object SwfParser {
     private fun stripErroneousHeader(data: ByteArray): ByteArray =
         if (data.size >= 4 && (data[0].toInt() and 0xFF) == 0xFF && (data[1].toInt() and 0xFF) == 0xD9 &&
             (data[2].toInt() and 0xFF) == 0xFF && (data[3].toInt() and 0xFF) == 0xD8) data.copyOfRange(4, data.size) else data
+
+    /**
+     * SWF JPEG data is often "tables EOI SOI image": an end-of-image marker before the frame.
+     * Strict decoders stop there, so drop each EOI/SOI pair met before the start of scan.
+     */
+    internal fun joinTablesAndImage(data: ByteArray): ByteArray {
+        val out = java.io.ByteArrayOutputStream(data.size)
+        var p = 0
+        if (data.size >= 2) { out.write(data, 0, 2); p = 2 }
+        while (p + 3 < data.size) {
+            if ((data[p].toInt() and 0xFF) != 0xFF) break
+            val marker = data[p + 1].toInt() and 0xFF
+            if (marker == 0xD9 && (data[p + 2].toInt() and 0xFF) == 0xFF && (data[p + 3].toInt() and 0xFF) == 0xD8) { p += 4; continue }
+            if (marker == 0xDA || marker == 0xD8 || marker == 0x01 || marker in 0xD0..0xD7) break
+            val end = p + 2 + (((data[p + 2].toInt() and 0xFF) shl 8) or (data[p + 3].toInt() and 0xFF))
+            if (end > data.size) break
+            out.write(data, p, end - p)
+            p = end
+        }
+        out.write(data, p, data.size - p)
+        return out.toByteArray()
+    }
 
     private fun jpegSize(data: ByteArray): Pair<Int, Int> {
         var p = 2

@@ -152,6 +152,16 @@ class FlashPlayerUnitTest {
         assertTrue(player.hits(15.0, 15.0))
     }
 
+    @Test fun jpeg_tables_and_image_are_joined_without_the_inner_eoi_soi() {
+        fun b(vararg v: Int) = ByteArray(v.size) { v[it].toByte() }
+        val tables = b(0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x03, 0x07)
+        val image = b(0xFF, 0xD9, 0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x03, 0x09, 0xFF, 0xDA, 0x00, 0x02, 0x11, 0xFF, 0xD9)
+        val joined = SwfParser.joinTablesAndImage(tables + image)
+        assertTrue(joined.contentEquals(b(0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x03, 0x07, 0xFF, 0xC0, 0x00, 0x03, 0x09,
+            0xFF, 0xDA, 0x00, 0x02, 0x11, 0xFF, 0xD9)))
+        assertTrue("a plain JPEG is unchanged", joined.contentEquals(SwfParser.joinTablesAndImage(joined)))
+    }
+
     @Test fun matrices_compose_and_invert() {
         val m = SwfMatrix(2.0, 0.0, 0.0, 3.0, 10.0, 20.0) * SwfMatrix(tx = 1.0, ty = 1.0)
         assertEquals(12.0, m.x(0.0, 0.0), 0.0); assertEquals(23.0, m.y(0.0, 0.0), 0.0)
