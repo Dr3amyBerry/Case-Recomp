@@ -79,6 +79,27 @@ class DirectorContentUnitTest {
         }
     }
 
+    @Test fun rejects_missing_unlisted_and_duplicate_manifest_paths() {
+        assertThrows(LingoError::class.java) {
+            DirectorContent.open(pack(files, listed = files - "media/internal/3.png"), decoder)
+        }
+        val duplicate = """{"path":"movie.json","bytes":123,"sha256":"${sha(movieJson.toByteArray())}"}"""
+        assertThrows(LingoError::class.java) {
+            DirectorContent.open(pack(files, extra = ",$duplicate"), decoder)
+        }
+    }
+
+    @Test fun streaming_verification_rejects_corruption_in_rarely_used_media() {
+        val damaged = files.toMutableMap().also { it["media/internal/4.swf"] = byteArrayOf(0, 1, 2) }
+        DirectorContent.open(pack(damaged, listed = files), decoder).use { content ->
+            assertThrows(LingoError::class.java) { content.verifyAll() }
+        }
+        DirectorContent.open(pack(files), decoder).use { content ->
+            content.verifyAll()
+            assertThrows(LingoError::class.java) { content.verifyAll(requireSourceBinding = true) }
+        }
+    }
+
     @Test fun rejects_tampered_unlisted_and_unsafe_entries() {
         val tampered = files.toMutableMap().also { it["media/art/1.png"] = image(0, 0) }
         DirectorContent.open(pack(tampered, listed = files), decoder).use { content ->
