@@ -16,7 +16,7 @@ from typing import Any
 from .director import open_archive
 from .inspector import InspectionError
 from .lingo_index import index_archive
-from .score import lingo_script_number, parse_cast_member, parse_cast_order, parse_score
+from .score import member_script_number, parse_cast_member, parse_cast_order, parse_score
 from .scenario import canonical_bytes, load_scenario
 
 SPEC_FORMAT = "case-recomp-private-vertical-slice"
@@ -112,7 +112,7 @@ def build_private_vertical_slice(path: Path, *, menu_label: str, map_label: str,
     cast_order = parse_cast_order(_single(archive, "CAS*"))
     casts = {rid: parse_cast_member(rid, archive.get_resource(rid))
              for rid, item in archive.entries.items() if item.tag == "CASt"}
-    scripts = {lingo_script_number(archive.get_resource(rid)): rid
+    scripts = {member_script_number(archive.get_resource(rid)): rid
                for rid, item in archive.entries.items() if item.tag == "Lscr"}
     handler_rows: dict[int, list[tuple]] = {}
     for row in index_archive(archive, redact=True)["handlers"]:

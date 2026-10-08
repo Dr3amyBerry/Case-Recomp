@@ -66,7 +66,7 @@ class VerticalSliceTests(unittest.TestCase):
         index={'handlers':[{'script_id':5,'name':H2,'bytecode_sha256':H3,'bytecode_size':4}]}
         with tempfile.TemporaryDirectory() as td:
             src=Path(td)/'movie.bin';src.write_bytes(b'owned')
-            with patch('caserecomp.vertical_slice.open_archive',return_value=(Archive(),0)), patch('caserecomp.vertical_slice.parse_score',return_value=score), patch('caserecomp.vertical_slice.parse_cast_order',return_value=(4,)), patch('caserecomp.vertical_slice.parse_cast_member',return_value=member), patch('caserecomp.vertical_slice.lingo_script_number',return_value=7), patch('caserecomp.vertical_slice.index_archive',return_value=index):
+            with patch('caserecomp.vertical_slice.open_archive',return_value=(Archive(),0)), patch('caserecomp.vertical_slice.parse_score',return_value=score), patch('caserecomp.vertical_slice.parse_cast_order',return_value=(4,)), patch('caserecomp.vertical_slice.parse_cast_member',return_value=member), patch('caserecomp.vertical_slice.member_script_number',return_value=7), patch('caserecomp.vertical_slice.index_archive',return_value=index):
                 doc=build_private_vertical_slice(src,menu_label='menu',map_label='map',scene_label='scene')
                 self.assertEqual([x['start_frame'] for x in doc['stages']],[1,10,20,30]); self.assertEqual(doc['stages'][-1]['end_frame'],39)
                 self.assertEqual(doc['promotable_rules'],0); validate_private_slice(doc)

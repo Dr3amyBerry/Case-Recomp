@@ -9,7 +9,7 @@ from typing import Iterable
 from .director import open_archive
 from .inspector import InspectionError
 from .lingo_index import index_archive
-from .score import BehaviorRef, ScoreModel, lingo_script_number, parse_cast_member, parse_cast_order, parse_frame_labels, parse_score
+from .score import BehaviorRef, ScoreModel, member_script_number, parse_cast_member, parse_cast_order, parse_frame_labels, parse_score
 from .scenario import canonical_bytes, validate_scenario
 
 FORMAT = "case-recomp-behavior-trace"
@@ -57,7 +57,7 @@ def _links(archive):
     order = parse_cast_order(_single(archive, "CAS*"))
     casts = {rid: parse_cast_member(rid, archive.get_resource(rid))
              for rid, entry in archive.entries.items() if entry.tag == "CASt"}
-    scripts = {lingo_script_number(archive.get_resource(rid)): rid
+    scripts = {member_script_number(archive.get_resource(rid)): rid
                for rid, entry in archive.entries.items() if entry.tag == "Lscr"}
     return order, casts, scripts
 

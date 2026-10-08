@@ -206,6 +206,17 @@ def lingo_script_number(data: bytes) -> int:
     return _u16(data, 18)
 
 
+def member_script_number(data: bytes) -> int:
+    """Number by which CASt script members reference this Lscr.
+
+    A script member's info stores the Lscr's own script number plus one. This was
+    confirmed on an owned Director 8.5 movie, where every one of 80 script members
+    then matched an independent decompiler's handler list (versus 3 of 80 without
+    the offset).
+    """
+    return lingo_script_number(data) + 1
+
+
 def parse_frame_labels(data: bytes) -> tuple[FrameLabel, ...]:
     if len(data) < 2:
         raise InspectionError("truncated VWLB label table")
@@ -423,7 +434,7 @@ def analyze_movie_structure(path: Path) -> dict:
     script_resource_by_number: dict[int, int] = {}
     for rid, item in archive.entries.items():
         if item.tag == "Lscr":
-            script_resource_by_number[lingo_script_number(archive.get_resource(rid))] = rid
+            script_resource_by_number[member_script_number(archive.get_resource(rid))] = rid
 
     handler_index = index_archive(archive, redact=True)
     behavior_script_links = 0

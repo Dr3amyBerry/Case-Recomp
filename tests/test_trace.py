@@ -114,7 +114,7 @@ class TraceTests(unittest.TestCase):
         struct.pack_into(">i", info, 16, 5)
         cast = struct.pack(">iii", 11, len(info), 0) + bytes(info)
         lscr = bytearray(20)
-        struct.pack_into(">H", lscr, 18, 5)
+        struct.pack_into(">H", lscr, 18, 4)  # members reference Lscr number + 1
         entries = {
             1: SimpleNamespace(tag="CAS*"),
             10: SimpleNamespace(tag="CASt"),

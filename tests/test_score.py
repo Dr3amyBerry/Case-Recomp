@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from caserecomp.inspector import InspectionError
-from caserecomp.score import (analyze_movie_structure, build_scene_segments, lingo_script_number,
+from caserecomp.score import (analyze_movie_structure, build_scene_segments, lingo_script_number, member_script_number,
                               parse_cast_member, parse_cast_order, parse_frame_labels,
                               parse_movie_config, parse_score)
 
@@ -62,6 +62,7 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(parse_cast_order(struct.pack(">III", 10, 0, 30)), (10, 0, 30))
         lscr = bytearray(20); struct.pack_into(">H", lscr, 18, 42)
         self.assertEqual(lingo_script_number(bytes(lscr)), 42)
+        self.assertEqual(member_script_number(bytes(lscr)), 43)
 
     def test_labels_are_hashed_not_exposed(self):
         result = parse_frame_labels(labels())
@@ -123,7 +124,7 @@ class ScoreTests(unittest.TestCase):
             4: struct.pack(">II", 0, 200),
             200: cast_member(member_type=11, script=7),
         }
-        lscr = bytearray(20); struct.pack_into(">H", lscr, 18, 7); resources[300] = bytes(lscr)
+        lscr = bytearray(20); struct.pack_into(">H", lscr, 18, 6); resources[300] = bytes(lscr)  # member script 7 -> Lscr 6
         tags = {1: "DRCF", 2: "VWSC", 3: "VWLB", 4: "CAS*", 200: "CASt", 300: "Lscr"}
         fake = SimpleNamespace(
             kind="movie",
