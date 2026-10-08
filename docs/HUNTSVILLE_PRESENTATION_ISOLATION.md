@@ -231,3 +231,10 @@ The verified Huntsville edition now uses native save handlers plus a resume book
 with atomic persistence, paused background time and a stable-frame restore sequence
 that fixes the black screen reported during review.
 See [checkpoint scope and limitations](HUNTSVILLE_SESSION_CHECKPOINT.md).
+
+## Follow-up: time-limit baseline
+
+Profile revision 6 moves only sprite 208/timeLimitField down five stage pixels.
+Its original top was 64 versus 69 for sprite 207/timeLimitLabel; both now share the
+same displayed top. The countdown timer is unchanged. This calibration is scoped
+to the verified Huntsville edition; generic packages have no inherited offset.

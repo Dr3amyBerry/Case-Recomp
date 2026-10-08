@@ -17,7 +17,7 @@ class DirectorPresentationProfilesUnitTest {
     @Test fun complete_known_bundle_pair_selects_reviewed_profile() {
         assertSame(profile, DirectorPresentationProfiles.select(known))
         assertEquals(1, profile.schemaVersion)
-        assertEquals(5, profile.revision)
+        assertEquals(6, profile.revision)
     }
 
     @Test fun user_interface_alignment_is_scoped_to_verified_sprites_and_members() {
