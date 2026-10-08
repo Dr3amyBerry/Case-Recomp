@@ -130,10 +130,11 @@ class ScoreModel:
 
     @property
     def displayed_channels(self) -> int:
-        if self.frames_version <= 7:
-            return 48
-        if self.frames_version <= 13:
-            return 120
+        if self.sprite_record_size < 48:
+            if self.frames_version <= 7:
+                return 48
+            if self.frames_version <= 13:
+                return 120
         return self.channel_count
 
 
@@ -287,9 +288,12 @@ def _parse_frame_data(data: bytes) -> tuple[int, int, int, int, tuple[SpriteStat
     frames_version, record_size, channels = struct.unpack_from(">HHH", data, 12)
     if not 1 <= frame_count <= MAX_FRAMES or not 20 <= record_size <= MAX_SPRITE_RECORD or not 1 <= channels <= MAX_CHANNELS:
         raise InspectionError("invalid VWSC frame header")
-    if frames_version <= 7:
+    # Director 7+ writes 48-byte sprite records and lays out every channel the
+    # header declares (an owned Director 8.5 movie with frames version 13 writes
+    # deltas up to channel 320); only older 24-byte layouts use fixed counts.
+    if frames_version <= 7 and record_size < 48:
         main_size, displayed, base_channel = 48, 48, 6
-    elif frames_version <= 13:
+    elif frames_version <= 13 and record_size < 48:
         main_size, displayed, base_channel = 144, 120, 3
     else:
         main_size, displayed, base_channel = 0, channels, 0

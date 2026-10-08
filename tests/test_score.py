@@ -94,6 +94,23 @@ class ScoreTests(unittest.TestCase):
         object.__setattr__(score, "frames_version", 7)
         self.assertEqual(score.displayed_channels, 48)
 
+    def test_director7_records_use_every_declared_channel(self):
+        # Frames version 13 with 48-byte records: a sprite past the old 120-channel cap.
+        rec = bytearray(48); rec[0] = 1
+        struct.pack_into(">HH", rec, 4, 1, 9)
+        struct.pack_into(">hh", rec, 12, 5, 7)
+        struct.pack_into(">HH", rec, 16, 3, 4)
+        channels, channel = 300, 280
+        frame_header = struct.pack(">iiiHHHH", 0, 0, 1, 13, 48, channels, 0)
+        body = struct.pack(">HH", 48, channel * 48) + bytes(rec)
+        frame_data = frame_header + struct.pack(">H", len(body) + 2) + body + struct.pack(">H", 2)
+        entries = [frame_data, b""]
+        offsets = [0, len(frame_data), len(frame_data)]
+        header = struct.pack(">6i", 0, -3, 12, len(entries), len(entries) + 1, offsets[-1])
+        score = parse_score(header + struct.pack(">3i", *offsets) + frame_data)
+        self.assertEqual(score.displayed_channels, channels)
+        self.assertEqual([(s.channel, s.cast_member, s.x, s.y) for s in score.sprites], [(channel, 9, 7, 5)])
+
     def test_strict_failures(self):
         cases = [
             lambda: parse_movie_config(b"x" * 57),
