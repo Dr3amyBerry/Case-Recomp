@@ -123,6 +123,21 @@ class MovieClip(private val player: FlashPlayer, val timeline: SwfTimeline, val 
         children[tag.depth] = placed
     }
 
+    /** duplicateMovieClip: a copy of child clip [source] (same sprite, transform) named [name] at [depth]. */
+    fun duplicate(source: MovieClip, name: String, depth: Int) {
+        val inst = source.instance ?: return
+        val clip = MovieClip(player, source.timeline, this, null)
+        val copy = FlashInstance(depth, inst.character, inst.matrix, inst.colorTransform, name, clip)
+        clip.instance = copy
+        children[depth] = copy
+        clip.goTo(1)
+    }
+
+    /** removeMovieClip: drop a child clip from this timeline's display list. */
+    fun remove(target: MovieClip) {
+        children.entries.removeIf { it.value.clip === target }
+    }
+
     /** Advance one frame if playing (looping), then this clip's children; onEnterFrame runs each frame. */
     fun advance() {
         if (playing && frameCount > 1) goTo(if (frame >= frameCount) 1 else frame + 1)
@@ -176,6 +191,10 @@ class MovieClip(private val player: FlashPlayer, val timeline: SwfTimeline, val 
         "nextframe" -> { playing = false; goTo(minOf(frame + 1, frameCount)); Undefined }
         "prevframe" -> { playing = false; goTo(maxOf(frame - 1, 1)); Undefined }
         "getbytesloaded", "getbytestotal" -> 1.0
+        "duplicatemovieclip" -> {
+            parent?.duplicate(this, args.getOrNull(0)?.toString() ?: "", ((args.getOrNull(1) as? Double) ?: 0.0).toInt() + 16384); Undefined
+        }
+        "removemovieclip" -> { parent?.remove(this); Undefined }
         else -> (props[method] as? AvmFunction)?.let { player.call(it, this, args) }
     }
 }
@@ -410,6 +429,13 @@ internal class Avm(
                 0x21 -> { val b = string(pop()); push(string(pop()) + b) }
                 0x22 -> { val index = number(pop()).toInt(); val target = targetOf(pop()); push(target?.get(PROPERTIES.getOrElse(index) { "" }) ?: Undefined) }
                 0x23 -> { val value = pop(); val index = number(pop()).toInt(); targetOf(pop())?.set(PROPERTIES.getOrElse(index) { "" }, value) }
+                0x24 -> {
+                    // CloneSprite: duplicates sit above timeline depths, like the player's +16384 offset.
+                    val depth = number(pop()).toInt(); val name = string(pop())
+                    val source = targetOf(pop()) as? MovieClip
+                    source?.parent?.duplicate(source, name, depth + 16384)
+                }
+                0x25 -> (targetOf(pop()) as? MovieClip)?.let { clip -> clip.parent?.remove(clip) }
                 0x26 -> pop()
                 0x34 -> push(System.currentTimeMillis().toDouble())
                 0x3C -> { val value = pop(); locals[string(pop())] = value }

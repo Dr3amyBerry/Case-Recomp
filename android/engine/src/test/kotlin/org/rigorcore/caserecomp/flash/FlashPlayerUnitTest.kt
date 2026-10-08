@@ -162,6 +162,20 @@ class FlashPlayerUnitTest {
         assertTrue("a plain JPEG is unchanged", joined.contentEquals(SwfParser.joinTablesAndImage(joined)))
     }
 
+    @Test fun clone_sprite_duplicates_a_clip_and_remove_sprite_drops_it() {
+        // Sprite 2 (a red box) placed as "a"; frame 1 clones it as "b", frame 2 removes "b".
+        val movie = SwfParser.parse(SwfTestBuilder.movie(20, 20, 2,
+            solidShape(1, 4, 4, 0xFF0000), sprite(2, 1, place(1, 1, translate(0, 0)), showFrame()),
+            place(1, 2, translate(2, 2), name = "a"), action(push("a", "b", 5), op(0x24)), showFrame(),
+            action(push("b"), op(0x25), op(0x07)), showFrame()))
+        val player = FlashPlayer(movie)
+        assertNotNull(player.root.child("b"))
+        assertEquals(2, player.drawList().size)
+        player.advance()
+        assertNull(player.root.child("b"))
+        assertEquals(1, player.drawList().size)
+    }
+
     @Test fun matrices_compose_and_invert() {
         val m = SwfMatrix(2.0, 0.0, 0.0, 3.0, 10.0, 20.0) * SwfMatrix(tx = 1.0, ty = 1.0)
         assertEquals(12.0, m.x(0.0, 0.0), 0.0); assertEquals(23.0, m.y(0.0, 0.0), 0.0)
@@ -172,9 +186,9 @@ class FlashPlayerUnitTest {
 
     @Test fun unsupported_actions_stop_only_their_own_script() {
         val movie = SwfParser.parse(SwfTestBuilder.movie(10, 10, 2,
-            action(op(0x24)), showFrame(), action(push("v", 3), op(0x1D), op(0x07)), showFrame()))
+            action(op(0x2A)), showFrame(), action(push("v", 3), op(0x1D), op(0x07)), showFrame()))
         val player = FlashPlayer(movie, host)
-        assertTrue(warnings.single().contains("0x24"))
+        assertTrue(warnings.single().contains("0x2a"))
         player.advance()
         assertEquals(3.0, player.root.get("v"))
         assertFalse(player.root.playing)
