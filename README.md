@@ -8,7 +8,7 @@
 
 **Case Recomp** permite jugar en Android a **Mystery Case Files: Huntsville** usando **tu propia copia original del juego para PC**. La app no incluye ningún juego. Tienes que convertir los archivos de tu juego en un archivo `.zip` e importarlo en la app.
 
-> ⚠️ **Versión beta.** Puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan como en el juego original. Si encuentras algún problema, avísanos abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues) (di qué estabas haciendo y, si puedes, añade una captura). **Se entrega tal cual, sin garantías de ningún tipo.**
+> ⚠️ **Versión beta.** Puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan como en el juego original. Si encuentras algún problema, avísanos abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues) (describe los pasos sin adjuntar archivos originales del juego ni información privada). **Se entrega tal cual, sin garantías de ningún tipo.**
 
 ### Avisos legales y protección del usuario
 
