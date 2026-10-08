@@ -41,6 +41,7 @@ class DirectorLauncherActivity : Activity() {
         }
         repository = PrivateDirectorRepository(this)
         showStartScreen("Director/Lingo private debug")
+        if (savedInstanceState == null) pendingSave = intent.getStringExtra(EXTRA_IMPORT_SAVE)
         val external = intent.getStringExtra(EXTRA_IMPORT_EXTERNAL)
         if (savedInstanceState == null && external != null) importExternal(external) else openActive()
     }
@@ -122,11 +123,24 @@ class DirectorLauncherActivity : Activity() {
         }.start()
     }
 
+    /** Debug/ADB route: a save (JSON object of store keys) pushed to the import folder. */
+    private var pendingSave: String? = null
+
+    private fun importSave(store: AndroidDirectorStore, name: String) {
+        val dir = getExternalFilesDir("import")?.canonicalFile ?: return
+        val file = File(dir, name).canonicalFile
+        require(file.parentFile == dir && file.isFile && file.length() <= 4L * 1024 * 1024) { "no such save in app import folder" }
+        val json = org.json.JSONObject(file.readText())
+        for (key in json.keys()) store.put(key, json.getString(key))
+        Log.i(TAG, "imported ${json.length()} save entries from $name")
+    }
+
     private fun createSession(file: File): Session {
         val loaded = DirectorContent.open(file, AndroidDirectorImageDecoder)
         try {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
             val store = AndroidDirectorStore(this, file.nameWithoutExtension)
+            pendingSave?.let { name -> importSave(store, name); pendingSave = null }
             val text = AndroidDirectorText()
             val output = AndroidDirectorSound(this, loaded)
             try {
@@ -237,6 +251,7 @@ class DirectorLauncherActivity : Activity() {
     private companion object {
         const val REQUEST_DIRECTOR_CONTENT = 6042
         const val EXTRA_IMPORT_EXTERNAL = "import_external"
+        const val EXTRA_IMPORT_SAVE = "import_save"
         const val TAG = "CaseRecompDirector"
     }
 }
