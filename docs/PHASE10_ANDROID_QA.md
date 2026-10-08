@@ -20,7 +20,7 @@ These components exist in code; they are **not verified to reproduce Huntsville 
 ## Build/install steps on the Windows test PC
 
 1. `git fetch --all --prune`; verify a clean `main` checkout at the desired commit. Do not create branches.
-2. Build/debug-only from `android/` with `gradle --no-daemon :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`. No `assembleRelease` exists; signing/distribution remains disabled.
+2. Build from `android/` with `gradle --no-daemon :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`. A release APK (`:app:assembleRelease`) is built only on the tester's PC; see **Release APK** below.
 3. Install only the locally produced debug APK with a user-selected `adb -s <device-serial> install -r app/build/outputs/apk/debug/app-debug.apk`. Check which app package already exists before installing. Do not uninstall personal apps or erase saves automatically.
 4. Transfer the privately created Director ZIP through a controlled local method to a location visible in the Android document picker (USB transfer or explicit `adb push` to the user's private test-device Documents directory). **Never send the game bundle to GitHub Actions**.
 5. Open the synthetic shell. Long-press its screen (hold > Android long-press threshold, then release). Select **Launch Director VM (private ZIP)**, then **Import private Director ZIP**. The separate launcher can also be reached via the debuggable options menu on devices that expose it.
@@ -72,6 +72,15 @@ When the stage is shown larger than 800×600 the compositor works at 2× (text d
 
 **Fixed in this round (engine-generic):** Flash clip masks and strict-decoder JPEG data; Text Xtra styles (font, size, bold, colour, alignment, indents, member rect) and Director-like wrapping; score stretch flag (bitmap/text sprites use member size); score sprite colours colorize text; matte text hit-testing; only sprites with mouse handlers receive the mouse; cast member numbering from each cast's minMember; real cast file sizes for FileIO probes; control-character keys; Flash `duplicateMovieClip`/`removeMovieClip`; SWA and zero-padded MP3 audio without FFmpeg; byte-budgeted media cache and fixed-rate frame pacing; `(sprite n)`/`(member n of castLib m)` behaviour parameters; HTML tables, `<font>` tags and tab stops in `member.html`; Lingo `quit` closing the Android stage; matte ink keyed from the image edge (background transparent drops all white) and fully opaque 32-bit members taking their ink; bitmaps made with `new(#bitmap)` registering at their centre; HTML tables opening their own paragraph; a fading ring where a touch lands; touch rollovers (a touch moves the pointer first so mouseEnter feedback shows, mouseDown follows after 100 ms or on release, and the pointer leaves the stage after the release) and hover from a connected mouse; 2× compositing with sharp text and smooth scaling (scenes 30 fps at ≈14 ms, main menu ≈22 ms on WSA).
 
+## Release APK (local only, 2026-10-08)
+
+The launcher is now `HomeActivity`: the app (always landscape) opens on **Case Recomp** with one card per title, at present Huntsville. Before an import the card shows the title's name and **Importar**; the button opens the system file picker for the private director-content ZIP. After a successful import the card shows the package's cover and **Jugar** (plus *Importar de nuevo*). Play opens `DirectorLauncherActivity` straight into the game; on failure it returns to the home screen with a message.
+
+- The cover is not in the APK: `python -m caserecomp director-content … --cover NUMBER|CAST:NUMBER` records a packaged bitmap member as `"cover"` in the package manifest; the app saves that PNG beside the imported package. For Huntsville the private build uses `--cover 159` (`newLogo`).
+- `:app:assembleRelease` signs with `private/signing/release.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; git-ignored, keystore beside it). Without that file the release APK is unsigned. CI never builds a release and fails if signing material appears in the checkout.
+- Release package id `org.rigorcore.caserecomp.synthetic` (debug keeps `.debug`), so imports and saves are separate per build. Release builds have no adb import/save/scale extras and no `DirectorDebugBridge`; `import/presentation.json` nudges are still read from the release app's own import folder.
+- The earlier synthetic shell `MainActivity` stays installed for its tests and the debug adb route (`--ez director true`), but is no longer the launcher.
+
 ## Known limitations / next engineering tasks
 
 - Rendering is software compositing on the UI thread (fast enough now: ~5 ms per scene frame on WSA).
@@ -79,7 +88,7 @@ When the stage is shown larger than 800×600 the compositor works at 2× (text d
 - The leaderboard header is no longer clipped (fixed by the HTML table paragraph rule).
 - Score behaviours that reference members missing from every cast (internal 863–866, 909) are ignored, as Director does.
 - Every sound start writes a short temporary file for `MediaPlayer`; a `SoundPool` path for short effects would lower latency.
-- The Director launcher is still a debug-only path reached from the synthetic shell; release builds stay disabled.
+- Only one imported package is active at a time; the home screen lists Huntsville as the one verified title.
 - The VM must not quietly fall back to the manually reconstructed Phase 9 game for unimplemented native semantics. Keep those proofs as independent regression references.
 - After C–G pass on the real device, add **specific regression tests for the divergences actually observed**, not another generic round of shell benchmarking.
 

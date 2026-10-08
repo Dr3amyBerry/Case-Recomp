@@ -124,8 +124,20 @@ def _archive_media(archive: DirectorArchive, key: str, ffmpeg: Path | None, skip
             skipped[f"{kind}: {exc}"] += 1
 
 
-def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmpeg: Path | None = None) -> dict:
-    """Write a private, deterministic content zip (create-only) and return its manifest."""
+def cover_path(cover: str) -> str:
+    """Package path of a cover bitmap given as "number" (movie cast) or "cast:number"."""
+    cast, _, number = cover.rpartition(":")
+    if not number.isdigit() or int(number) < 1:
+        raise InspectionError("cover must be a member number, optionally prefixed by its cast")
+    return f"media/{cast_key(cast)}/{int(number)}.png"
+
+
+def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmpeg: Path | None = None,
+                           cover: str | None = None) -> dict:
+    """Write a private, deterministic content zip (create-only) and return its manifest.
+
+    [cover] names the bitmap member a launcher shows for this title (see [cover_path]).
+    """
     if output.exists():
         raise InspectionError("output already exists")
     movie_bundle = build_movie_bundle(movie, casts)
@@ -154,7 +166,11 @@ def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmp
                 archive, _ = open_archive(path)
                 for item_path, data, key, number, kind in _archive_media(archive, cast_key(name), ffmpeg, skipped):
                     add(item_path, data, cast=key, member=number, kind=kind)
+            cover_entry = cover_path(cover) if cover else None
+            if cover_entry and not any(e["path"] == cover_entry and e.get("kind") == "bitmap" for e in entries):
+                raise InspectionError("cover member is not a packaged bitmap")
             manifest = {
+                **({"cover": cover_entry} if cover_entry else {}),
                 "format": FORMAT, "version": VERSION,
                 "source_sha256": {cast_key(name): sha256(read_local(path)).hexdigest() for path, name in sources},
                 "entries": entries,

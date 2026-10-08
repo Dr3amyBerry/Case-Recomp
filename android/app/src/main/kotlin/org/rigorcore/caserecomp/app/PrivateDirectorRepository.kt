@@ -42,18 +42,37 @@ internal class PrivateDirectorRepository(context: Context) {
             require(size > 0) { "private Director archive is empty" }
             val sha = hash.digest().toHex()
             // This also catches tampering in *unused* media members, not just movie/lingo.json.
-            DirectorContent.open(stage, ImageDecoder { null }).use { it.verifyAll(requireSourceBinding = true) }
+            val cover = DirectorContent.open(stage, ImageDecoder { null }).use {
+                it.verifyAll(requireSourceBinding = true)
+                it.coverPng()
+            }
             val destination = File(packages, "$sha.zip")
             if (destination.exists()) {
                 require(destination.isFile && digest(destination) == sha) { "stored Director archive is damaged" }
             } else {
                 require(stage.renameTo(destination)) { "cannot commit private Director archive" }
             }
+            saveCover(sha, cover)
             require(preferences.edit().putString(ACTIVE, sha).commit()) { "cannot activate Director archive" }
             return Install(destination, sha)
         } finally {
             stage.delete()
         }
+    }
+
+    /** Cheap check for the home screen: an imported package is active (verified again on load). */
+    fun hasActive(): Boolean = preferences.getString(ACTIVE, null)?.let { SHA.matches(it) && File(packages, "$it.zip").isFile } == true
+
+    /** The active package's cover PNG, saved at import from the package's own media. */
+    fun activeCover(): File? = preferences.getString(ACTIVE, null)?.takeIf(SHA::matches)
+        ?.let { File(packages, "$it.cover.png") }?.takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
+
+    private fun saveCover(sha: String, png: ByteArray?) {
+        val file = File(packages, "$sha.cover.png")
+        if (png == null || png.size > MAX_COVER_BYTES) { file.delete(); return }
+        val partial = File(packages, "$sha.cover.partial")
+        partial.writeBytes(png)
+        if (!partial.renameTo(file)) { file.delete(); partial.renameTo(file) }
     }
 
     /** Verify the stored container bytes again at every load before constructing the VM. */
@@ -83,6 +102,7 @@ internal class PrivateDirectorRepository(context: Context) {
     companion object {
         private const val ACTIVE = "active"
         private const val MAX_ZIP_BYTES = 768L * 1024 * 1024
+        private const val MAX_COVER_BYTES = 8L * 1024 * 1024
         private val SHA = Regex("[a-f0-9]{64}")
     }
 }

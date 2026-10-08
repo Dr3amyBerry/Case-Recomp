@@ -31,7 +31,7 @@ def main():
       "format":"case-recomp-build-provenance","version":2,
       "subject":[candidate_record],
       "builder":{"id":"github-actions/android.yml:package-debug"},
-      "invocation":{"variant":"debug","release_variant_enabled":False,"production_signing_configured":False},
+      "invocation":{"variant":"debug","release_variant_enabled":True,"production_signing_configured":False},
       "materials":[{"uri":"git+https://github.com/Dr3amyBerry/Case-Recomp","digest":{"sha1":a.git_sha}}],
       "git_sha":a.git_sha,"commit_timestamp":a.commit_timestamp,
       "artifact":{**candidate_record,"zip_entry_manifest_sha256":entry_digest},
@@ -40,7 +40,7 @@ def main():
       "reproducible_same_revision":reproducible,
       "contains_original_game_assets":False
     }
-    app_version="0.5.0-phase8-debug-debug"
+    app_version="0.6.0-debug"
     app_ref=f"pkg:generic/case-recomp-synthetic-debug@{app_version}?type=apk"
     engine_ref="pkg:generic/case-recomp-engine@0.8-phase8"
     sdk_ref="pkg:generic/android-sdk@36"
@@ -54,7 +54,7 @@ def main():
         "component":{"bom-ref":app_ref,"type":"application","name":"case-recomp-synthetic-debug","version":app_version,
           "hashes":[{"alg":"SHA-256","content":digest}],
           "properties":[{"name":"caserecomp:containsOriginalGameAssets","value":"false"},
-                        {"name":"caserecomp:releaseVariantEnabled","value":"false"}]}},
+                        {"name":"caserecomp:releaseVariantEnabled","value":"true"}]}},
       "components":[
         {"bom-ref":engine_ref,"type":"library","name":"case-recomp-engine","version":"0.8-phase8","scope":"required",
          "properties":[{"name":"caserecomp:origin","value":"repository-source"}]},

@@ -138,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     director_content.add_argument("source", type=Path)
     director_content.add_argument("--cast-dir", type=Path, help="Directory holding the movie's external casts")
     director_content.add_argument("--ffmpeg", type=Path, help="Local FFmpeg for SWA-compressed sounds (optional)")
+    director_content.add_argument("--cover", help="Bitmap member shown as the title's cover: NUMBER or CAST:NUMBER")
     director_content.add_argument("--output", required=True, type=Path)
 
     scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
@@ -341,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
                 from .audio import resolve_ffmpeg
                 ffmpeg = resolve_ffmpeg(args.ffmpeg)
             casts = external_cast_files(args.cast_dir) if args.cast_dir else []
-            manifest = build_director_content(args.source, casts, args.output, ffmpeg=ffmpeg)
+            manifest = build_director_content(args.source, casts, args.output, ffmpeg=ffmpeg, cover=args.cover)
             record = {"format": manifest["format"], "entries": len(manifest["entries"]),
                       "counts": manifest["counts"], "skipped": manifest["skipped"]}
         elif args.command == "scene-proof":

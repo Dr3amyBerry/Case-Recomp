@@ -20,9 +20,9 @@ import org.rigorcore.caserecomp.director.StandardXtras
 import java.io.File
 
 /**
- * Explicit debug-only gateway into the original Director/Lingo engine.
- * No original assets are packaged; user selects a private director-content ZIP.
- * The synthetic shell remains the primary launcher until actual native golden parity.
+ * Plays the user's imported private director-content ZIP on the Director/Lingo engine.
+ * No original assets are packaged. Release builds open it from [HomeActivity]'s Play only;
+ * debug builds also keep the import screen, adb extras and [DirectorDebugBridge].
  */
 class DirectorLauncherActivity : Activity() {
     private lateinit var repository: PrivateDirectorRepository
@@ -37,16 +37,48 @@ class DirectorLauncherActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
-            finish()
+        repository = PrivateDirectorRepository(this)
+        if (!debuggable) {
+            // Release: only the home screen's Play opens this, on the package the user imported.
+            openActive()
             return
         }
-        repository = PrivateDirectorRepository(this)
         bridge = DirectorDebugBridge { runtime }.also { it.register(this) }
         showStartScreen("Director/Lingo private debug")
         if (savedInstanceState == null) pendingSave = intent.getStringExtra(EXTRA_IMPORT_SAVE)
         val external = intent.getStringExtra(EXTRA_IMPORT_EXTERNAL)
         if (savedInstanceState == null && external != null) importExternal(external) else openActive()
+    }
+
+    private val debuggable get() = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+
+    /** Opened to play (home screen or release): a loading screen, and back home on failure. */
+    private val playing get() = !debuggable || intent.getBooleanExtra(EXTRA_PLAY, false)
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
+    private fun hideSystemBars() {
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            window.insetsController?.let {
+                it.hide(android.view.WindowInsets.Type.systemBars())
+                it.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+                android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        }
+    }
+
+    private fun showLoading() {
+        setContentView(FrameLayout(this).apply {
+            setBackgroundColor(android.graphics.Color.BLACK)
+            addView(android.widget.ProgressBar(this@DirectorLauncherActivity),
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        })
     }
 
     private fun showStartScreen(message: String) {
@@ -109,7 +141,7 @@ class DirectorLauncherActivity : Activity() {
 
     private fun openActive() {
         val token = ++workerToken
-        showStartScreen("Validating private Director content…")
+        if (playing) showLoading() else showStartScreen("Validating private Director content…")
         Thread {
             val result = runCatching {
                 val install = repository.loadActive() ?: error("No verified Director package is imported yet")
@@ -120,7 +152,10 @@ class DirectorLauncherActivity : Activity() {
                     result.getOrNull()?.close()
                 } else result.fold(::displaySession) {
                     Log.e(TAG, "Director start failed", it)
-                    showStartScreen("Director not started: " + (it.message ?: "invalid private package"))
+                    if (playing) {
+                        Toast.makeText(this, "No se pudo abrir el juego: " + (it.message ?: "paquete no válido"), Toast.LENGTH_LONG).show()
+                        finish()
+                    } else showStartScreen("Director not started: " + (it.message ?: "invalid private package"))
                 }
             }
         }.start()
@@ -186,7 +221,7 @@ class DirectorLauncherActivity : Activity() {
                 // (about) screen resolution; the view then scales the frame down smoothly.
                 val display = resources.displayMetrics
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
-                val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { it in 1..2 } ?: if (fit > 1.05f) 2 else 1
+                val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges())
                 return Session(loaded, runtime, renderer, output)
             } catch (e: Throwable) { output.close(); throw e }
@@ -210,7 +245,7 @@ class DirectorLauncherActivity : Activity() {
         layout.addView(newStage, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         layout.addView(Button(this).apply {
-            text = "Keyboard"
+            text = "Teclado"
             alpha = 0.7f
             setOnClickListener { newStage.showKeyboard() }
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END))
@@ -276,12 +311,14 @@ class DirectorLauncherActivity : Activity() {
         override fun close() { runCatching { runtime.stop() }; audio.close(); content.close() }
     }
 
-    private companion object {
-        const val REQUEST_DIRECTOR_CONTENT = 6042
-        const val EXTRA_IMPORT_EXTERNAL = "import_external"
-        const val EXTRA_IMPORT_SAVE = "import_save"
+    companion object {
+        /** Open the imported package straight away (the home screen's Play). */
+        const val EXTRA_PLAY = "play"
+        private const val REQUEST_DIRECTOR_CONTENT = 6042
+        private const val EXTRA_IMPORT_EXTERNAL = "import_external"
+        private const val EXTRA_IMPORT_SAVE = "import_save"
         /** Debug QA: force the compositor scale (1 = stage resolution, 2 = double). */
-        const val EXTRA_STAGE_SCALE = "stage_scale"
-        const val TAG = "CaseRecompDirector"
+        private const val EXTRA_STAGE_SCALE = "stage_scale"
+        private const val TAG = "CaseRecompDirector"
     }
 }

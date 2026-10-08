@@ -24,6 +24,8 @@ class DirectorContent private constructor(
     private val zip: ZipFile,
     private val entries: Map<String, Pair<Long, String>>,
     private val decoder: ImageDecoder,
+    /** Package path of the title's cover bitmap (PNG), when the package names one. */
+    val coverPath: String? = null,
 ) : DirectorMedia, AutoCloseable {
     val movie: DirectorMovie = DirectorMovie.parse(String(read("movie.json") ?: throw LingoError("content has no movie.json"), Charsets.UTF_8))
     val lingo: LingoBundle = LingoBundle.parse(String(read("lingo.json") ?: throw LingoError("content has no lingo.json"), Charsets.UTF_8))
@@ -49,6 +51,9 @@ class DirectorContent private constructor(
         if (data.size.toLong() != size || sha256(data) != digest) throw LingoError("content entry hash mismatch: $path")
         return data
     }
+
+    /** Verified PNG bytes of the title's cover, or null when the package names none. */
+    fun coverPng(): ByteArray? = coverPath?.let(::read)
 
     /** Streaming verification of *every* entry, including rarely used casts, before importing private content. */
     fun verifyAll(requireSourceBinding: Boolean = false) {
@@ -168,7 +173,11 @@ class DirectorContent private constructor(
                 if (!entries.containsKey("movie.json") || !entries.containsKey("lingo.json")) {
                     throw LingoError("required Director bundles missing")
                 }
-                return DirectorContent(zip, entries, decoder)
+                val cover = manifest["cover"]?.let { it as? String ?: throw LingoError("content cover must be a path") }
+                if (cover != null && (!cover.startsWith("media/") || !cover.endsWith(".png") || cover !in entries)) {
+                    throw LingoError("content cover is not a packaged bitmap")
+                }
+                return DirectorContent(zip, entries, decoder, cover)
             } catch (e: Throwable) {
                 zip.close()
                 throw e

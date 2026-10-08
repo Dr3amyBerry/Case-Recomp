@@ -111,6 +111,20 @@ class DirectorContentTests(unittest.TestCase):
             with self.assertRaises(InspectionError):
                 self.build(root)
 
+    def test_cover_names_a_packaged_bitmap(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertNotIn("cover", self.build(root))
+            (root / "out.zip").unlink()
+            self.assertEqual(self.build(root, cover="01:1")["cover"], "media/01/1.png")
+            with zipfile.ZipFile(root / "out.zip") as zf:
+                self.assertEqual(json.loads(zf.read("manifest.json"))["cover"], "media/01/1.png")
+            (root / "out.zip").unlink()
+            for bad in ("2", "x", "0"):  # 2 is Flash, not a bitmap
+                with self.assertRaises(InspectionError):
+                    self.build(root, cover=bad)
+            self.assertFalse((root / "out.zip").exists())
+
     def test_alpha_bitd_wav_and_skipped_members(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -136,6 +150,9 @@ class DirectorContentTests(unittest.TestCase):
                 self.assertEqual(main(["director-content", str(source), "--output", str(root / "o.zip")]), 0)
                 self.assertEqual(build.call_args[0][1], [])
                 self.assertIsNone(build.call_args.kwargs["ffmpeg"])
+                self.assertEqual(main(["director-content", str(source), "--cover", "7",
+                                       "--output", str(root / "c.zip")]), 0)
+                self.assertEqual(build.call_args.kwargs["cover"], "7")
 
 
 if __name__ == "__main__":

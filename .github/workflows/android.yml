@@ -49,12 +49,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
-      - name: Verify release variant is disabled
+      - name: Verify CI holds no release signing key
         working-directory: android
         shell: bash
         run: |
-          if gradle --no-daemon :app:tasks --all | grep -q '^assembleRelease '; then
-            echo "release variant must remain disabled in Phase 8" >&2
+          # Release APKs are built and signed only on the tester's PC (private/signing, git-ignored).
+          if [ -e ../private/signing/release.properties ]; then
+            echo "release signing material must never be in the repository or CI" >&2
             exit 1
           fi
       - name: Build baseline, candidate twice, and generate evidence

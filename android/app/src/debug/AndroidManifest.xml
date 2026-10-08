@@ -4,7 +4,7 @@
     <application
         android:allowBackup="false"
         android:debuggable="true"
-        android:label="Case-Recomp Synthetic Debug"
+        android:label="Case Recomp Debug"
         android:usesCleartextTraffic="false"
         tools:replace="android:label" />
 </manifest>

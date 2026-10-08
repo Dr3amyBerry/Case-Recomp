@@ -30,10 +30,10 @@ class DirectorContentUnitTest {
 
     private fun sha(data: ByteArray) = MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) }
 
-    private fun pack(files: Map<String, ByteArray>, listed: Map<String, ByteArray> = files, extra: String = ""): File {
+    private fun pack(files: Map<String, ByteArray>, listed: Map<String, ByteArray> = files, extra: String = "", top: String = ""): File {
         val file = tmp.newFile()
         val entries = listed.entries.joinToString(",") { (path, data) -> """{"path":"$path","bytes":${data.size},"sha256":"${sha(data)}"}""" }
-        val manifest = """{"format":"case-recomp-director-content","version":1,"entries":[$entries$extra]}"""
+        val manifest = """{"format":"case-recomp-director-content","version":1,"entries":[$entries$extra]$top}"""
         ZipOutputStream(file.outputStream()).use { zip ->
             for ((path, data) in files + ("manifest.json" to manifest.toByteArray())) {
                 zip.putNextEntry(ZipEntry(path)); zip.write(data); zip.closeEntry()
@@ -80,6 +80,17 @@ class DirectorContentUnitTest {
             val member = rt.member(org.rigorcore.caserecomp.lingo.LingoValue.LString("logo"), null)
             assertEquals(0x00FFFFFF, member.pixels!!.pixels[0])
             assertTrue(member.pixels === member.pixels)
+        }
+    }
+
+    @Test fun a_package_may_name_a_packaged_bitmap_as_its_cover() {
+        DirectorContent.open(pack(files), decoder).use { assertNull(it.coverPng()) }
+        DirectorContent.open(pack(files, top = ""","cover":"media/art/1.png""""), decoder).use { content ->
+            assertEquals("media/art/1.png", content.coverPath)
+            assertArrayEquals(files.getValue("media/art/1.png"), content.coverPng())
+        }
+        for (bad in listOf("media/internal/4.swf", "media/internal/9.png", "movie.json")) {
+            assertThrows(LingoError::class.java) { DirectorContent.open(pack(files, top = ""","cover":"$bad""""), decoder) }
         }
     }
 
