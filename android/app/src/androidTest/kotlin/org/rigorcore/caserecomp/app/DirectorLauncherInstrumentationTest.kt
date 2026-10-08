@@ -77,7 +77,10 @@ class DirectorLauncherInstrumentationTest {
         assertTrue(installed.path.isFile)
         ActivityScenario.launch(DirectorLauncherActivity::class.java).use { scenario ->
             var painted = false
-            for (attempt in 0 until 100) {
+            var lastState = "not inspected"
+            // API 26 emulator software rendering and async ZIP load can be slower
+            // than newer images; failure still requires a visible, correctly coloured stage.
+            for (attempt in 0 until 300) {
                 scenario.onActivity { activity ->
                     val root = activity.findViewById<ViewGroup>(android.R.id.content)
                     val frame = root.getChildAt(0) as? android.widget.FrameLayout
@@ -90,14 +93,20 @@ class DirectorLauncherInstrumentationTest {
                         val output = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888)
                         try {
                             stage.draw(Canvas(output))
-                            painted = output.getPixel(320, 240) == Color.GREEN
+                            val pixel = output.getPixel(320, 240)
+                            painted = pixel == Color.GREEN
+                            lastState = "stage ready, center=0x" + Integer.toHexString(pixel)
                         } finally { output.recycle() }
+                    } else {
+                        val child = root.getChildAt(0)
+                        val text = (child as? android.widget.LinearLayout)?.getChildAt(0) as? android.widget.TextView
+                        lastState = "root=" + child?.javaClass?.simpleName + ", message=" + text?.text
                     }
                 }
                 if (painted) break
                 Thread.sleep(100)
             }
-            assertTrue("synthetic Director content must reach Android StageRenderer", painted)
+            assertTrue("synthetic Director content must reach Android StageRenderer: $lastState", painted)
         }
     }
 
