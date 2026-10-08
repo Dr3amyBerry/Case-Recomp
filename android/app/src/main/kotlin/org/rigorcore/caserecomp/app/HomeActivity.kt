@@ -71,6 +71,15 @@ class HomeActivity : Activity() {
             setPadding(dp(24), 0, dp(24), dp(10))
             setOnClickListener { openIssues() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        column.addView(TextView(this).apply {
+            text = "Proyecto independiente · Aviso legal · Privacidad · Términos"
+            setTextColor(GOLD)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), 0, dp(12), dp(12))
+            contentDescription = "Abrir avisos legales, privacidad y términos de Case Recomp"
+            setOnClickListener { showLegalNotices() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(column)
         hideSystemBars()
         showBetaNoticeOnce()
@@ -82,10 +91,12 @@ class HomeActivity : Activity() {
         if (prefs.getBoolean(BETA_SEEN, false)) return
         android.app.AlertDialog.Builder(this)
             .setTitle("Versión beta")
-            .setMessage("Case Recomp está en beta: puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan " +
-                "como en el juego original.\n\nSi encuentras algún problema, avísanos en GitHub (toca el aviso de abajo en la " +
-                "pantalla principal).\n\nLa aplicación se entrega tal cual, sin garantías de ningún tipo. No incluye ningún juego: " +
-                "necesitas tu propia copia original.")
+            .setMessage("Case Recomp es una beta independiente: puede tener errores gráficos o de sonido, " +
+                "perder partidas o no reproducir todas las funciones del juego original.\n\n" +
+                "No incluye juegos comerciales ni está afiliada a Big Fish Games o a otros titulares. " +
+                "Debes aportar tu propia copia y respetar las licencias y leyes aplicables.\n\n" +
+                "Consulta los avisos legales, términos y privacidad desde la pantalla principal. " +
+                "No publiques archivos del juego ni datos personales en GitHub.")
             .setPositiveButton("Entendido") { _, _ -> prefs.edit().putBoolean(BETA_SEEN, true).apply() }
             .setCancelable(false)
             .show()
@@ -93,6 +104,26 @@ class HomeActivity : Activity() {
 
     private fun openIssues() {
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(ISSUES_URL))) }
+    }
+
+    /** The concise non-affiliation notice is visible offline; full bilingual notices open externally. */
+    private fun showLegalNotices() {
+        val labels = arrayOf("Aviso legal y marcas", "Política de privacidad", "Términos de uso",
+            "Licencias de terceros", "Estado de licencia del código")
+        val docs = arrayOf("LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md",
+            "LICENSING_STATUS.md")
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Case Recomp — información legal")
+            .setItems(labels) { _, which ->
+                runCatching {
+                    startActivity(Intent(Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://github.com/Dr3amyBerry/Case-Recomp/blob/main/" + docs[which])))
+                }.onFailure {
+                    Toast.makeText(this, "No hay un navegador disponible", Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
     }
 
     override fun onResume() {

@@ -19,7 +19,7 @@ El proyecto se mantiene desde https://github.com/Dr3amyBerry/Case-Recomp . **La 
 
 En el código examinado **no se identificaron** cuentas, inicio de sesión, SDK de anuncios ni telemetría del juego, y el manifiesto de la app no declara permisos de Internet. Sí existen almacenamiento local de importaciones/partidas y una preferencia de idioma del sitio en `localStorage`. Estas observaciones se limitan a la revisión del código de la versión indicada y no garantizan que un servicio externo no trate metadatos de conexión.
 
-El sitio obtiene Pyodide desde **jsDelivr** y se hospeda en **GitHub Pages**. Esos servicios (y el navegador/red) pueden procesar dirección IP, solicitud HTTP, fecha/hora y datos de seguridad conforme a sus propias políticas, **aunque los archivos del juego no se suban al conversor**. Consulte: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement y https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net .
+El sitio obtiene Pyodide desde **jsDelivr** y se hospeda en **GitHub Pages**. Esos servicios (y el navegador/red) pueden procesar dirección IP, solicitud HTTP, fecha/hora y datos de seguridad conforme a sus propias políticas, **aunque los archivos del juego no se suban al conversor**. Consulte: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement y https://www.jsdelivr.com/terms/privacy-policy .
 
 Los reportes públicos, issues, estrellas y visitas al repositorio se procesan por GitHub conforme a sus reglas; cualquier dato que decida publicar será visible según la configuración de GitHub.
 
@@ -49,7 +49,7 @@ Uninstalling or clearing app data normally removes app-private content; copies h
 
 No account system, advertising SDK, in-game analytics or Android INTERNET permission was identified in the inspected version. The site stores a language preference in browser `localStorage`. **GitHub Pages** hosts the site and **jsDelivr** supplies the Pyodide loader; they may process IP addresses, request logs and security metadata under their own policies even though game file contents are not uploaded to a developer server. GitHub issues and releases are separately covered by GitHub's privacy notice.
 
-Links: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement ; https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net
+Links: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement ; https://www.jsdelivr.com/terms/privacy-policy
 
 ### 4. Purpose, retention, rights and updates
 

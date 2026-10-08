@@ -1,0 +1,39 @@
+"""Public legal notices and links must remain accessible in app/site/docs."""
+import pathlib
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+class LegalPublicationTest(unittest.TestCase):
+    def test_required_public_notices_exist(self):
+        for path in ("LEGAL.md", "PRIVACY.md", "TERMS.md", "COPYRIGHT_POLICY.md",
+                     "THIRD_PARTY_NOTICES.md", "LICENSING_STATUS.md",
+                     "LEGAL_RELEASE_CHECKLIST.md"):
+            with self.subTest(path=path):
+                self.assertGreater((ROOT / path).stat().st_size, 300)
+
+    def test_user_facing_web_and_readme_have_notices(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        web = (ROOT / "web/index.html").read_text(encoding="utf-8")
+        for path in ("LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md"):
+            self.assertIn(path, readme)
+            self.assertIn(path, web)
+        self.assertIn("legalTitle:", web)
+        self.assertIn("Proyecto independiente", web)
+
+    def test_app_shows_legal_notice_and_links(self):
+        home = (ROOT / "android/app/src/main/kotlin/org/rigorcore/caserecomp/app/HomeActivity.kt").read_text(encoding="utf-8")
+        self.assertIn("showLegalNotices()", home)
+        self.assertIn("LEGAL.md", home)
+        self.assertIn("PRIVACY.md", home)
+        self.assertIn("TERMS.md", home)
+
+    def test_proprietary_packages_remain_gitignored(self):
+        rules = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        for ext in ("*.director.zip", "*.crflow", "*.crscene", "*.keystore", "*.jks"):
+            self.assertIn(ext, rules)
+
+
+if __name__ == "__main__":
+    unittest.main()

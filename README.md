@@ -10,6 +10,14 @@
 
 > ⚠️ **Versión beta.** Puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan como en el juego original. Si encuentras algún problema, avísanos abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues) (di qué estabas haciendo y, si puedes, añade una captura). **Se entrega tal cual, sin garantías de ningún tipo.**
 
+### Avisos legales y protección del usuario
+
+**Proyecto independiente:** Case Recomp no está afiliado, patrocinado ni autorizado por Big Fish Games ni por otros titulares de los juegos citados. Los nombres de juegos identifican compatibilidad; sus marcas, imágenes y contenidos pertenecen a sus respectivos titulares. La app no incluye contenido comercial. **Tener una copia original no autoriza automáticamente cualquier conversión o elusión de protecciones:** consulta las leyes y licencias aplicables y no compartas ZIPs convertidos.
+
+[**Aviso legal (Venezuela)**](LEGAL.md) · [**Privacidad**](PRIVACY.md) · [**Términos**](TERMS.md) · [**Derechos y reclamaciones**](COPYRIGHT_POLICY.md) · [**Licencias de terceros**](THIRD_PARTY_NOTICES.md) · [**Estado de licencia del código**](LICENSING_STATUS.md).
+
+**El convertidor procesa el contenido del juego en tu navegador**, pero descarga Pyodide desde una CDN y está alojado en GitHub Pages: consulta la política de privacidad para conocer esos servicios externos. No publiques archivos del juego ni datos personales en issues.
+
 ### Cómo sacar el archivo .zip de tu juego
 
 Necesitas el juego **ya instalado en tu PC** (Windows). Es la carpeta que contiene `MysteryCaseFiles.exe` y una carpeta `data` llena de archivos `.cct`. Normalmente está en una ruta como:
@@ -54,6 +62,14 @@ Los otros juegos que aparecen en la app (*Prime Suspects* y *Ravenhearst*) está
 **Case Recomp** lets you play **Mystery Case Files: Huntsville** on Android using **your own original PC copy of the game**. The app includes no game. You convert your game's files into a `.zip` file and import it into the app.
 
 > ⚠️ **Beta version.** It may have bugs, graphics or sound glitches, and parts that do not yet work as in the original game. If you find a problem, please tell us by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues) (say what you were doing and, if you can, add a screenshot). **Provided as is, without warranty of any kind.**
+
+### Legal and privacy notices
+
+**Independent project:** Case Recomp is not affiliated with, sponsored or approved by Big Fish Games or other rights holders. Game names identify compatibility; all original trademarks and game content belong to their respective owners. No commercial game is included. **Possessing an original copy does not automatically allow all conversions or circumvention:** follow applicable licence terms and laws. Do not share converted ZIPs.
+
+[**Legal (Venezuela)**](LEGAL.md) · [**Privacy**](PRIVACY.md) · [**Terms**](TERMS.md) · [**Copyright requests**](COPYRIGHT_POLICY.md) · [**Third-party notices**](THIRD_PARTY_NOTICES.md) · [**Code licensing status**](LICENSING_STATUS.md).
+
+The converter processes game content in the browser, but Pyodide is fetched from a CDN and the site is hosted on GitHub Pages. Read the privacy notice for details. Do not post proprietary game files or private data in public issues.
 
 ### How to get the .zip file from your game
 

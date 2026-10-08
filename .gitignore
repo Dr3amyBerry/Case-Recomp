@@ -56,3 +56,14 @@ runtime-draft-*.json
 phase8-artifact/
 phase8-download/
 phase8-runtime/
+
+# Additional private game outputs and sensitive signing material (not tracked)
+*.director.zip
+*.crflow
+*.crscene
+*.keystore
+*.jks
+*.p12
+*.pem
+release.properties
+# Do not globally ignore all ZIPs: source and test archives may be legitimate.
