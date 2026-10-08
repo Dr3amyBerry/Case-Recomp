@@ -17,7 +17,7 @@ class DirectorPresentationProfilesUnitTest {
     @Test fun complete_known_bundle_pair_selects_reviewed_profile() {
         assertSame(profile, DirectorPresentationProfiles.select(known))
         assertEquals(1, profile.schemaVersion)
-        assertEquals(4, profile.revision)
+        assertEquals(5, profile.revision)
     }
 
     @Test fun user_interface_alignment_is_scoped_to_verified_sprites_and_members() {
@@ -26,8 +26,13 @@ class DirectorPresentationProfilesUnitTest {
         assertEquals(6 to 0, profile.scopedNudges[19 to "changeUserA"])
         assertEquals(6 to 0, profile.scopedNudges[19 to "changeUserB"])
         for (row in 1..5) assertEquals(0 to 6, profile.scopedNudges[(276 + row) to "enterNameField$row"])
-        assertEquals(2, profile.interactiveNudges.size)
-        assertTrue(profile.interactiveNudges.keys.all { it.first == 19 })
+        assertEquals(32, profile.interactiveNudges.size)
+        assertTrue(profile.interactiveNudges.keys.all { it.first == 19 || it.first in 189..203 })
+        for (case in 1..15) {
+            assertEquals(-4 to 0, profile.scopedNudges[(188 + case) to "logButton${case}A"])
+            assertEquals(-4 to 0, profile.scopedNudges[(215 + case) to "lock"])
+        }
+        for (case in 1..16) assertEquals(-4 to 0, profile.scopedNudges[183 to "crimeCopy_$case"])
         assertTrue(DirectorPresentationProfiles.GENERIC.scopedNudges.isEmpty())
         assertTrue(DirectorPresentationProfiles.GENERIC.interactiveNudges.isEmpty())
     }

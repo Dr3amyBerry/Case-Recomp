@@ -64,9 +64,9 @@ internal data class DirectorPresentationProfile(
     val approvedLegacyNudges: Map<String, Pair<Int, Int>> = emptyMap(),
     val scopedNudges: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
 ) {
-    /** Only the moved menu button needs its entire input area translated with the drawing. */
+    /** Moved menu and case-report controls translate their input areas with the drawing. */
     val interactiveNudges: Map<Pair<Int, String>, Pair<Int, Int>>
-        get() = scopedNudges.filterKeys { it.first == 19 }
+        get() = scopedNudges.filterKeys { it.first == 19 || it.first in 189..203 }
 
     /** Legacy file requests only reviewed offsets. It cannot choose a profile or supply code. */
     fun legacyNudges(json: String): Map<String, Pair<Int, Int>> {
@@ -94,7 +94,7 @@ internal object DirectorPresentationProfiles {
     // Calibrations from 6c03811, 252ba53, cfeadd2 and 747d659. Values unchanged.
     // See docs/HUNTSVILLE_PRESENTATION_ISOLATION.md for evidence and retirement criteria.
     val HUNTSVILLE_ES = DirectorPresentationProfile(
-        id = "huntsville-es-presentation", schemaVersion = 1, revision = 4,
+        id = "huntsville-es-presentation", schemaVersion = 1, revision = 5,
         text = DirectorTextPresentation(
             defaultFont = FontPresentation(linePitchScale = 1.25f),
             fontRules = listOf(
@@ -116,17 +116,24 @@ internal object DirectorPresentationProfiles {
         approvedLegacyNudges = mapOf("cluesFoundLabel" to (-5 to 0)),
         // Align the name and caret with the baked-in Agent caption. The same text member
         // is also used by the separately calibrated user list (sprites 277..281).
-        scopedNudges = mapOf(
-            (33 to "enterNameField1") to (0 to 6),
-            (31 to "cursor") to (12 to 3),
-            (19 to "changeUserA") to (6 to 0),
-            (19 to "changeUserB") to (6 to 0),
-            (277 to "enterNameField1") to (0 to 6),
-            (278 to "enterNameField2") to (0 to 6),
-            (279 to "enterNameField3") to (0 to 6),
-            (280 to "enterNameField4") to (0 to 6),
-            (281 to "enterNameField5") to (0 to 6),
-        ),
+        scopedNudges = buildMap {
+            putAll(mapOf(
+                (33 to "enterNameField1") to (0 to 6),
+                (31 to "cursor") to (12 to 3),
+                (19 to "changeUserA") to (6 to 0),
+                (19 to "changeUserB") to (6 to 0),
+                (277 to "enterNameField1") to (0 to 6),
+                (278 to "enterNameField2") to (0 to 6),
+                (279 to "enterNameField3") to (0 to 6),
+                (280 to "enterNameField4") to (0 to 6),
+                (281 to "enterNameField5") to (0 to 6),
+            ))
+            for (case in 1..15) {
+                for (state in listOf("A", "B")) put((188 + case) to "logButton$case$state", -4 to 0)
+                for (icon in listOf("badge", "clock", "lock")) put((215 + case) to icon, -4 to 0)
+            }
+            for (case in 1..16) put(183 to "crimeCopy_$case", -4 to 0)
+        },
     )
 
     private const val KNOWN_LINGO = "da9c8c41c04cedc8b4cfd30f95f2c0aa905f207238d2ee9e8fd082daf2e5a718"

@@ -30,7 +30,10 @@ class DirectorLauncherActivity : Activity() {
     private var runtime: DirectorRuntime? = null
     private var audio: AndroidDirectorSound? = null
     private var stage: DirectorStageView? = null
+    private var activityResumed = false
     private var ready = false
+    private var playbackClock: DirectorSessionClock? = null
+    private var checkpoint: HuntsvilleSessionCheckpoint? = null
     private var workerToken = 0
     /** Debug-only adb automation bridge (see [DirectorDebugBridge]). */
     private var bridge: DirectorDebugBridge? = null
@@ -189,7 +192,7 @@ class DirectorLauncherActivity : Activity() {
         try {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
             val store = AndroidDirectorStore(this, file.nameWithoutExtension)
-            pendingSave?.let { name -> importSave(store, name); pendingSave = null }
+            pendingSave?.let { name -> importSave(store, name); store.remove(HuntsvilleSessionCheckpoint.KEY); pendingSave = null }
             val profile = DirectorPresentationProfiles.resolve(loaded)
             val text = AndroidDirectorText(profile.text)
             val output = AndroidDirectorSound(this, loaded)
@@ -202,9 +205,10 @@ class DirectorLauncherActivity : Activity() {
                     movie.frameCount in 1..100_000 && movie.channelCount in 6..8_192) {
                     "Director movie dimensions or channel counts exceed safe bounds"
                 }
+                val clock = DirectorSessionClock(SystemClock::elapsedRealtime)
                 val runtime = DirectorRuntime(
                     movie, loaded.lingo, media = loaded, sound = output,
-                    clock = SystemClock::elapsedRealtime,
+                    clock = clock::now,
                     environment = DirectorEnvironment(moviePath = "C:\\CaseRecomp\\", platform = "Windows,32", runMode = "Projector"),
                     extensions = xtras, textMetrics = text, spriteHitOffsets = profile.interactiveNudges,
                     // Keep a scene's decoded cast in memory, within a third of this app's heap.
@@ -217,7 +221,9 @@ class DirectorLauncherActivity : Activity() {
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges)
-                return Session(loaded, runtime, renderer, output, profile)
+                val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES)
+                    HuntsvilleSessionCheckpoint(runtime, store, store::atomically) { Log.w(TAG, "checkpoint failed", it) } else null
+                return Session(loaded, runtime, renderer, output, profile, clock, checkpoint)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }
     }
@@ -230,9 +236,12 @@ class DirectorLauncherActivity : Activity() {
         content = session.content
         runtime = session.runtime
         audio = session.audio
+        playbackClock = session.clock
+        checkpoint = session.checkpoint
         val newStage = DirectorStageView(this, session.runtime, session.renderer)
         stage = newStage
-        newStage.onQuit = { finish() }
+        newStage.onQuit = { exitWithSave() }
+        newStage.afterFrame = { checkpoint?.afterFrame() }
         newStage.onRuntimeError = { error ->
             newStage.pauseFrames()
             Log.e(TAG, "Director runtime paused", error)
@@ -252,13 +261,13 @@ class DirectorLauncherActivity : Activity() {
             addView(Button(this@DirectorLauncherActivity).apply {
                 text = "Salir"
                 alpha = 0.7f
-                setOnClickListener { finish() }
+                setOnClickListener { exitWithSave() }
             })
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END))
         setContentView(layout)
         newStage.requestFocus()
         ready = true
-        if (!isFinishing) newStage.resumeFrames()
+        if (!isFinishing && activityResumed) newStage.resumeFrames() else playbackClock?.pause()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -283,15 +292,28 @@ class DirectorLauncherActivity : Activity() {
         }.start()
     }
 
+    private fun exitWithSave() {
+        try { checkpoint?.save(); finish() }
+        catch (e: Exception) {
+            Log.e(TAG, "cannot save before exit", e)
+            Toast.makeText(this, "No se pudo guardar. Intenta salir de nuevo.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        activityResumed = true
         if (ready) {
+            playbackClock?.resume()
             stage?.resumeFrames()
             audio?.resumeAll()
         }
     }
     override fun onPause() {
+        activityResumed = false
         stage?.pauseFrames()
+        playbackClock?.pause()
+        runCatching { checkpoint?.save() }.onFailure { Log.e(TAG, "cannot save on pause", it) }
         audio?.pauseAll()
         super.onPause()
     }
@@ -307,6 +329,7 @@ class DirectorLauncherActivity : Activity() {
         runtime?.let { runCatching { it.stop() } }; runtime = null
         audio?.close(); audio = null
         content?.close(); content = null
+        checkpoint = null; playbackClock = null
         ready = false
     }
 
@@ -314,6 +337,7 @@ class DirectorLauncherActivity : Activity() {
         val content: DirectorContent, val runtime: DirectorRuntime,
         val renderer: StageRenderer, val audio: AndroidDirectorSound,
         val profile: DirectorPresentationProfile,
+        val clock: DirectorSessionClock, val checkpoint: HuntsvilleSessionCheckpoint?,
     ) : AutoCloseable {
         override fun close() { runCatching { runtime.stop() }; audio.close(); content.close() }
     }

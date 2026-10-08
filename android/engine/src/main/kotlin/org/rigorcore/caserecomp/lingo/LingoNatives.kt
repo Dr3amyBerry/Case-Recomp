@@ -156,7 +156,13 @@ internal object LingoNatives {
         }
     }
 
-    private fun keyIndex(list: LPropList, key: LingoValue): Int = list.entries.indexOfFirst { lingoEquals(it.first, key) }
+    private fun keyIndex(list: LPropList, key: LingoValue): Int = list.entries.indexOfFirst {
+        val stored = it.first
+        // Property names accept either string or symbol syntax, case-insensitively.
+        if ((stored is LSymbol && key is LString) || (stored is LString && key is LSymbol))
+            stored.asText().equals(key.asText(), ignoreCase = true)
+        else lingoEquals(stored, key)
+    }
 
     fun setPropValue(list: LPropList, key: LingoValue, value: LingoValue) {
         val i = keyIndex(list, key)

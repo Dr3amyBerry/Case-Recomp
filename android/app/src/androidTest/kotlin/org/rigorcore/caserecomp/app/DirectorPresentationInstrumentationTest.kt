@@ -74,4 +74,26 @@ class DirectorPresentationInstrumentationTest {
             assertNull(AndroidDirectorStore(context, "d".repeat(64)).get(key))
         } finally { prefs.edit().remove(stored).commit() }
     }
+    @Test fun checkpoint_native_records_and_bookmark_commit_atomically_or_roll_back() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = AndroidDirectorStore(context, "e".repeat(64))
+        val keys = listOf("synthetic-timer", "synthetic-inventory", "synthetic-bookmark")
+        try {
+            store.atomically { keys.forEach { store.put(it, "old") } }
+            assertThrows(IllegalStateException::class.java) {
+                store.atomically {
+                    store.put(keys[0], "new")
+                    store.remove(keys[1])
+                    assertEquals("new", store.get(keys[0]))
+                    assertNull(store.get(keys[1]))
+                    error("synthetic failed save")
+                }
+            }
+            keys.forEach { assertEquals("old", store.get(it)) }
+            store.atomically { keys.forEach { store.put(it, "new") } }
+            keys.forEach { assertEquals("new", store.get(it)) }
+            assertNull(AndroidDirectorStore(context, "f".repeat(64)).get(keys[0]))
+        } finally { keys.forEach { store.remove(it) } }
+    }
+
 }

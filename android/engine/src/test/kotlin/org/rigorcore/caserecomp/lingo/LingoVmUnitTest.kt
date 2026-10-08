@@ -24,6 +24,21 @@ class LingoVmUnitTest {
     private fun movie(vararg handlers: LingoHandler, literals: List<LingoValue> = emptyList()) =
         LingoScript("movie", 1, ScriptType.MOVIE, emptyList(), emptyList(), literals, handlers.toList())
 
+    @Test fun property_names_accept_string_and_symbol_without_duplicate_entries() {
+        val vm = vm()
+        val list = LPropList(mutableListOf(LSymbol("setting") to LInt(7), LString("Other") to LInt(2)))
+        assertEquals(LInt(7), LingoNatives.method(vm, list, "getaProp", listOf(LString("SETTING"))))
+        assertEquals(LInt(2), LingoNatives.method(vm, list, "getProp", listOf(LSymbol("other"))))
+        LingoNatives.method(vm, list, "setaProp", listOf(LString("Setting"), LInt(9)))
+        assertEquals(2, list.entries.size)
+        assertEquals(LInt(9), LingoNatives.method(vm, list, "getProp", listOf(LSymbol("setting"))))
+        assertEquals(LSymbol("setting"), list.entries.first().first)
+        assertEquals(LingoValue.Void, LingoNatives.method(vm, list, "getaProp", listOf(LString("absent"))))
+        LingoNatives.method(vm, list, "deleteProp", listOf(LSymbol("OTHER")))
+        assertEquals(1, list.entries.size)
+        assertTrue(!lingoEquals(LSymbol("setting"), LString("setting")))
+    }
+
     @Test fun literal_object_references_need_a_resolver() {
         val text = "[#base: (sprite 267), #icon: (member 5 of castLib 2), #type: #music]"
         assertEquals(LingoValue.Void, LingoLiteralParser.parseOrVoid(text))

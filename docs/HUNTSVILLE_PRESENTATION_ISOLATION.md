@@ -222,3 +222,12 @@ tests pass. A visible one-case run of the existing private wsa_autoplay.py bot i
 requested by the reviewer. The bot reads debug state and sends normal Android taps,
 including object collection and tile swaps, rather than setting completion flags.
 Run evidence and recordings remain private. This request does not authorize Stage 2.
+
+## Follow-up: timer, session checkpoint and case-report alignment
+
+Profile revision 5 moves case-report buttons, their status icons and narrative text
+four stage pixels left; button input areas follow the drawing. Other offsets remain.
+The verified Huntsville edition now uses native save handlers plus a resume bookmark,
+with atomic persistence, paused background time and a stable-frame restore sequence
+that fixes the black screen reported during review.
+See [checkpoint scope and limitations](HUNTSVILLE_SESSION_CHECKPOINT.md).

@@ -45,6 +45,7 @@ internal class DirectorStageView(
                 if (!runtime.quitRequested) {
                     val start = android.os.SystemClock.uptimeMillis()
                     runtime.tick()
+                    afterFrame?.invoke()
                     redraw()
                     logStats(start)
                     // Late frames are not made up in a burst: resync when more than one frame behind.
@@ -63,6 +64,7 @@ internal class DirectorStageView(
     var onRuntimeError: ((Exception) -> Unit)? = null
     /** Lingo `quit`/`halt`: the title asked to close. */
     var onQuit: (() -> Unit)? = null
+    var afterFrame: (() -> Unit)? = null
 
     /** Debug builds with the tag at DEBUG log ticks per second and the time spent per tick. */
     private fun logStats(start: Long) {
