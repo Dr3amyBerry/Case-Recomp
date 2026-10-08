@@ -71,6 +71,9 @@ class FlashPlayerUnitTest {
         val shape = movie.characters[1] as SwfShape
         assertEquals(SwfRect(0.0, 0.0, 20.0, 10.0), shape.bounds)
         assertEquals(SwfFill.Solid(0xFFFF0000.toInt()), shape.fill)
+        assertEquals(4, shape.edges.size)
+        assertEquals(1, shape.fillAt(10.0, 5.0))
+        assertEquals(0, shape.fillAt(25.0, 5.0))
         assertEquals(2, (movie.characters[2] as SwfSprite).timeline.frames.size)
         assertEquals(2, movie.root.labelFrame("OPEN"))
         assertEquals(5, movie.root.frames.size)
@@ -121,7 +124,7 @@ class FlashPlayerUnitTest {
         // Shape filled with bitmap 7, fill matrix scale 20 twips per pixel (identity in pixels).
         val fillMatrix = SwfBits().ub(1, 1).ub(5, 23).ub(23, 20 shl 16).ub(23, 20 shl 16).ub(1, 0).ub(5, 0).bytes()
         val shape = SwfTestBuilder.tag(2, SwfTestBuilder.u16(8) + SwfTestBuilder.rect(0, 2, 0, 1) +
-            byteArrayOf(1, 0x41) + SwfTestBuilder.u16(7) + fillMatrix + byteArrayOf(0, 0))
+            byteArrayOf(1, 0x41) + SwfTestBuilder.u16(7) + fillMatrix + byteArrayOf(0, 0x10) + SwfTestBuilder.rectanglePath(2, 1, fillBits = 1))
         val movie = SwfParser.parse(SwfTestBuilder.movie(10, 10, 1, bitmap, shape, place(1, 8, translate(0, 0)), showFrame()))
         val bmp = movie.characters[7] as SwfBitmap
         assertEquals(0xFFFF0000.toInt(), bmp.argb!![0])

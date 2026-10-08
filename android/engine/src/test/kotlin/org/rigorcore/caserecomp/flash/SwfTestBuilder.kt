@@ -42,9 +42,23 @@ internal object SwfTestBuilder {
         return header + buf.copyOf(n)
     }
 
-    /** DefineShape with one solid RGB fill and no edges (bounds only). */
+    /** DefineShape: a w x h rectangle path filled (fill style 0 side) with one solid RGB colour. */
     fun solidShape(id: Int, w: Int, h: Int, rgb: Int): ByteArray =
-        tag(2, u16(id) + rect(0, w, 0, h) + byteArrayOf(1, 0, (rgb shr 16).toByte(), (rgb shr 8).toByte(), rgb.toByte(), 0, 0))
+        tag(2, u16(id) + rect(0, w, 0, h) + byteArrayOf(1, 0, (rgb shr 16).toByte(), (rgb shr 8).toByte(), rgb.toByte(), 0, 0x10) +
+            rectanglePath(w, h, fillBits = 1))
+
+    /** Shape records: move to (0,0) selecting fill style 1, four straight edges, end. */
+    fun rectanglePath(w: Int, h: Int, fillBits: Int): ByteArray {
+        val b = SwfBits()
+        b.ub(1, 0).ub(5, 0b00011).ub(5, 15).ub(15, 0).ub(15, 0).ub(fillBits, 1)
+        fun line(dx: Int, dy: Int) {
+            b.ub(1, 1).ub(1, 1).ub(4, 15 - 2).ub(1, 0)
+            if (dx != 0) b.ub(1, 0).ub(15, dx * 20) else b.ub(1, 1).ub(15, dy * 20)
+        }
+        line(w, 0); line(0, h); line(-w, 0); line(0, -h)
+        b.ub(1, 0).ub(5, 0)
+        return b.bytes()
+    }
 
     fun place(depth: Int, id: Int?, matrix: ByteArray?, name: String? = null, move: Boolean = false): ByteArray {
         var flags = 0

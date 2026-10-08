@@ -40,8 +40,31 @@ sealed interface SwfFill {
 
 sealed interface SwfCharacter { val id: Int }
 
-/** A shape drawn as its bounds filled with its first fill style (enough for bitmap panels and boxes). */
-class SwfShape(override val id: Int, val bounds: SwfRect, val fill: SwfFill?) : SwfCharacter
+/** A straight edge (curves are flattened) with the fill styles on either side (1-based into fills, 0 = none). */
+data class SwfEdge(val x0: Double, val y0: Double, val x1: Double, val y1: Double, val fill0: Int, val fill1: Int)
+
+/**
+ * A filled shape: every fill style region is bounded by the edges that have that style
+ * on exactly one side, so it can be filled even-odd. Line styles are not drawn.
+ */
+class SwfShape(override val id: Int, val bounds: SwfRect, val fills: List<SwfFill?>, val edges: List<SwfEdge>) : SwfCharacter {
+    /** First fill style (convenience for single-fill shapes). */
+    val fill: SwfFill? get() = fills.firstOrNull { it != null }
+
+    /** Fill style index (1-based) covering a shape-local point, last-defined region winning; 0 = none. */
+    fun fillAt(x: Double, y: Double): Int {
+        var found = 0
+        for (style in 1..fills.size) {
+            var inside = false
+            for (e in edges) {
+                if ((e.fill0 == style) == (e.fill1 == style)) continue
+                if ((e.y0 > y) != (e.y1 > y) && x < e.x0 + (y - e.y0) * (e.x1 - e.x0) / (e.y1 - e.y0)) inside = !inside
+            }
+            if (inside) found = style
+        }
+        return found
+    }
+}
 
 class SwfBitmap(
     override val id: Int,
@@ -96,6 +119,7 @@ private class BitReader(private val data: ByteArray, start: Int) {
     fun sb(n: Int): Int { val v = ub(n); return if (n > 0 && v and (1 shl (n - 1)) != 0) v - (1 shl n) else v }
     fun fb(n: Int) = sb(n) / 65536.0
     val bytePos: Int get() = ((bit + 7) ushr 3).toInt()
+    fun seek(bytePos: Int) { bit = bytePos * 8L }
 }
 
 private class ByteReader(val data: ByteArray, var pos: Int = 0, val end: Int = data.size) {
@@ -255,6 +279,67 @@ object SwfParser {
         val r = ByteReader(body)
         val id = r.u16()
         val bounds = r.rect()
+        val fills = mutableListOf<SwfFill?>()
+        var fillBase = 0
+        var fillBits = 0
+        var lineBits = 0
+        fun styles() {
+            fillBase = fills.size
+            fills += fillStyles(code, r)
+            var lines = r.u8()
+            if (lines == 0xFF && code != 2) lines = r.u16()
+            repeat(lines) { r.u16(); rgb(r, alpha = code == 32) }
+            val bits = r.u8()
+            fillBits = bits shr 4; lineBits = bits and 0x0F
+        }
+        styles()
+        val edges = mutableListOf<SwfEdge>()
+        val bits = BitReader(body, r.pos)
+        var x = 0.0; var y = 0.0
+        var fill0 = 0; var fill1 = 0
+        while (true) {
+            if (bits.ub(1) == 0) {
+                val flags = bits.ub(5)
+                if (flags == 0) break
+                if (flags and 1 != 0) { val n = bits.ub(5); x = bits.sb(n) / 20.0; y = bits.sb(n) / 20.0 }
+                if (flags and 2 != 0) fill0 = bits.ub(fillBits).let { if (it == 0) 0 else it + fillBase }
+                if (flags and 4 != 0) fill1 = bits.ub(fillBits).let { if (it == 0) 0 else it + fillBase }
+                if (flags and 8 != 0) bits.ub(lineBits)
+                if (flags and 16 != 0) {
+                    r.pos = bits.bytePos
+                    styles()
+                    bits.seek(r.pos)
+                }
+            } else if (bits.ub(1) == 1) {
+                val n = bits.ub(4) + 2
+                var dx = 0.0; var dy = 0.0
+                if (bits.ub(1) == 1) { dx = bits.sb(n) / 20.0; dy = bits.sb(n) / 20.0 }
+                else if (bits.ub(1) == 1) dy = bits.sb(n) / 20.0 else dx = bits.sb(n) / 20.0
+                if (fill0 != 0 || fill1 != 0) edges += SwfEdge(x, y, x + dx, y + dy, fill0, fill1)
+                x += dx; y += dy
+            } else {
+                val n = bits.ub(4) + 2
+                val cx = x + bits.sb(n) / 20.0; val cy = y + bits.sb(n) / 20.0
+                val ax = cx + bits.sb(n) / 20.0; val ay = cy + bits.sb(n) / 20.0
+                if (fill0 != 0 || fill1 != 0) {
+                    // Flatten the quadratic curve.
+                    var px = x; var py = y
+                    for (i in 1..CURVE_STEPS) {
+                        val t = i.toDouble() / CURVE_STEPS; val u = 1 - t
+                        val qx = u * u * x + 2 * u * t * cx + t * t * ax; val qy = u * u * y + 2 * u * t * cy + t * t * ay
+                        edges += SwfEdge(px, py, qx, qy, fill0, fill1)
+                        px = qx; py = qy
+                    }
+                }
+                x = ax; y = ay
+            }
+        }
+        return SwfShape(id, bounds, fills, edges)
+    }
+
+    private const val CURVE_STEPS = 8
+
+    private fun fillStyles(code: Int, r: ByteReader): List<SwfFill?> {
         var count = r.u8()
         if (count == 0xFF && code != 2) count = r.u16()
         val fills = mutableListOf<SwfFill?>()
@@ -279,7 +364,7 @@ object SwfParser {
                 else -> throw FlashError("unsupported fill style $type")
             }
         }
-        return SwfShape(id, bounds, fills.firstOrNull { it != null })
+        return fills
     }
 
     private fun jpeg(code: Int, body: ByteArray, tables: ByteArray?): SwfBitmap {

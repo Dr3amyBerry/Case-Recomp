@@ -236,7 +236,8 @@ class FlashPlayer(val movie: SwfMovie, val host: FlashHost = object : FlashHost 
         val inv = d.matrix.inverse() ?: return false
         val lx = inv.x(x, y); val ly = inv.y(x, y)
         val b = d.shape.bounds
-        return lx >= b.xMin && lx < b.xMax && ly >= b.yMin && ly < b.yMax
+        if (lx < b.xMin || lx >= b.xMax || ly < b.yMin || ly >= b.yMax) return false
+        return d.shape.edges.isEmpty() || d.shape.fillAt(lx, ly) != 0
     }
 
     // ---- mouse ---------------------------------------------------------------------------

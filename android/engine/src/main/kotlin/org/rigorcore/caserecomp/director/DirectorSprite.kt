@@ -123,18 +123,20 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
     val height: Int get() = set["height"]?.toInt()
         ?: if ("member" in set) member?.height ?: 0 else run?.height ?: member?.height ?: 0
 
-    /** Bounding rect on the stage: registration point scaled to the sprite size. */
-    fun bounds(): IntArray {
+    /** Registration point for a w x h sprite: bitmaps scale theirs, Flash is centred, others top-left. */
+    private fun registration(w: Int, h: Int): Pair<Int, Int> {
         val m = member
-        val w = width; val h = height
-        val (rx, ry) = when (m?.type) {
-            "bitmap" -> {
-                val mw = m.width; val mh = m.height
-                (if (mw > 0) m.regX * w / mw else 0) to (if (mh > 0) m.regY * h / mh else 0)
-            }
+        return when (m?.type) {
+            "bitmap" -> (if (m.width > 0) m.regX * w / m.width else 0) to (if (m.height > 0) m.regY * h / m.height else 0)
             "flash" -> w / 2 to h / 2
             else -> 0 to 0
         }
+    }
+
+    /** Bounding rect on the stage: registration point scaled to the sprite size. */
+    fun bounds(): IntArray {
+        val w = width; val h = height
+        val (rx, ry) = registration(w, h)
         val left = locH - rx; val top = locV - ry
         return intArrayOf(left, top, left + w, top + h)
     }
@@ -216,10 +218,8 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
             "loch", "locv" -> set[p] = LInt(value.toDouble().roundToInt())
             "rect" -> {
                 val r = LingoImage.intRect(value)
-                val m = member
                 val w = r[2] - r[0]; val h = r[3] - r[1]
-                val rx = if (m?.type == "bitmap" && m.width > 0) m.regX * w / m.width else 0
-                val ry = if (m?.type == "bitmap" && m.height > 0) m.regY * h / m.height else 0
+                val (rx, ry) = registration(w, h)
                 set["width"] = LInt(w); set["height"] = LInt(h)
                 set["loch"] = LInt(r[0] + rx); set["locv"] = LInt(r[1] + ry)
             }
