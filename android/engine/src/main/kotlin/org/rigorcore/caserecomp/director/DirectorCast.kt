@@ -120,12 +120,13 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
         set(value) { overrides["text"] = LString(value) }
 
     /** Lingo-assigned image, or the decoded member pixels. */
+    /** Lingo `member.image`: the member's own image object, which scripts may change in place. */
     val image: LingoImage?
-        get() = overrides["image"] as? LingoImage ?: data?.let { d ->
-            if (d.type != "bitmap") return@let null
-            (runtime.media.image(lib.file?.file ?: "", d)
-                ?: LingoImage(d.width, d.height).also { it.useAlpha = false }).also { overrides["image"] = it }
-        }
+        get() = overrides["image"] as? LingoImage ?: pixels?.duplicate()?.also { overrides["image"] = it }
+
+    /** Pixels to draw and hit-test: a Lingo-assigned image, else the decoded media (shared, read-only). */
+    val pixels: LingoImage?
+        get() = overrides["image"] as? LingoImage ?: data?.takeIf { it.type == "bitmap" }?.let { runtime.mediaImage(this, it) }
 
     val width: Int get() = (overrides["image"] as? LingoImage)?.width ?: overrides["width"]?.toInt()
         ?: flashSize()?.first ?: data?.width ?: 0

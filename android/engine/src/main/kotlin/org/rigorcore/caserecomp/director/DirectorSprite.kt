@@ -147,7 +147,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) return false
         if (m.type == "flash") return flash.toMovie(x, y)?.let { (mx, my) -> flash.player!!.hits(mx, my) } ?: true
         if (ink != 8 && ink != 36) return true
-        val image = m.image ?: return true
+        val image = m.pixels ?: return true
         if (!image.useAlpha || b[2] == b[0] || b[3] == b[1]) return true
         var ix = (x - b[0]) * image.width / (b[2] - b[0])
         val iy = (y - b[1]) * image.height / (b[3] - b[1])

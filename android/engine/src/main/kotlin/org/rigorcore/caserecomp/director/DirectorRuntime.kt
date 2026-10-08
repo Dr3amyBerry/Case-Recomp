@@ -210,6 +210,18 @@ class DirectorRuntime(
         updateRollover()
     }
 
+    private val mediaImages = object : LinkedHashMap<Pair<String, Int>, LingoImage>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<String, Int>, LingoImage>?) = size > MEDIA_IMAGE_CACHE
+    }
+
+    /** Decoded member media, cached (least recently used first out); blank and opaque without media. */
+    fun mediaImage(member: CastMember, data: MemberData): LingoImage {
+        val file = member.lib.file?.file ?: ""
+        return mediaImages.getOrPut(file to data.number) {
+            media.image(file, data) ?: LingoImage(data.width, data.height).also { it.useAlpha = false }
+        }
+    }
+
     private val flashMovies = HashMap<Pair<String, Int>, SwfMovie?>()
 
     /** Parsed SWF of a Flash member (cached per cast file and slot), or null without media. */
@@ -520,6 +532,10 @@ class DirectorRuntime(
             "label" -> LInt(movie.labelFrame(arg(0).asText()) ?: 0)
             else -> extensions?.callBuiltin(vm, name, args)
         }
+    }
+
+    companion object {
+        const val MEDIA_IMAGE_CACHE = 96
     }
 
     /** Whether a Lingo value is the given symbol (helper for hosts and tests). */

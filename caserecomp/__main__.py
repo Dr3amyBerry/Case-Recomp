@@ -134,6 +134,12 @@ def main(argv: list[str] | None = None) -> int:
     movie_bundle.add_argument("--cast-dir", type=Path, help="Directory holding the movie's external casts")
     movie_bundle.add_argument("--output", required=True, type=Path)
 
+    director_content = cmd.add_parser("director-content", help="Private content zip (bundles + member media) for the Director runtime")
+    director_content.add_argument("source", type=Path)
+    director_content.add_argument("--cast-dir", type=Path, help="Directory holding the movie's external casts")
+    director_content.add_argument("--ffmpeg", type=Path, help="Local FFmpeg for SWA-compressed sounds (optional)")
+    director_content.add_argument("--output", required=True, type=Path)
+
     scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
     scene_proof.add_argument("observation", type=Path)
     scene_proof.add_argument("scenario", type=Path)
@@ -325,6 +331,19 @@ def main(argv: list[str] | None = None) -> int:
             record = {"format": bundle["format"], "labels": len(bundle["labels"]),
                       "external_casts": len(bundle["external_casts"]),
                       "sprite_spans": len(bundle["score"]["sprites"])}
+        elif args.command == "director-content":
+            from .director_content import build_director_content
+            from .movie_bundle import external_cast_files
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            ffmpeg = None
+            if args.ffmpeg:
+                from .audio import resolve_ffmpeg
+                ffmpeg = resolve_ffmpeg(args.ffmpeg)
+            casts = external_cast_files(args.cast_dir) if args.cast_dir else []
+            manifest = build_director_content(args.source, casts, args.output, ffmpeg=ffmpeg)
+            record = {"format": manifest["format"], "entries": len(manifest["entries"]),
+                      "counts": manifest["counts"], "skipped": manifest["skipped"]}
         elif args.command == "scene-proof":
             from .verified_scene import verified_scene_from_observation
             from .vertical_slice import load_json, load_scenario_for_proof, write_json_create_only
