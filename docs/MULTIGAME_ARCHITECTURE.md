@@ -144,3 +144,11 @@ Primera versi?n multijuego ejecuta una sesi?n a la vez. No necesita paralelismo 
 Cada tecnolog?a mantiene su parser/runtime y pruebas; todo c?digo com?n depende s?lo del core API. El costo de agregar un t?tulo compatible es fingerprints + perfil + evidencia, no clonar motor. Un formato nuevo puede justificar un m?dulo nuevo. No descargar c?digo desde perfiles ni introducir scripts arbitrarios de configuraci?n.
 
 Ver [especificaci?n de perfiles](GAME_COMPATIBILITY_PROFILE.md) y [plan de regresiones](MULTIGAME_REGRESSION_PLAN.md). La auditor?a no incorpora a?n Mystery P.I. al launcher ni al convertidor, y no declara compatibilidad nueva.
+
+## Stage 1 implementation checkpoint (2026-10-08)
+
+The app-side presentation registry is implemented and tested on WSA. See
+[Huntsville presentation isolation](HUNTSVILLE_PRESENTATION_ISOLATION.md) for the
+exact moved values, verified bundle selection, preserved generic behavior and
+limits. Status: `PENDIENTE_VALIDACION_HUMANA`. Mystery P.I. Stage 2 is gated by
+explicit human approval.

@@ -48,18 +48,20 @@ internal object AndroidDirectorImageDecoder : ImageDecoder {
  * Text members drawn with platform fonts. The title's embedded font members are not
  * usable on Android, so each authored face maps to the closest system family.
  */
-internal class AndroidDirectorText : TextRasterizer, TextMetrics {
+internal class AndroidDirectorText(
+    private val presentation: DirectorTextPresentation = DirectorTextPresentation(),
+) : TextRasterizer, TextMetrics {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private fun apply(member: CastMember) {
-        paint.textSize = (member.fontSize * shrink * size(member.font)).coerceAtLeast(1f)
-        // Fonts embedded in the title ("Name *") draw in their own weight and slant: Director
-        // does not embolden them, so only the face name says bold or italic.
+        paint.textSize = (member.fontSize * shrink * presentation.font(member.font).sizeScale).coerceAtLeast(1f)
+        // The verified profile preserves the observed embedded-face style workaround.
+        // Generic text uses the authored bold/italic flags.
         val name = member.font.lowercase()
-        val embedded = member.font.trimEnd().endsWith("*")
+        val embedded = presentation.embeddedStyleFromFaceName && member.font.trimEnd().endsWith("*")
         val bold = if (embedded) "bold" in name else member.bold
         val italic = if (embedded) "italic" in name else member.italic
-        paint.textSkewX = if ("readout" in name) -0.18f else 0f
+        paint.textSkewX = presentation.font(member.font).skew
         val style = when {
             bold && italic -> Typeface.BOLD_ITALIC
             bold -> Typeface.BOLD
@@ -68,7 +70,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         }
         paint.typeface = Typeface.create(family(member.font), style)
         paint.isUnderlineText = "underline" in member.fontStyle
-        paint.textScaleX = condense * width(member.font)
+        paint.textScaleX = condense * presentation.font(member.font).widthScale
     }
 
     /**
@@ -83,8 +85,12 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         return paint.measureText(text.replace('\t', ' ')).toInt()
     }
 
-    override fun lineHeight(member: CastMember): Int =
-        (member.fontSize * shrink * size(member.font) * leading(member.font)).toInt().coerceAtLeast(1)
+    override fun lineHeight(member: CastMember): Int {
+        apply(member)
+        val font = presentation.font(member.font)
+        return (font.linePitchScale?.let { member.fontSize * shrink * font.sizeScale * it }
+            ?: paint.fontSpacing).toInt().coerceAtLeast(1)
+    }
 
     override fun render(member: CastMember, width: Int, height: Int): LingoImage? = render(member, width, height, 1)
 
@@ -92,7 +98,8 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
     override fun render(member: CastMember, width: Int, height: Int, scale: Int): LingoImage? {
         if (width <= 0 || height <= 0 || scale !in 1..4) return null
         try {
-            val lines = fit(member, width, height)
+            val boxes = presentation.boxes
+            val lines = if (boxes == null) TextLayout.lines(member, width, this) else fit(member, width, height, boxes)
             val step = TextLayout.lineHeight(member, this)
             apply(member)
             val metrics = paint.fontMetrics
@@ -100,9 +107,9 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             val rows = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
             // Lines that overflow the box close up (to 3/4 of their pitch), as the original's do;
             // beyond that the box grows to its content, so the image may be taller than the box.
-            val pitch = if (!fixed && rows * step > height) maxOf(height.toFloat() / rows, step * MIN_PITCH) else step.toFloat()
+            val pitch = if (boxes != null && !fixed && rows * step > height) maxOf(height.toFloat() / rows, step * boxes.minimumPitch) else step.toFloat()
             val content = if (fixed) rows * step else ((rows - 1) * pitch + metrics.descent - metrics.ascent).toInt() + 1
-            val drawn = maxOf(height, minOf(content, height * 4))
+            val drawn = if (boxes == null) height else maxOf(height, minOf(content, height * boxes.maximumHeightMultiplier))
             if (width.toLong() * drawn * scale * scale > 16L * 1024 * 1024) return null
             val bitmap = Bitmap.createBitmap(width * scale, drawn * scale, Bitmap.Config.ARGB_8888)
             try {
@@ -113,12 +120,12 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
                 // A fixed line space is a slot per line whose glyphs sit on its bottom (less the descent).
                 // The first baseline sits at about 0.8 em, as the originals' faces do; the platform
                 // faces' ascents run taller and would set every line a few pixels low.
-                var baseline = if (fixed) step - metrics.descent else minOf(-metrics.ascent, paint.textSize * FIRST_BASELINE)
+                var baseline = if (fixed) step - metrics.descent else boxes?.let { minOf(-metrics.ascent, paint.textSize * it.firstBaseline) } ?: -metrics.ascent
                 for ((index, line) in lines.withIndex()) {
                     if (baseline > drawn + step) break
                     for ((dx, run) in line.segments) canvas.drawText(run, (line.x + dx).toFloat(), baseline, paint)
-                    // A leading empty line is short in the original (~0.6 of a line), unless lines are fixed.
-                    baseline += if (index == 0 && !fixed && line.text.isBlank()) pitch * LEADING_BLANK else pitch
+                    // The calibrated profile shortens a leading blank; generic text keeps its full pitch.
+                    baseline += if (index == 0 && !fixed && line.text.isBlank()) pitch * (boxes?.leadingBlank ?: 1f) else pitch
                 }
                 val pixels = IntArray(bitmap.width * bitmap.height)
                 bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
@@ -137,98 +144,44 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
      * lines. Extra lines are then absorbed by closing up the line pitch (see [render]) and, past
      * that, by the box growing; the glyphs shrink only when the text is far too long for its box.
      */
-    private fun fit(member: CastMember, width: Int, height: Int): List<TextLine> {
+    private fun fit(member: CastMember, width: Int, height: Int, boxes: TextBoxPresentation): List<TextLine> {
         fun rows(lines: List<TextLine>) = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
         fun tooWide(lines: List<TextLine>) = lines.any { line -> line.x + line.segments.last().let { (dx, run) -> dx + width(member, run) } > width }
         /** Overflow once the pitch has closed up as far as it may. */
-        fun overflow(lines: List<TextLine>) = rows(lines) * TextLayout.lineHeight(member, this) * MIN_PITCH - height
+        fun overflow(lines: List<TextLine>) = rows(lines) * TextLayout.lineHeight(member, this) * boxes.minimumPitch - height
         var best: Pair<Float, List<TextLine>>? = null
-        for (squeeze in CONDENSE) {
+        for (squeeze in boxes.condense) {
             condense = squeeze
-            val lines = layout(member, width)
+            val lines = layout(member, width, boxes.centerMargin)
             if (tooWide(lines)) continue
             val step = TextLayout.lineHeight(member, this)
             // Fits at its natural pitch: keep the authored size and width.
             if (rows(lines) * step - height <= step / 4) return lines
             if (best == null || rows(lines) < rows(best.second)) best = squeeze to lines
         }
-        condense = best?.first ?: CONDENSE.last()
-        val lines = best?.second ?: layout(member, width)
+        condense = best?.first ?: boxes.condense.last()
+        val lines = best?.second ?: layout(member, width, boxes.centerMargin)
         if (!tooWide(lines) && overflow(lines) <= TextLayout.lineHeight(member, this) * 3 / 2) return lines
         // Far too long for the box (or a word wider than it): shrink as a last resort.
-        condense = CONDENSE.last()
-        for (size in SHRINK) {
+        condense = boxes.condense.last()
+        for (size in boxes.shrink) {
             shrink = size
-            val smaller = layout(member, width)
+            val smaller = layout(member, width, boxes.centerMargin)
             if (!tooWide(smaller) && overflow(smaller) <= TextLayout.lineHeight(member, this) / 4) return smaller
         }
-        return layout(member, width)
+        return layout(member, width, boxes.centerMargin)
     }
 
     /**
      * Centred text wraps a few pixels inside its box edges, as the original's centred captions
      * do (e.g. "Elementos / necesarios para / resolver el crimen:" in a 125 px box).
      */
-    private fun layout(member: CastMember, width: Int): List<TextLine> {
-        if (member.alignment != "center" || width <= 4 * CENTER_MARGIN) return TextLayout.lines(member, width, this)
-        return TextLayout.lines(member, width - 2 * CENTER_MARGIN, this).map { TextLine(it.text, it.x + CENTER_MARGIN, it.segments) }
+    private fun layout(member: CastMember, width: Int, centerMargin: Int): List<TextLine> {
+        if (member.alignment != "center" || width <= 4 * centerMargin) return TextLayout.lines(member, width, this)
+        return TextLayout.lines(member, width - 2 * centerMargin, this).map { TextLine(it.text, it.x + centerMargin, it.segments) }
     }
 
     private companion object {
-        const val CENTER_MARGIN = 6
-        /** How far overflowing lines may close up: the original sets "Elementos necesarios…" at ~0.77. */
-        const val MIN_PITCH = 0.75f
-        /** First baseline below the box top, per em: Palatino 14 sits at ~10.5 px in the original. */
-        const val FIRST_BASELINE = 0.78f
-        /** Height of a text's leading empty line per line pitch (measured on the original's panels). */
-        const val LEADING_BLANK = 0.75f
-        val CONDENSE = listOf(1f, 0.95f, 0.9f, 0.85f)
-        val SHRINK = listOf(0.9f, 0.8f, 0.7f)
-
-        /**
-         * Advance-width ratio of the authored face to its substitute, measured against the
-         * original's rendering (Palatino 14 sets "Taller Mecánico" in 99 px; typewriter faces run narrow).
-         */
-        fun width(font: String): Float {
-            val name = font.lowercase()
-            return when {
-                "typewriter" in name -> 0.9f
-                "palatino" in name -> 0.88f
-                "times" in name -> 0.86f
-                // Tekton's letters run wider than the platform sans at the same glyph size.
-                // The italic panel captions must stay inside a glass narrower than their boxes.
-                "tekto" in name && "italic" in name -> 0.95f
-                "tekto" in name -> 1.15f
-                // A narrow seven-segment readout ("19:58" is ~60 px at 36 pt).
-                "readout" in name -> 0.9f
-                else -> 1f
-            }
-        }
-
-        /** Glyph size of the authored face relative to its substitute at the same point size. */
-        fun size(font: String): Float {
-            val name = font.lowercase()
-            return when {
-                // The italic instance sets smaller than the upright one at the same point size.
-                "tekto" in name && "italic" in name -> 0.68f
-                "tekto" in name -> 0.8f
-                "readout" in name -> 0.95f
-                else -> 1f
-            }
-        }
-
-        /** Line pitch per glyph size: the original lays Palatino 14 at ~15 px and Tekto 15 at ~13.5 px. */
-        fun leading(font: String): Float {
-            val name = font.lowercase()
-            return when {
-                "palatino" in name || "times" in name -> 1.08f
-                // The smaller italic captions keep the original's ~13.5 px pitch at 15 pt.
-                "tekto" in name && "italic" in name -> 1.32f
-                "tekto" in name -> 1.12f
-                else -> 1.25f
-            }
-        }
-
         fun family(font: String): String {
             val name = font.lowercase()
             return when {

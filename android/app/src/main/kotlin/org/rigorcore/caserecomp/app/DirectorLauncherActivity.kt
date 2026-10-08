@@ -161,19 +161,12 @@ class DirectorLauncherActivity : Activity() {
         }.start()
     }
 
-    /**
-     * Debug/ADB route: optional `presentation.json` in the import folder,
-     * `{"nudge": {"memberName": [dx, dy]}}`, shifting where named members are drawn.
-     * Title-specific tweaks stay with the tester's private files, never in the app.
-     */
-    private fun presentationNudges(): Map<String, Pair<Int, Int>> = runCatching {
+    /** Optional legacy offsets, accepted only by the resolved profile's reviewed allowlist. */
+    private fun presentationNudges(profile: DirectorPresentationProfile): Map<String, Pair<Int, Int>> = runCatching {
+        if (profile.approvedLegacyNudges.isEmpty()) return emptyMap()
         val file = File(getExternalFilesDir("import") ?: return emptyMap(), "presentation.json")
         if (!file.isFile || file.length() > 64 * 1024) return emptyMap()
-        val nudge = org.json.JSONObject(file.readText()).optJSONObject("nudge") ?: return emptyMap()
-        nudge.keys().asSequence().mapNotNull { name ->
-            val pair = nudge.optJSONArray(name) ?: return@mapNotNull null
-            name to (pair.optInt(0).coerceIn(-50, 50) to pair.optInt(1).coerceIn(-50, 50))
-        }.toMap()
+        profile.legacyNudges(file.readText())
     }.getOrElse {
         Log.w(TAG, "presentation.json ignored: ${it.message}")
         emptyMap()
@@ -197,7 +190,8 @@ class DirectorLauncherActivity : Activity() {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
             val store = AndroidDirectorStore(this, file.nameWithoutExtension)
             pendingSave?.let { name -> importSave(store, name); pendingSave = null }
-            val text = AndroidDirectorText()
+            val profile = DirectorPresentationProfiles.resolve(loaded)
+            val text = AndroidDirectorText(profile.text)
             val output = AndroidDirectorSound(this, loaded)
             try {
                 val movie = loaded.movie
@@ -222,14 +216,17 @@ class DirectorLauncherActivity : Activity() {
                 val display = resources.displayMetrics
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
-                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges())
-                return Session(loaded, runtime, renderer, output)
+                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile))
+                return Session(loaded, runtime, renderer, output, profile)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }
     }
 
     private fun displaySession(session: Session) {
         disposeSession()
+        if (session.profile == DirectorPresentationProfiles.GENERIC) {
+            Toast.makeText(this, "Edicion sin ajustes visuales verificados. Se usara la presentacion estandar.", Toast.LENGTH_LONG).show()
+        }
         content = session.content
         runtime = session.runtime
         audio = session.audio
@@ -316,6 +313,7 @@ class DirectorLauncherActivity : Activity() {
     private class Session(
         val content: DirectorContent, val runtime: DirectorRuntime,
         val renderer: StageRenderer, val audio: AndroidDirectorSound,
+        val profile: DirectorPresentationProfile,
     ) : AutoCloseable {
         override fun close() { runCatching { runtime.stop() }; audio.close(); content.close() }
     }
