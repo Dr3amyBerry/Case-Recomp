@@ -203,7 +203,10 @@ class DirectorLauncherActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (ready) stage?.resumeFrames()
+        if (ready) {
+            stage?.resumeFrames()
+            audio?.resumeAll()
+        }
     }
     override fun onPause() {
         stage?.pauseFrames()

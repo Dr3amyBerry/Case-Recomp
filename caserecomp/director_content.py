@@ -79,6 +79,11 @@ def _sound(archive: DirectorArchive, media: dict, ffmpeg: Path | None) -> tuple[
         data = archive.get_resource(media["ediM"])
         if data.startswith(b"ID3") or data[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
             return data, "mp3"
+        # Some encoders pad the MP3 with zero bytes; strict players need the frames first.
+        from .audio import mpeg_audio_start
+        start = mpeg_audio_start(data)
+        if start > 0 and not any(data[:start]):
+            return data[start:], "mp3"
         raise InspectionError("unrecognised sound media")
     if "snd" in media:
         entry = archive.entries[media["snd"]]

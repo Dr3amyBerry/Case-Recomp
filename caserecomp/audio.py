@@ -66,6 +66,21 @@ def _mpeg_frame_size(data: bytes, pos: int) -> int:
     return (144 if version == 3 else 72) * bitrate // _MPEG_RATES[version][rate_index] + padding
 
 
+def mpeg_audio_start(data: bytes, search: int = 8192, run: int = 8) -> int:
+    """Offset where MPEG layer III audio begins after padding: the first position followed by
+    [run] consecutive valid frames (or frames up to the end), else -1."""
+    for start in range(min(search, max(0, len(data) - 4))):
+        pos, frames = start, 0
+        while frames < run and pos < len(data):
+            size = _mpeg_frame_size(data, pos)
+            if size <= 0:
+                break
+            pos, frames = pos + size, frames + 1
+        if frames >= run or (frames and pos == len(data)):
+            return start
+    return -1
+
+
 def swa_mpeg_audio(encoded: bytes) -> bytes:
     """MPEG audio of a Shockwave Audio stream, playable as .mp3 without a decoder.
 

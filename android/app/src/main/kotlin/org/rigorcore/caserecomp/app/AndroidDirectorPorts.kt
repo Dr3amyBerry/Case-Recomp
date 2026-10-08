@@ -159,6 +159,8 @@ internal class AndroidDirectorStore(context: Context, packageId: String) : Direc
  * Android audio backend for the currently selected private Director package.
  * MediaPlayer receives local app-cache files only; no original data enters public assets.
  */
+private const val TAG = "CaseRecompDirector"
+
 internal class AndroidDirectorSound(
     private val context: Context,
     private val content: DirectorContent,
@@ -172,7 +174,13 @@ internal class AndroidDirectorSound(
         stop(channel)
         val data = member.data ?: return
         val fileName = member.lib.file?.file ?: ""
-        val (bytes, format) = content.sound(fileName, data) ?: return
+        val (bytes, format) = content.sound(fileName, data) ?: run {
+            if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) android.util.Log.d(TAG, "sound ${member.name}: no media")
+            return
+        }
+        if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
+            android.util.Log.d(TAG, "sound ch$channel ${member.name} $format ${bytes.size} bytes loops=$loops")
+        }
         if (bytes.isEmpty() || bytes.size > 64 * 1024 * 1024) return
         val file = File(context.cacheDir, "director-audio-${System.nanoTime()}-$channel.$format")
         try {
@@ -207,6 +215,7 @@ internal class AndroidDirectorSound(
 
     override fun stop(channel: Int) {
         pending -= channel
+        paused -= channel
         val playing = channels.remove(channel) ?: return
         runCatching { playing.player.reset() }
         runCatching { playing.player.release() }
@@ -224,8 +233,26 @@ internal class AndroidDirectorSound(
         return channels[channel]?.player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
     }
 
+    private val paused = mutableSetOf<Int>()
+
+    /** Activity pause: hold every playing channel where it is. */
     fun pauseAll() {
+        for ((channel, playback) in channels) {
+            if (runCatching { playback.player.isPlaying }.getOrDefault(false)) {
+                runCatching { playback.player.pause() }
+                paused += channel
+            }
+        }
+    }
+
+    /** Activity resume: continue the channels [pauseAll] held (e.g. looping music). */
+    fun resumeAll() {
+        for (channel in paused) channels[channel]?.let { runCatching { it.player.start() } }
+        paused.clear()
+    }
+
+    override fun close() {
+        paused.clear()
         for (channel in channels.keys.toList()) stop(channel)
     }
-    override fun close() = pauseAll()
 }

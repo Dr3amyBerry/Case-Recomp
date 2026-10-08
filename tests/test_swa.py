@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from caserecomp.audio import swa_mpeg_audio
+from caserecomp.audio import mpeg_audio_start, swa_mpeg_audio
 from caserecomp.inspector import InspectionError
 
 
@@ -15,6 +15,12 @@ class SwaTests(unittest.TestCase):
     def test_header_is_dropped_and_frames_kept(self):
         frames = mpeg2_layer3_frame() * 3
         self.assertEqual(swa_mpeg_audio(bytes(range(82)) + frames), frames)
+
+    def test_padded_mp3_audio_start_is_found(self):
+        frames = mpeg2_layer3_frame() * 10
+        self.assertEqual(mpeg_audio_start(bytes(522) + frames), 522)
+        self.assertEqual(mpeg_audio_start(frames), 0)
+        self.assertEqual(mpeg_audio_start(bytes(600)), -1)
 
     def test_broken_or_missing_frames_are_rejected(self):
         frames = mpeg2_layer3_frame() * 2
