@@ -49,7 +49,10 @@ internal class DirectorStageView(
                     // Late frames are not made up in a burst: resync when more than one frame behind.
                     nextFrameAt = maxOf(nextFrameAt + intervalMillis, start - intervalMillis)
                     postDelayed(this, (nextFrameAt - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0L))
-                } else active = false
+                } else {
+                    active = false
+                    onQuit?.invoke()
+                }
             } catch (e: Exception) {
                 active = false
                 onRuntimeError?.invoke(e)
@@ -57,6 +60,8 @@ internal class DirectorStageView(
         }
     }
     var onRuntimeError: ((Exception) -> Unit)? = null
+    /** Lingo `quit`/`halt`: the title asked to close. */
+    var onQuit: (() -> Unit)? = null
 
     /** Debug builds with the tag at DEBUG log ticks per second and the time spent per tick. */
     private fun logStats(start: Long) {
@@ -135,7 +140,12 @@ internal class DirectorStageView(
             return true
         }
         invalidate()
+        checkQuit()
         return true
+    }
+
+    private fun checkQuit() {
+        if (runtime.quitRequested) { active = false; onQuit?.invoke() }
     }
 
     override fun performClick(): Boolean {

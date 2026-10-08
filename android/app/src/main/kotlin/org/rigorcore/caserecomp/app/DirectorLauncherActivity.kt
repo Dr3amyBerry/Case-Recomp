@@ -174,6 +174,7 @@ class DirectorLauncherActivity : Activity() {
         audio = session.audio
         val newStage = DirectorStageView(this, session.runtime, session.renderer)
         stage = newStage
+        newStage.onQuit = { finish() }
         newStage.onRuntimeError = { error ->
             newStage.pauseFrames()
             Log.e(TAG, "Director runtime paused", error)
