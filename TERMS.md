@@ -16,7 +16,7 @@
 
 **Código fuente.** El hecho de publicar el repositorio no concede automáticamente una licencia de reproducción, redistribución o modificación a terceros. Consulte [estado de licencia](LICENSING_STATUS.md). Las condiciones del usuario de la app no transfieren derechos del juego ni sustituyen una licencia de código.
 
-**Privacidad y soporte.** Lea [PRIVACY.md](PRIVACY.md). Los issues de GitHub son públicos: no los use para material confidencial ni archivos del juego. En caso de reclamaciones de derechos, consulte [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md).
+**Privacidad y soporte.** Lea [PRIVACY.md](PRIVACY.md). Consultas legales o privadas: [contact@rigorcore.com](mailto:contact@rigorcore.com). Los issues de GitHub son públicos: no los use para material confidencial ni archivos del juego. En caso de reclamaciones de derechos, consulte [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md).
 
 **Territorio, resolución de conflictos.** El proyecto se desarrolla desde Venezuela, pero esta información no determina por sí sola jurisdicción, domicilio del operador, tribunal competente ni ley exclusiva para todos los usuarios. No se establece arbitraje forzoso ni se renuncian derechos de consumidores. Un acuerdo contractual plenamente exigible puede requerir identificación del operador, revisión legal y un proceso válido de aceptación de términos.
 
@@ -32,6 +32,6 @@
 
 **Marks and copyright.** Third-party names identify intended compatibility only. Case Recomp is not affiliated with or endorsed by Big Fish Games or other game owners. Public GitHub access does not alone grant a source-code licence: see [LICENSING_STATUS.md](LICENSING_STATUS.md).
 
-**Privacy, contact, changes.** See [PRIVACY.md](PRIVACY.md) and [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md). Public GitHub issues must not contain sensitive data or game files. This document does not impose an exclusive law, forum, arbitration agreement or waiver of mandatory rights; enforceable consumer-facing terms may require a verified operator identity, legal review and a valid acceptance mechanism.
+**Privacy, contact, changes.** See [PRIVACY.md](PRIVACY.md) and [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md). Private/legal contact: [contact@rigorcore.com](mailto:contact@rigorcore.com). Public GitHub issues must not contain sensitive data or game files. This document does not impose an exclusive law, forum, arbitration agreement or waiver of mandatory rights; enforceable consumer-facing terms may require a verified operator identity, legal review and a valid acceptance mechanism.
 
 **Changes:** revisions are published in the repository with a visible date.

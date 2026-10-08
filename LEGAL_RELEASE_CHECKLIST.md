@@ -11,12 +11,12 @@
 | Riesgos de marca/afiliación | **Avisos añadidos** | Revisar creatividades públicas y posible conflicto del nombre «Case Recomp» antes de invertir en branding |
 | Licencia del motor | **ABIERTO / alto** | Titularidad y permiso de autores, auditoría de código de terceros, decisión explícita de licencia |
 | Avisos de dependencias | **Inventario inicial** | SBOM de APK, web y Python, licencias completas donde lo requieran |
-| Identidad del responsable | **ABIERTO / alto** | Establecer nombre jurídico/forma de operar, domicilio o medio exigible y canal privado de contacto |
-| Privacidad | **Aviso documentado** | Prueba de tráfico web, política de logs de proveedores, canal privado para solicitudes |
+| Identidad del responsable | **PARCIAL / alto** | Correo designado: **contact@rigorcore.com**. Confirmar entrega/atención; establecer identidad jurídica y domicilio o medio legal exigible |
+| Privacidad | **Aviso y contacto publicado** | Verificar recepción del correo, tráfico web y política de logs de proveedores |
 | Aceptación de condiciones | **ABIERTO** | Evaluar con abogado necesidad de aceptación y aviso accesible antes de cargar archivos |
 | APK beta publicada previamente | **Publicada** | Comprobar que release/artefactos no contienen contenido ajeno y revisar avisos; sustituir beta si requiere cambios materiales |
 | Condiciones de distribución global | **ABIERTO** | Evaluar mercados de destino, obligaciones de consumidor, menores, impuestos/monetización solo si procede |
-| Reportes de copyright | **Procedimiento documentado** | Proveer canal privado y proceso operativo, sin exigir publicación de obras protegidas |
+| Reportes de copyright | **Correo designado / operación pendiente** | Verificar que contact@rigorcore.com recibe y atiende comunicaciones y asignar responsable |
 | Seguridad | **ABIERTO** | Verificar ausencia de bypass DRM, cambios de permisos/red, ruta de importación segura y proveedores externos |
 
 ## Criterios de lanzamiento
