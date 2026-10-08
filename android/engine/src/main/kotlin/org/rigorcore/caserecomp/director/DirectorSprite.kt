@@ -119,7 +119,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
 
     /**
      * Sprite size: Lingo value, else the score size, else (after a Lingo member change) the member size.
-     * A non-stretched bitmap always shows at its member's size; the score keeps a stale rect for it.
+     * A non-stretched bitmap or text sprite shows at its member's size; the score keeps a stale rect for it.
      */
     val width: Int get() = set["width"]?.toInt()
         ?: if ("member" in set || naturalSize) member?.width ?: 0 else run?.width ?: member?.width ?: 0
@@ -127,7 +127,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         ?: if ("member" in set || naturalSize) member?.height ?: 0 else run?.height ?: member?.height ?: 0
 
     private val naturalSize: Boolean
-        get() = run?.stretch == false && member.let { it != null && it.type == "bitmap" && it.width > 0 && it.height > 0 }
+        get() = run?.stretch == false && member.let { it != null && (it.type == "bitmap" || it.type == "text") && it.width > 0 && it.height > 0 }
 
     /** Registration point for a w x h sprite: bitmaps scale theirs, Flash is centred, others top-left. */
     private fun registration(w: Int, h: Int): Pair<Int, Int> {

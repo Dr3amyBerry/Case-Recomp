@@ -109,12 +109,14 @@ class DirectorRuntimeUnitTest {
             internalCast = CastFile("", listOf(
                 MemberData(1, "pad", "bitmap", width = 40, height = 20, regX = 20, regY = 10),
                 MemberData(2, "box", "shape", width = 4, height = 4),
+                MemberData(3, "label", "xtra", xtra = "text", width = 30, height = 10, text = "Hi"),
             ).associateBy { it.number }),
-            externalCasts = emptyMap(), frameCount = 1, channelCount = 3 + o,
+            externalCasts = emptyMap(), frameCount = 1, channelCount = 4 + o,
             sprites = listOf(
                 SpriteRun(1, 1, 1 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = false),
                 SpriteRun(1, 1, 2 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = true),
                 SpriteRun(1, 1, 3 + o, 0, 1, 2, 100, 100, 25, 6, 0, false, false, stretch = false),
+                SpriteRun(1, 1, 4 + o, 0, 1, 3, 100, 100, 25, 6, 0, false, false, stretch = false),
             ),
             spans = emptyList(),
         )
@@ -123,6 +125,7 @@ class DirectorRuntimeUnitTest {
         assertEquals(listOf(80, 90, 120, 110), rt.sprite(1).bounds().toList())
         assertEquals(listOf(25, 6), listOf(rt.sprite(2).width, rt.sprite(2).height))
         assertEquals("shapes keep the score rect", 25, rt.sprite(3).width)
+        assertEquals("text boxes take the member rect", listOf(30, 10), listOf(rt.sprite(4).width, rt.sprite(4).height))
     }
 
     @Test fun playback_labels_go_and_frame_script_loop() {

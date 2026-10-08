@@ -16,6 +16,7 @@ import org.rigorcore.caserecomp.director.LColor
 import org.rigorcore.caserecomp.director.LingoImage
 import org.rigorcore.caserecomp.director.SoundOutput
 import org.rigorcore.caserecomp.director.TextLayout
+import org.rigorcore.caserecomp.director.TextLine
 import org.rigorcore.caserecomp.director.TextMetrics
 import org.rigorcore.caserecomp.director.TextRasterizer
 import java.io.File
@@ -50,7 +51,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private fun apply(member: CastMember) {
-        paint.textSize = member.fontSize.toFloat().coerceAtLeast(1f)
+        paint.textSize = (member.fontSize * shrink).coerceAtLeast(1f)
         val style = when {
             member.bold && member.italic -> Typeface.BOLD_ITALIC
             member.bold -> Typeface.BOLD
@@ -59,25 +60,40 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         }
         paint.typeface = Typeface.create(family(member.font), style)
         paint.isUnderlineText = "underline" in member.fontStyle
+        paint.textScaleX = condense * width(member.font)
     }
+
+    /**
+     * Fit adjustments while laying out text in a substitute face larger than the original:
+     * a horizontal squeeze, then a smaller size. Both are 1 outside [render].
+     */
+    private var condense = 1f
+    private var shrink = 1f
 
     override fun width(member: CastMember, text: String): Int {
         apply(member)
         return paint.measureText(text.replace('\t', ' ')).toInt()
     }
 
-    override fun lineHeight(member: CastMember): Int = (member.fontSize * 1.25f).toInt().coerceAtLeast(1)
+    override fun lineHeight(member: CastMember): Int = (member.fontSize * shrink * 1.25f).toInt().coerceAtLeast(1)
 
     override fun render(member: CastMember, width: Int, height: Int): LingoImage? {
         if (width <= 0 || height <= 0 || width.toLong() * height > 16L * 1024 * 1024) return null
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)
-            val lines = TextLayout.lines(member, width, this)
+            // The box was sized for the original font: rather than wrapping words or lines out of
+            // the visible box, squeeze then shrink the substitute until the text fits.
+            var lines = TextLayout.lines(member, width, this)
+            for ((squeeze, size) in FIT_STEPS) {
+                if (fits(lines, member, width, height)) break
+                condense = squeeze; shrink = size
+                lines = TextLayout.lines(member, width, this)
+            }
+            val step = TextLayout.lineHeight(member, this)
             apply(member)
             paint.color = member.textColor
             paint.style = Paint.Style.FILL
-            val step = TextLayout.lineHeight(member, this)
             var baseline = -paint.fontMetrics.ascent
             for (line in lines) {
                 if (baseline > height + step) break
@@ -87,10 +103,28 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             val pixels = IntArray(width * height)
             bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
             return LingoImage(width, height, 32, pixels).also { it.useAlpha = true }
-        } finally { bitmap.recycle() }
+        } finally {
+            condense = 1f; shrink = 1f
+            bitmap.recycle()
+        }
+    }
+
+    /** Lines fit when none is wider than the box and their glyphs end inside its height. */
+    private fun fits(lines: List<TextLine>, member: CastMember, width: Int, height: Int): Boolean {
+        if (lines.any { width(member, it.text) > width }) return false
+        apply(member)
+        val glyphs = paint.fontMetrics.descent - paint.fontMetrics.ascent
+        // Trailing blank lines need not be visible.
+        val rows = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
+        return (rows - 1) * TextLayout.lineHeight(member, this) + glyphs <= height + 1
     }
 
     private companion object {
+        val FIT_STEPS = listOf(0.95f to 1f, 0.9f to 1f, 0.85f to 1f, 0.85f to 0.9f, 0.85f to 0.8f, 0.85f to 0.7f)
+
+        /** Advance-width ratio of the authored face to its substitute (typewriter faces run narrow). */
+        fun width(font: String): Float = if ("typewriter" in font.lowercase()) 0.9f else 1f
+
         fun family(font: String): String {
             val name = font.lowercase()
             return when {

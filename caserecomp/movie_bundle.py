@@ -164,13 +164,18 @@ class _Packer:
         return [self.num() for _ in range(count)]
 
 
-def _first_run_index(section: tuple[int, bytes] | None) -> int:
-    """Index named by the first (text offset, index) run of a run section."""
+def _run_index_at(section: tuple[int, bytes] | None, offset: int) -> int:
+    """Index of the (text offset, index) run covering a text offset in a run section."""
     if section is None:
         return 0
     packer = _Packer(section[1])
-    packer.num()  # text offset
-    return packer.num()
+    found = None
+    while packer.remaining() > 0:
+        start, index = packer.num(), packer.num()
+        if found is not None and start > offset:
+            break
+        found = index
+    return found or 0
 
 
 def _xmed_paragraph_justification(body: bytes, index: int, version: int) -> int:
@@ -247,11 +252,17 @@ def parse_xmed_text(data: bytes) -> dict:
             fonts.append(name.decode("ascii"))
     result: dict = {"text": text, "fonts": list(dict.fromkeys(fonts))}
     version = _Packer(sections[0][1]).num() if 0 in sections else 0
+    if 9 in sections:  # member rect: top, left, bottom, right
+        top, left, bottom, right = _Packer(sections[9][1]).nums(4)
+        if right > left and bottom > top:
+            result["width"], result["height"] = right - left, bottom - top
+    # Member-level style is the one of the first visible character, not of leading blank lines.
+    first = len(text) - len(text.lstrip("\r\n "))
     if 7 in sections:
-        justification = _xmed_paragraph_justification(sections[7][1], _first_run_index(sections.get(5)), version)
+        justification = _xmed_paragraph_justification(sections[7][1], _run_index_at(sections.get(5), first), version)
         result["alignment"] = {1: "center", 2: "right", 3: "justify"}.get(justification, "left")
     if 6 in sections:
-        style = _xmed_char_style(sections[6][1], _first_run_index(sections.get(4)), version)
+        style = _xmed_char_style(sections[6][1], _run_index_at(sections.get(4), first), version)
         if style is not None:
             font_index = style.pop("font_index")
             if 0 <= font_index < len(fonts):
