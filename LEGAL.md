@@ -37,7 +37,7 @@ El APK se obtiene desde GitHub Releases. La web usa Pyodide y Pillow en el naveg
 
 ## Estado de la licencia del motor
 
-En este momento **no existe archivo LICENSE** ni autorización confirmada del titular para elegir licencia del código. El acceso público al repositorio no lo convierte por sí solo en software libre. Se conserva el régimen de derecho de autor aplicable a cada autor/contribuyente hasta que se verifique la titularidad y el mantenedor elija una licencia. Véase [LICENSING_STATUS.md](LICENSING_STATUS.md). Referencia: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository
+El mantenedor ha publicado la [**PolyForm Noncommercial License 1.0.0**](LICENSE) respecto del software original cuyos titulares están facultados para licenciarlo. Permite descargar, modificar y compartir el motor para fines no comerciales, incluyendo entretenimiento personal de usuarios de la APK; **no concede explotación comercial a terceros**. Los autores mantienen los derechos sobre sus aportaciones y pueden autorizar usos comerciales por separado; el mantenedor no puede atribuirse derechos sobre código ajeno sin autorización. Es **código disponible con uso no comercial**, no software de código abierto aprobado por la OSI. La licencia no abarca obras de Big Fish ni dependencias con licencia propia. Véase [alcance de la licencia](LICENSING_STATUS.md).
 
 ## Publicación, edad y límites de responsabilidad
 

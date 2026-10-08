@@ -14,7 +14,7 @@
 
 **Limitación de garantías y responsabilidad.** El servicio se ofrece experimentalmente, tal como está, sin garantía contractual de disponibilidad, exactitud, ausencia de fallos ni compatibilidad. Ninguna estipulación pretende excluir responsabilidades o derechos del consumidor que no puedan excluirse legalmente. Toda eventual limitación está sujeta a legislación imperativa aplicable.
 
-**Código fuente.** El hecho de publicar el repositorio no concede automáticamente una licencia de reproducción, redistribución o modificación a terceros. Consulte [estado de licencia](LICENSING_STATUS.md). Las condiciones del usuario de la app no transfieren derechos del juego ni sustituyen una licencia de código.
+**Código fuente y APK.** El software original de Case Recomp que sus titulares pueden licenciar se distribuye bajo [PolyForm Noncommercial 1.0.0](LICENSE): se permite consultarlo, descargarlo, modificarlo y redistribuirlo para **fines no comerciales**, así como jugar gratuitamente usando archivos del juego que el usuario pueda utilizar lícitamente. **La explotación comercial del motor por terceros no está autorizada** sin acuerdo escrito de los titulares pertinentes: [contact@rigorcore.com](mailto:contact@rigorcore.com). La licencia no concede derechos sobre juegos originales ni bibliotecas externas. Consulte [alcance](LICENSING_STATUS.md).
 
 **Privacidad y soporte.** Lea [PRIVACY.md](PRIVACY.md). Consultas legales o privadas: [contact@rigorcore.com](mailto:contact@rigorcore.com). Los issues de GitHub son públicos: no los use para material confidencial ni archivos del juego. En caso de reclamaciones de derechos, consulte [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md).
 
@@ -30,7 +30,7 @@
 
 **Beta functionality.** Features can change or fail; saves or data may be lost. Maintain your own private backups. The developer makes no universal compatibility or uptime promise. Warranty and liability limitations apply only to the extent allowed by mandatory law and do not waive non-excludable consumer rights.
 
-**Marks and copyright.** Third-party names identify intended compatibility only. Case Recomp is not affiliated with or endorsed by Big Fish Games or other game owners. Public GitHub access does not alone grant a source-code licence: see [LICENSING_STATUS.md](LICENSING_STATUS.md).
+**Marks and copyright.** Third-party names identify intended compatibility only. Case Recomp is not affiliated with or endorsed by Big Fish Games or other game owners. The original Case Recomp code is offered under the [PolyForm Noncommercial 1.0.0 licence](LICENSE): individuals may download, modify, redistribute and use the software for noncommercial purposes, including personal entertainment with lawfully used original game files. Commercial exploitation by third parties requires separate written authorization from the relevant rights holders. This licence does not cover the games or third-party dependencies; see [LICENSING_STATUS.md](LICENSING_STATUS.md).
 
 **Privacy, contact, changes.** See [PRIVACY.md](PRIVACY.md) and [COPYRIGHT_POLICY.md](COPYRIGHT_POLICY.md). Private/legal contact: [contact@rigorcore.com](mailto:contact@rigorcore.com). Public GitHub issues must not contain sensitive data or game files. This document does not impose an exclusive law, forum, arbitration agreement or waiver of mandatory rights; enforceable consumer-facing terms may require a verified operator identity, legal review and a valid acceptance mechanism.
 

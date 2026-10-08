@@ -9,7 +9,7 @@
 | Derechos sobre copia/transformación del juego | **ABIERTO / alto** | Obtener EULA exacto de la edición, documentar cadena de titularidad y dictamen sobre conversión/compatibilidad por jurisdicción |
 | Ley venezolana de derecho de autor | **Revisada en fuentes** | Abogado verifica aplicación de arts. 2,17,41,42,44 al procedimiento real, sin suponer excepción general |
 | Riesgos de marca/afiliación | **Avisos añadidos** | Revisar creatividades públicas y posible conflicto del nombre «Case Recomp» antes de invertir en branding |
-| Licencia del motor | **ABIERTO / alto** | Titularidad y permiso de autores, auditoría de código de terceros, decisión explícita de licencia |
+| Licencia del motor | **PolyForm Noncommercial publicada / titularidad pendiente** | Permite modificaciones y redistribución no comercial; revisar derechos de contribuyentes, permiso comercial y avisos en APK/web |
 | Avisos de dependencias | **Inventario inicial verificado parcialmente** | Mutagen GPL-2.0-or-later (Python opcional), Pyodide/ProjectorRays MPL-2.0, LibreShockwave AGPL-3.0, Pillow MIT-CMU; SBOM de APK/web/Python y avisos por artefacto siguen pendientes |
 | Identidad del responsable | **PARCIAL / alto** | Correo designado: **contact@rigorcore.com**. Confirmar entrega/atención; establecer identidad jurídica y domicilio o medio legal exigible |
 | Privacidad | **Aviso y contacto publicado** | Verificar recepción del correo, tráfico web y política de logs de proveedores |

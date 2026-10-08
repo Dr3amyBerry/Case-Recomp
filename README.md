@@ -14,13 +14,15 @@
 
 **Proyecto independiente:** Case Recomp no está afiliado, patrocinado ni autorizado por Big Fish Games ni por otros titulares de los juegos citados. Los nombres de juegos identifican compatibilidad; sus marcas, imágenes y contenidos pertenecen a sus respectivos titulares. La app no incluye contenido comercial. **Tener una copia original no autoriza automáticamente cualquier conversión o elusión de protecciones:** consulta las leyes y licencias aplicables y no compartas ZIPs convertidos.
 
-[**Aviso legal (Venezuela)**](LEGAL.md) · [**Privacidad**](PRIVACY.md) · [**Términos**](TERMS.md) · [**Derechos y reclamaciones**](COPYRIGHT_POLICY.md) · [**Licencias de terceros**](THIRD_PARTY_NOTICES.md) · [**Estado de licencia del código**](LICENSING_STATUS.md).
+[**Licencia PolyForm Noncommercial**](LICENSE) · [**Aviso legal (Venezuela)**](LEGAL.md) · [**Privacidad**](PRIVACY.md) · [**Términos**](TERMS.md) · [**Derechos y reclamaciones**](COPYRIGHT_POLICY.md) · [**Licencias de terceros**](THIRD_PARTY_NOTICES.md) · [**Estado de licencia del código**](LICENSING_STATUS.md).
 
 **Situación de licencias y compatibilidad en Venezuela:** [evaluación de interoperabilidad](docs/INTEROPERABILITY_VENEZUELA.md) y [estado de licencia del motor](LICENSING_STATUS.md).
 
 **Contacto legal y privacidad:** [contact@rigorcore.com](mailto:contact@rigorcore.com). Usa Issues solo para errores técnicos no sensibles.
 
 **El convertidor procesa el contenido del juego en tu navegador**, pero descarga Pyodide desde una CDN y está alojado en GitHub Pages: consulta la política de privacidad para conocer esos servicios externos. No publiques archivos del juego ni datos personales en issues.
+
+**Permisos de Case Recomp:** puedes descargar, consultar, modificar y compartir gratuitamente el motor y la APK para **fines no comerciales**, de acuerdo con la [licencia PolyForm Noncommercial 1.0.0](LICENSE). **El uso comercial del código original por terceros requiere permiso separado y escrito**. Si solo quieres jugar, descarga la APK gratis y utiliza tus propios archivos del juego de forma lícita; la licencia del motor **no incluye ni autoriza redistribuir el juego**. Para solicitar permisos comerciales: [contact@rigorcore.com](mailto:contact@rigorcore.com). [Detalles](LICENSING_STATUS.md).
 
 ### Cómo sacar el archivo .zip de tu juego
 
@@ -71,13 +73,15 @@ Los otros juegos que aparecen en la app (*Prime Suspects* y *Ravenhearst*) está
 
 **Independent project:** Case Recomp is not affiliated with, sponsored or approved by Big Fish Games or other rights holders. Game names identify compatibility; all original trademarks and game content belong to their respective owners. No commercial game is included. **Possessing an original copy does not automatically allow all conversions or circumvention:** follow applicable licence terms and laws. Do not share converted ZIPs.
 
-[**Legal (Venezuela)**](LEGAL.md) · [**Privacy**](PRIVACY.md) · [**Terms**](TERMS.md) · [**Copyright requests**](COPYRIGHT_POLICY.md) · [**Third-party notices**](THIRD_PARTY_NOTICES.md) · [**Code licensing status**](LICENSING_STATUS.md).
+[**PolyForm Noncommercial licence**](LICENSE) · [**Legal (Venezuela)**](LEGAL.md) · [**Privacy**](PRIVACY.md) · [**Terms**](TERMS.md) · [**Copyright requests**](COPYRIGHT_POLICY.md) · [**Third-party notices**](THIRD_PARTY_NOTICES.md) · [**Code licensing status**](LICENSING_STATUS.md).
 
 **Licensing and Venezuelan interoperability:** [assessment](docs/INTEROPERABILITY_VENEZUELA.md) and [source-code licensing status](LICENSING_STATUS.md).
 
 **Legal and privacy contact:** [contact@rigorcore.com](mailto:contact@rigorcore.com). Use Issues only for non-sensitive technical reports.
 
 The converter processes game content in the browser, but Pyodide is fetched from a CDN and the site is hosted on GitHub Pages. Read the privacy notice for details. Do not post proprietary game files or private data in public issues.
+
+**Case Recomp permissions:** you may download, inspect, modify and share the engine and APK for **noncommercial purposes**, subject to the [PolyForm Noncommercial 1.0.0 licence](LICENSE). **Commercial use of the original project code by third parties requires separate written permission**. Players may download the free APK and play using their own lawfully usable original game files; the motor licence **does not cover the game**. Commercial permission: [contact@rigorcore.com](mailto:contact@rigorcore.com). [Details](LICENSING_STATUS.md).
 
 ### How to get the .zip file from your game
 
