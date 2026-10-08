@@ -82,7 +82,7 @@ class SwfSprite(override val id: Int, val timeline: SwfTimeline) : SwfCharacter
 
 sealed interface SwfTag {
     data class Place(val depth: Int, val characterId: Int?, val move: Boolean, val matrix: SwfMatrix?,
-                     val colorTransform: SwfColorTransform?, val name: String?) : SwfTag
+                     val colorTransform: SwfColorTransform?, val name: String?, val clipDepth: Int = 0) : SwfTag
     data class Remove(val depth: Int) : SwfTag
     class Action(val code: ByteArray) : SwfTag
     data class StartSound(val soundId: Int) : SwfTag
@@ -266,7 +266,8 @@ object SwfParser {
         val cx = if (flags and 0x08 != 0) r.colorTransform(withAlpha = true) else null
         if (flags and 0x10 != 0) r.u16()
         val name = if (flags and 0x20 != 0) r.string() else null
-        return SwfTag.Place(depth, id, move = flags and 0x01 != 0, matrix = m, colorTransform = cx, name = name)
+        val clipDepth = if (flags and 0x40 != 0) r.u16() else 0
+        return SwfTag.Place(depth, id, move = flags and 0x01 != 0, matrix = m, colorTransform = cx, name = name, clipDepth = clipDepth)
     }
 
     private fun rgb(r: ByteReader, alpha: Boolean): Int {
@@ -397,7 +398,8 @@ object SwfParser {
                 val w = ((data[p + 7].toInt() and 0xFF) shl 8) or (data[p + 8].toInt() and 0xFF)
                 return w to h
             }
-            if (marker == 0xD8 || marker == 0x01 || marker in 0xD0..0xD7) { p += 2; continue }
+            // Standalone markers; SWF JPEG2/3 data often embeds an EOI/SOI pair after the tables.
+            if (marker == 0xD8 || marker == 0xD9 || marker == 0x01 || marker in 0xD0..0xD7) { p += 2; continue }
             p += 2 + (((data[p + 2].toInt() and 0xFF) shl 8) or (data[p + 3].toInt() and 0xFF))
         }
         return 0 to 0

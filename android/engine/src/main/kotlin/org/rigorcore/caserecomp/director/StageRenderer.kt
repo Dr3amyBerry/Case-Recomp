@@ -131,51 +131,73 @@ class StageRenderer(
         // Movie pixels to stage pixels through the sprite rectangle.
         val toStage = SwfMatrix((item.right - item.left) / r.width, 0.0, 0.0, (item.bottom - item.top) / r.height,
             item.left - r.xMin * (item.right - item.left) / r.width, item.top - r.yMin * (item.bottom - item.top) / r.height)
-        for (d in player.drawList()) drawShape(player, d, toStage * d.matrix, (d.alpha * alpha).toInt())
+        val coverage = HashMap<List<FlashDraw>, BooleanArray>()
+        for (d in player.drawList()) {
+            // Clip layers: a pixel is drawn only where every layer covers it.
+            val masks = d.masks.map { layer -> coverage.getOrPut(layer) { maskCoverage(layer, toStage) } }
+            drawShape(player, d, toStage * d.matrix, (d.alpha * alpha).toInt(), masks)
+        }
+    }
+
+    private fun maskCoverage(layer: List<FlashDraw>, toStage: SwfMatrix): BooleanArray {
+        val covered = BooleanArray(width * height)
+        for (d in layer) {
+            val m = toStage * d.matrix
+            for (style in 1..d.shape.fills.size) scanFill(d, m, style) { y, x0, x1, _ -> covered.fill(true, y * width + x0, y * width + x1) }
+        }
+        return covered
+    }
+
+    /** Scanline spans (stage y, x0 until x1, sample y) of one fill-style region of a shape, even-odd. */
+    private inline fun scanFill(d: FlashDraw, m: SwfMatrix, style: Int, span: (Int, Int, Int, Double) -> Unit) {
+        // Edges bounding this region, in stage pixels.
+        val edges = d.shape.edges.filter { (it.fill0 == style) != (it.fill1 == style) }
+            .map { doubleArrayOf(m.x(it.x0, it.y0), m.y(it.x0, it.y0), m.x(it.x1, it.y1), m.y(it.x1, it.y1)) }
+        if (edges.isEmpty()) return
+        val top = maxOf(0, floor(edges.minOf { minOf(it[1], it[3]) }).toInt())
+        val bottom = minOf(height, ceil(edges.maxOf { maxOf(it[1], it[3]) }).toInt())
+        val crossings = DoubleArray(edges.size)
+        for (y in top until bottom) {
+            val sy = y + 0.5
+            var n = 0
+            for (e in edges) if ((e[1] > sy) != (e[3] > sy)) crossings[n++] = e[0] + (sy - e[1]) * (e[2] - e[0]) / (e[3] - e[1])
+            crossings.sort(0, n)
+            var i = 0
+            while (i + 1 < n) {
+                val x0 = maxOf(0, ceil(crossings[i] - 0.5).toInt()); val x1 = minOf(width, ceil(crossings[i + 1] - 0.5).toInt())
+                if (x1 > x0) span(y, x0, x1, sy)
+                i += 2
+            }
+        }
     }
 
     /** Scanline fill of every fill-style region of a Flash shape (even-odd per region). */
-    private fun drawShape(player: FlashPlayer, d: FlashDraw, m: SwfMatrix, alpha: Int) {
+    private fun drawShape(player: FlashPlayer, d: FlashDraw, m: SwfMatrix, alpha: Int, masks: List<BooleanArray>) {
         if (alpha <= 0) return
         val inv = m.inverse() ?: return
-        val shape = d.shape
-        for ((index, fill) in shape.fills.withIndex()) {
+        for ((index, fill) in d.shape.fills.withIndex()) {
             fill ?: continue
-            val style = index + 1
-            // Edges bounding this region, in stage pixels.
-            val edges = shape.edges.filter { (it.fill0 == style) != (it.fill1 == style) }
-                .map { doubleArrayOf(m.x(it.x0, it.y0), m.y(it.x0, it.y0), m.x(it.x1, it.y1), m.y(it.x1, it.y1)) }
-            if (edges.isEmpty()) continue
             val bitmap = (fill as? SwfFill.Bitmap)?.let { swfBitmap(player, it.bitmapId) }
             val fillInverse = (fill as? SwfFill.Bitmap)?.matrix?.inverse()
-            val top = maxOf(0, floor(edges.minOf { minOf(it[1], it[3]) }).toInt())
-            val bottom = minOf(height, ceil(edges.maxOf { maxOf(it[1], it[3]) }).toInt())
-            val crossings = DoubleArray(edges.size)
-            for (y in top until bottom) {
-                val sy = y + 0.5
-                var n = 0
-                for (e in edges) if ((e[1] > sy) != (e[3] > sy)) crossings[n++] = e[0] + (sy - e[1]) * (e[2] - e[0]) / (e[3] - e[1])
-                crossings.sort(0, n)
-                var i = 0
-                while (i + 1 < n) {
-                    val x0 = maxOf(0, ceil(crossings[i] - 0.5).toInt()); val x1 = minOf(width, ceil(crossings[i + 1] - 0.5).toInt())
-                    for (x in x0 until x1) {
-                        val p = when (fill) {
-                            is SwfFill.Solid -> fill.argb
-                            is SwfFill.Bitmap -> {
-                                val image = bitmap ?: break
-                                val fi = fillInverse ?: break
-                                val lx = inv.x(x + 0.5, sy); val ly = inv.y(x + 0.5, sy)
-                                val bx = floor(fi.x(lx, ly)).toInt(); val by = floor(fi.y(lx, ly)).toInt()
-                                if (bx !in 0 until image.width || by !in 0 until image.height) {
-                                    if (fill.clipped) image.pixels[by.coerceIn(0, image.height - 1) * image.width + bx.coerceIn(0, image.width - 1)]
-                                    else image.pixels[Math.floorMod(by, image.height) * image.width + Math.floorMod(bx, image.width)]
-                                } else image.pixels[by * image.width + bx]
-                            }
+            if (fill is SwfFill.Bitmap && (bitmap == null || fillInverse == null)) continue
+            scanFill(d, m, index + 1) { y, x0, x1, sy ->
+                for (x in x0 until x1) {
+                    val i = y * width + x
+                    if (masks.any { !it[i] }) continue
+                    val p = when (fill) {
+                        is SwfFill.Solid -> fill.argb
+                        is SwfFill.Bitmap -> {
+                            val image = bitmap!!
+                            val fi = fillInverse!!
+                            val lx = inv.x(x + 0.5, sy); val ly = inv.y(x + 0.5, sy)
+                            val bx = floor(fi.x(lx, ly)).toInt(); val by = floor(fi.y(lx, ly)).toInt()
+                            if (bx !in 0 until image.width || by !in 0 until image.height) {
+                                if (fill.clipped) image.pixels[by.coerceIn(0, image.height - 1) * image.width + bx.coerceIn(0, image.width - 1)]
+                                else image.pixels[Math.floorMod(by, image.height) * image.width + Math.floorMod(bx, image.width)]
+                            } else image.pixels[by * image.width + bx]
                         }
-                        put(y * width + x, p, true, false, alpha.coerceAtMost(255))
                     }
-                    i += 2
+                    put(i, p, true, false, alpha.coerceAtMost(255))
                 }
             }
         }

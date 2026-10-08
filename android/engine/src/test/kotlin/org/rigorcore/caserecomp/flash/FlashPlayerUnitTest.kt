@@ -136,6 +136,22 @@ class FlashPlayerUnitTest {
         assertSame(movie.characters[8], FlashPlayer(movie).drawList().single().shape)
     }
 
+    @Test fun clip_depth_layers_mask_the_depths_above_them_and_are_not_drawn() {
+        // Depth 1 masks depths 2..2 with a 4x4 square; depth 3 is outside the mask's range.
+        val movie = SwfParser.parse(SwfTestBuilder.movie(20, 20, 1,
+            SwfTestBuilder.solidShape(1, 4, 4, 0x000000), SwfTestBuilder.solidShape(2, 10, 10, 0xFF0000),
+            place(1, 1, translate(0, 0), clipDepth = 2), place(2, 2, translate(0, 0)), place(3, 2, translate(10, 10)),
+            showFrame()))
+        val player = FlashPlayer(movie)
+        val draws = player.drawList()
+        assertEquals(listOf(2, 2), draws.map { it.shape.id })
+        assertEquals(1, draws[0].masks.size)
+        assertEquals(0, draws[1].masks.size)
+        assertTrue(player.hits(2.0, 2.0))
+        assertFalse(player.hits(7.0, 7.0)) // the depth-2 shape is clipped away there
+        assertTrue(player.hits(15.0, 15.0))
+    }
+
     @Test fun matrices_compose_and_invert() {
         val m = SwfMatrix(2.0, 0.0, 0.0, 3.0, 10.0, 20.0) * SwfMatrix(tx = 1.0, ty = 1.0)
         assertEquals(12.0, m.x(0.0, 0.0), 0.0); assertEquals(23.0, m.y(0.0, 0.0), 0.0)

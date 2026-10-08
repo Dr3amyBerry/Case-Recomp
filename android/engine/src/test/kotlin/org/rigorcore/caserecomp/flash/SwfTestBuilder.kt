@@ -60,14 +60,15 @@ internal object SwfTestBuilder {
         return b.bytes()
     }
 
-    fun place(depth: Int, id: Int?, matrix: ByteArray?, name: String? = null, move: Boolean = false): ByteArray {
+    fun place(depth: Int, id: Int?, matrix: ByteArray?, name: String? = null, move: Boolean = false, clipDepth: Int = 0): ByteArray {
         var flags = 0
+        if (clipDepth > 0) flags = flags or 0x40
         if (move) flags = flags or 1
         if (id != null) flags = flags or 2
         if (matrix != null) flags = flags or 4
         if (name != null) flags = flags or 0x20
         return tag(26, byteArrayOf(flags.toByte()) + u16(depth) + (id?.let { u16(it) } ?: ByteArray(0)) +
-            (matrix ?: ByteArray(0)) + (name?.let { cstr(it) } ?: ByteArray(0)))
+            (matrix ?: ByteArray(0)) + (name?.let { cstr(it) } ?: ByteArray(0)) + (if (clipDepth > 0) u16(clipDepth) else ByteArray(0)))
     }
 
     fun showFrame() = tag(1, ByteArray(0))

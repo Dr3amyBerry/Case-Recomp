@@ -16,7 +16,11 @@ interface FlashHost {
 }
 
 /** One shape to draw: [matrix] maps shape pixels to movie pixels. */
-class FlashDraw(val shape: SwfShape, val matrix: SwfMatrix, val alpha: Double)
+/**
+ * A shape to draw. [masks] are the clip layers (PlaceObject clipDepth) covering it: the shape
+ * shows only where every layer has at least one of its shapes filled.
+ */
+class FlashDraw(val shape: SwfShape, val matrix: SwfMatrix, val alpha: Double, val masks: List<List<FlashDraw>> = emptyList())
 
 /** AVM1 `undefined`. */
 object Undefined { override fun toString() = "undefined" }
@@ -41,7 +45,7 @@ class AvmSound(private val host: FlashHost) : AvmObject() {
 
 /** A placed character on a timeline. */
 class FlashInstance(val depth: Int, val character: SwfCharacter, var matrix: SwfMatrix, var colorTransform: SwfColorTransform?,
-                    var name: String?, val clip: MovieClip?)
+                    var name: String?, val clip: MovieClip?, var clipDepth: Int = 0)
 
 /** A timeline (the root movie or a sprite) with its display list, variables and playhead. */
 class MovieClip(private val player: FlashPlayer, val timeline: SwfTimeline, val parent: MovieClip?, var instance: FlashInstance?) : AvmObject() {
@@ -107,10 +111,10 @@ class MovieClip(private val player: FlashPlayer, val timeline: SwfTimeline, val 
         val id = tag.characterId ?: return
         val character = player.movie.characters[id] ?: run { player.host.warn("Flash character $id missing"); return }
         val instance = FlashInstance(tag.depth, character, tag.matrix ?: existing?.matrix ?: SwfMatrix.IDENTITY,
-            tag.colorTransform ?: existing?.colorTransform, tag.name ?: existing?.name, null)
+            tag.colorTransform ?: existing?.colorTransform, tag.name ?: existing?.name, null, tag.clipDepth)
         val placed = if (character is SwfSprite) {
             val clip = MovieClip(player, character.timeline, this, null)
-            FlashInstance(instance.depth, character, instance.matrix, instance.colorTransform, instance.name, clip).also {
+            FlashInstance(instance.depth, character, instance.matrix, instance.colorTransform, instance.name, clip, instance.clipDepth).also {
                 clip.instance = it
                 children[tag.depth] = it
                 clip.goTo(1)
@@ -214,23 +218,40 @@ class FlashPlayer(val movie: SwfMovie, val host: FlashHost = object : FlashHost 
 
     // ---- display -------------------------------------------------------------------------
 
-    fun drawList(): List<FlashDraw> = mutableListOf<FlashDraw>().also { collect(root, SwfMatrix.IDENTITY, 1.0, it) }
+    fun drawList(): List<FlashDraw> = mutableListOf<FlashDraw>().also { collect(root, SwfMatrix.IDENTITY, 1.0, emptyList(), it) }
 
-    private fun collect(clip: MovieClip, parent: SwfMatrix, alpha: Double, out: MutableList<FlashDraw>) {
+    private fun collect(clip: MovieClip, parent: SwfMatrix, alpha: Double, masks: List<List<FlashDraw>>, out: MutableList<FlashDraw>) {
         if (!clip.visible) return
+        // Clip layers active in this timeline: (last clipped depth, mask shapes).
+        val clips = ArrayList<Pair<Int, List<FlashDraw>>>()
         for (inst in clip.children.values) {
+            clips.removeAll { it.first < inst.depth }
             val m = parent * inst.matrix
+            if (inst.clipDepth > 0) {
+                // A mask is never drawn; its shapes (whatever their fill/alpha) bound the depths above it.
+                val shapes = mutableListOf<FlashDraw>()
+                when (val c = inst.character) {
+                    is SwfShape -> shapes += FlashDraw(c, m, 1.0)
+                    is SwfSprite -> inst.clip?.let { collect(it, m, 1.0, emptyList(), shapes) }
+                    else -> Unit
+                }
+                clips += inst.clipDepth to shapes
+                continue
+            }
             val a = inst.colorTransform?.alpha(alpha) ?: alpha
+            val active = if (clips.isEmpty()) masks else masks + clips.map { it.second }
             when (val c = inst.character) {
-                is SwfShape -> if (a > 0) out += FlashDraw(c, m, a)
-                is SwfSprite -> inst.clip?.let { collect(it, m, a, out) }
+                is SwfShape -> if (a > 0) out += FlashDraw(c, m, a, active)
+                is SwfSprite -> inst.clip?.let { collect(it, m, a, active, out) }
                 else -> Unit
             }
         }
     }
 
     /** Whether any drawn shape covers the movie point. */
-    fun hits(x: Double, y: Double): Boolean = drawList().any { contains(it, x, y) }
+    fun hits(x: Double, y: Double): Boolean = drawList().any { contains(it, x, y) && unmasked(it, x, y) }
+
+    private fun unmasked(d: FlashDraw, x: Double, y: Double) = d.masks.all { layer -> layer.any { contains(it, x, y) } }
 
     private fun contains(d: FlashDraw, x: Double, y: Double): Boolean {
         val inv = d.matrix.inverse() ?: return false
@@ -249,6 +270,7 @@ class FlashPlayer(val movie: SwfMovie, val host: FlashHost = object : FlashHost 
         fun search(clip: MovieClip, parent: SwfMatrix): MovieClip? {
             if (!clip.visible) return null
             for (inst in clip.children.descendingMap().values) {
+                if (inst.clipDepth > 0) continue
                 val m = parent * inst.matrix
                 when (val c = inst.character) {
                     is SwfSprite -> inst.clip?.let { child ->
