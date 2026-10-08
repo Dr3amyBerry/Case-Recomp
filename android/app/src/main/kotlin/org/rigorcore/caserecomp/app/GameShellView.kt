@@ -82,8 +82,29 @@ class GameShellView(
         }
     }
 
+    private var touchStartedAt: Long? = null
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action != MotionEvent.ACTION_UP) return true
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                touchStartedAt = event.eventTime
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                touchStartedAt = null
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val down = touchStartedAt
+                touchStartedAt = null
+                // This view handles touch events itself instead of calling super; explicitly
+                // dispatch the existing long-click listener so private import/debug is reachable.
+                if (down != null && event.eventTime - down >= android.view.ViewConfiguration.getLongPressTimeout()) {
+                    if (performLongClick()) return true
+                }
+            }
+            else -> return true
+        }
         val input = when (runtime.session.screen) {
             Screen.MENU -> Input.Start
             Screen.MAP -> Input.EnterScene(runtime.firstSceneId())
