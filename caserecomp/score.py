@@ -219,6 +219,15 @@ def member_script_number(data: bytes) -> int:
 
 
 def parse_frame_labels(data: bytes) -> tuple[FrameLabel, ...]:
+    return tuple(FrameLabel(frame, sha256(raw).hexdigest()) for frame, raw in _frame_label_entries(data))
+
+
+def parse_frame_label_names(data: bytes) -> tuple[tuple[int, str], ...]:
+    """Frame labels with their text, for private runtime bundles only."""
+    return tuple((frame, raw.decode("latin-1")) for frame, raw in _frame_label_entries(data))
+
+
+def _frame_label_entries(data: bytes) -> tuple[tuple[int, bytes], ...]:
     if len(data) < 2:
         raise InspectionError("truncated VWLB label table")
     count = _u16(data, 0)
@@ -232,16 +241,15 @@ def parse_frame_labels(data: bytes) -> tuple[FrameLabel, ...]:
         raise InspectionError("invalid VWLB string block")
     block = data[pos:pos + size]
     ordered = sorted(enumerate(entries), key=lambda item: item[1][1])
-    out: list[FrameLabel] = []
+    out: list[tuple[int, bytes]] = []
     for order_index, (_, (frame, offset)) in enumerate(ordered):
         if offset > len(block):
             raise InspectionError("VWLB label offset outside string block")
         end = len(block) if order_index + 1 == len(ordered) else ordered[order_index + 1][1][1]
         if end < offset or end > len(block):
             raise InspectionError("VWLB label offsets are not monotonic")
-        raw = block[offset:end].rstrip(b"\0")
-        out.append(FrameLabel(max(1, frame), sha256(raw).hexdigest()))
-    return tuple(sorted(out, key=lambda item: item.frame))
+        out.append((max(1, frame), block[offset:end].rstrip(b"\0")))
+    return tuple(sorted(out, key=lambda item: item[0]))
 
 
 def _score_entries(data: bytes) -> tuple[tuple[bytes, ...], tuple[int, ...]]:

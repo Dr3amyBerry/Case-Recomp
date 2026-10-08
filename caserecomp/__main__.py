@@ -129,6 +129,11 @@ def main(argv: list[str] | None = None) -> int:
     lingo_bundle.add_argument("source", type=Path)
     lingo_bundle.add_argument("--output", required=True, type=Path)
 
+    movie_bundle = cmd.add_parser("movie-bundle", help="Private movie bundle (score, labels, cast table) for the Director runtime")
+    movie_bundle.add_argument("source", type=Path)
+    movie_bundle.add_argument("--cast-dir", type=Path, help="Directory holding the movie's external casts")
+    movie_bundle.add_argument("--output", required=True, type=Path)
+
     scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
     scene_proof.add_argument("observation", type=Path)
     scene_proof.add_argument("scenario", type=Path)
@@ -309,6 +314,17 @@ def main(argv: list[str] | None = None) -> int:
             write_json_create_only(args.output, bundle)
             record = {"format": bundle["format"], "scripts": len(bundle["scripts"]),
                       "handlers": sum(len(script["handlers"]) for script in bundle["scripts"])}
+        elif args.command == "movie-bundle":
+            from .movie_bundle import build_movie_bundle, external_cast_files
+            from .vertical_slice import write_json_create_only
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            casts = external_cast_files(args.cast_dir) if args.cast_dir else []
+            bundle = build_movie_bundle(args.source, casts)
+            write_json_create_only(args.output, bundle)
+            record = {"format": bundle["format"], "labels": len(bundle["labels"]),
+                      "external_casts": len(bundle["external_casts"]),
+                      "sprite_spans": len(bundle["score"]["sprites"])}
         elif args.command == "scene-proof":
             from .verified_scene import verified_scene_from_observation
             from .vertical_slice import load_json, load_scenario_for_proof, write_json_create_only
