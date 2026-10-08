@@ -152,3 +152,12 @@ The app-side presentation registry is implemented and tested on WSA. See
 exact moved values, verified bundle selection, preserved generic behavior and
 limits. Status: `APROBADO_HUMANAMENTE` (2026-10-08). Mystery P.I. Stage 2 is
 explicitly authorized. See [approved baseline](HUNTSVILLE_APPROVED_REFERENCE.md).
+
+
+## Stage 2: native-code investigation (2026-10-08)
+
+Human authorization is recorded in [Huntsville approved baseline](HUNTSVILLE_APPROVED_REFERENCE.md).
+Ghidra analysis and original Windows reference observations are documented in
+[Mystery P.I. native research](MYSTERY_PI_NATIVE_RESEARCH.md). No SDA runtime or
+Android compatibility is claimed; native rule reconstruction and the playable
+prototype remain outstanding.
