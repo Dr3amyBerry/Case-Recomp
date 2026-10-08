@@ -44,6 +44,18 @@ object LingoChunks {
         return result
     }
 
+    /** `the number of <kind>s in text` (0 for an empty string). */
+    fun count(text: String, kind: ChunkKind, delimiter: Char = ','): Int =
+        if (text.isEmpty()) 0 else spans(text, kind, delimiter).size
+
+    fun kindOf(name: String): ChunkKind = when (name.lowercase()) {
+        "char", "chars" -> ChunkKind.CHAR
+        "word", "words" -> ChunkKind.WORD
+        "item", "items" -> ChunkKind.ITEM
+        "line", "lines" -> ChunkKind.LINE
+        else -> throw LingoError("unknown chunk type $name")
+    }
+
     fun get(text: String, selectors: List<ChunkSelector>, delimiter: Char = ','): String {
         val range = locate(text, selectors, delimiter)
         return text.substring(range.first, range.last + 1)

@@ -111,7 +111,14 @@ internal object LingoNatives {
                 else -> null
             }
             is LString -> when (m) {
-                "count", "length" -> LInt(target.value.length)
+                // D7+ dot syntax: s.char[n] is s.getProp(#char, n), s.char[a..b] adds the last index,
+                // and s.item.count is s.count(#item).
+                "count" -> arg(args, 0).let { if (it is LSymbol) LInt(LingoChunks.count(target.value, LingoChunks.kindOf(it.name))) else LInt(target.value.length) }
+                "length" -> LInt(target.value.length)
+                "getprop", "getpropref" -> {
+                    val kind = LingoChunks.kindOf((arg(args, 0) as? LSymbol ?: throw LingoError("chunk type expected")).name)
+                    LString(LingoChunks.get(target.value, listOf(ChunkSelector(kind, arg(args, 1).toInt(), arg(args, 2).toInt()))))
+                }
                 else -> null
             }
             else -> null

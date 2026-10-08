@@ -49,8 +49,8 @@ class LingoVm(
     private val globals = HashMap<String, LingoValue>()
     private var steps = 0L
     private var depth = 0
-    /** Values assigned through the legacy `set` opcode (event scripts); kept for inspection only. */
-    val legacySets = mutableListOf<Pair<Int, LingoValue>>()
+    /** `the` properties assigned that no host accepted; kept for inspection only. */
+    val unhandledSets = mutableListOf<Pair<String, LingoValue>>()
 
     fun global(name: String): LingoValue = globals[name.lowercase()] ?: Void
     fun setGlobal(name: String, value: LingoValue) { globals[name.lowercase()] = value }
@@ -65,6 +65,9 @@ class LingoVm(
         if (++depth > maxDepth) { depth = 0; throw LingoError("call stack too deep in ${handler.name}") }
         try {
             return execute(Frame(handler, receiver, args))
+        } catch (e: LingoError) {
+            if (e.lingoTrace.size < 32) e.lingoTrace += "${handler.script.name}.${handler.name}"
+            throw e
         } finally {
             depth--
         }
@@ -194,7 +197,9 @@ class LingoVm(
                     val args = popArgs()
                     val callee = name(arg)
                     if (callee.equals("return", true)) {
-                        frame.returnValue = args.values.firstOrNull() ?: Void
+                        // `return` leaves the handler at once; what the compiler emits after it
+                        // (a jump out of a case/if) is unreachable.
+                        return args.values.firstOrNull() ?: Void
                     } else {
                         result(args, callFunction(callee, args.values))
                     }
@@ -209,8 +214,8 @@ class LingoVm(
                     val ref = variableRef(arg, frame, ::pop)
                     ref.write(LString(LingoChunks.delete(ref.read().asText(), popChunk(::pop))))
                 }
-                0x5C -> { pop(); push(Void) }
-                0x5D -> { val property = pop().toInt(); legacySets += property to pop() }
+                0x5C -> push(movieProp(legacyProperty(arg, pop().toInt())))
+                0x5D -> { val property = legacyProperty(arg, pop().toInt()); setMovieProp(property, pop()) }
                 0x5F -> push(movieProp(name(arg)))
                 0x60 -> { val value = pop(); setMovieProp(name(arg), value) }
                 0x61, 0x70 -> { val target = pop(); push(getObjectProp(target, name(arg))) }
@@ -271,7 +276,19 @@ class LingoVm(
     private fun movieProp(name: String): LingoValue = host.getMovieProp(name) ?: Void
 
     private fun setMovieProp(name: String, value: LingoValue) {
-        if (!host.setMovieProp(name, value)) legacySets += -1 to value
+        if (!host.setMovieProp(name, value)) unhandledSets += name to value
+    }
+
+    /** Name of a `the` property read or written through the legacy get/set opcodes. */
+    private fun legacyProperty(type: Int, id: Int): String = when (type) {
+        0x00 -> MOVIE_PROPERTIES.getOrNull(id)
+        0x08 -> ANIMATION2_PROPERTIES.getOrNull(id)
+        else -> null
+    } ?: throw LingoError("unsupported legacy property $type/$id")
+
+    private companion object {
+        val MOVIE_PROPERTIES = listOf("floatPrecision", "mouseDownScript", "mouseUpScript", "keyDownScript", "keyUpScript", "timeoutScript")
+        val ANIMATION2_PROPERTIES = listOf("", "perFrameHook", "number of castMembers", "number of menus", "number of castLibs", "number of xtras")
     }
 
     private fun theBuiltin(name: String, frame: Frame): LingoValue =

@@ -10,54 +10,6 @@ import org.rigorcore.caserecomp.lingo.LingoValue.LString
 import org.rigorcore.caserecomp.lingo.LingoValue.LSymbol
 import kotlin.random.Random
 
-/** Tiny assembler for synthetic Lingo bytecode with forward/backward labels. */
-private class Asm(private val names: MutableList<String>) {
-    private sealed interface Item
-    private class Op(val code: Int, val arg: Int?, val wide: Boolean = false) : Item
-    private class Jump(val code: Int, val label: String) : Item
-    private class Label(val name: String) : Item
-    private val items = mutableListOf<Item>()
-
-    fun name(n: String): Int = names.indexOf(n).takeIf { it >= 0 } ?: names.size.also { names += n }
-    fun op(code: Int) = apply { items += Op(code, null) }
-    fun op(code: Int, arg: Int) = apply { items += Op(code, arg) }
-    fun named(code: Int, n: String) = op(code, name(n))
-    fun int(value: Int) = apply { items += Op(0x41, value, wide = value !in -128..127) }
-    fun jump(code: Int, label: String) = apply { items += Jump(code, label) }
-    fun label(n: String) = apply { items += Label(n) }
-
-    private fun size(item: Item) = when (item) {
-        is Label -> 0
-        is Jump -> 3
-        is Op -> if (item.arg == null) 1 else if (item.wide || item.arg > 255) 3 else 2
-    }
-
-    fun bytes(): ByteArray {
-        val positions = mutableMapOf<String, Int>()
-        var pos = 0
-        for (item in items) { if (item is Label) positions[item.name] = pos; pos += size(item) }
-        val out = java.io.ByteArrayOutputStream()
-        pos = 0
-        for (item in items) {
-            when (item) {
-                is Label -> Unit
-                is Op -> when {
-                    item.arg == null -> out.write(item.code)
-                    item.wide || item.arg > 255 -> { out.write(item.code + 0x40); out.write((item.arg shr 8) and 0xFF); out.write(item.arg and 0xFF) }
-                    else -> { out.write(item.code); out.write(item.arg and 0xFF) }
-                }
-                is Jump -> {
-                    val target = positions.getValue(item.label)
-                    val offset = if (item.code == 0x54) pos - target else target - pos
-                    out.write(item.code + 0x40); out.write((offset shr 8) and 0xFF); out.write(offset and 0xFF)
-                }
-            }
-            pos += size(item)
-        }
-        return out.toByteArray()
-    }
-}
-
 class LingoVmUnitTest {
     private val names = mutableListOf<String>()
     private fun asm() = Asm(names)
@@ -176,6 +128,33 @@ class LingoVmUnitTest {
         assertEquals(LSymbol("one"), v.callGlobal("pick", listOf(LInt(1))))
         assertEquals(LSymbol("two"), v.callGlobal("pick", listOf(LInt(2))))
         assertEquals(LSymbol("other"), v.callGlobal("pick", listOf(LInt(9))))
+
+        // As compiled by Director: `return` inside a case is followed by a jump to the shared
+        // `pop 1` at the end, which must never run once the handler has returned.
+        val g = handler("pick2", listOf("x"), code = asm()
+            .op(0x4B, 0)
+            .op(0x64, 0).int(1).op(0x0F).jump(0x55, "end").op(0x65, 1).named(0x45, "one")
+            .op(0x43, 1).named(0x57, "return").jump(0x53, "end")
+            .label("end").op(0x65, 1).op(0x01))
+        assertEquals(LSymbol("one"), vm(movie(g)).callGlobal("pick2", listOf(LInt(1))))
+        assertEquals(LingoValue.Void, vm(movie(g)).callGlobal("pick2", listOf(LInt(2))))
+    }
+
+    @Test fun string_chunk_methods_and_error_trace() {
+        val v = vm(movie())
+        fun call(target: LingoValue, method: String, vararg args: LingoValue) = v.callMethod(target, method, listOf(target) + args)
+        assertEquals(LString("D"), call(LString("Dream"), "getProp", LSymbol("char"), LInt(1)))
+        assertEquals(LString("rea"), call(LString("Dream"), "getProp", LSymbol("char"), LInt(2), LInt(4)))
+        assertEquals(LString("b"), call(LString("a,b,c"), "getPropRef", LSymbol("item"), LInt(2)))
+        assertEquals(LInt(3), call(LString("a,b,c"), "count", LSymbol("item")))
+        assertEquals(LInt(2), call(LString("one\rtwo"), "count", LSymbol("line")))
+        assertEquals(LInt(0), call(LString(""), "count", LSymbol("word")))
+        assertEquals(LInt(5), call(LString("Dream"), "count"))
+        val inner = handler("inner", emptyList(), code = asm().op(0x42, 0).named(0x57, "missingThing").op(0x01))
+        val outer = handler("outer", emptyList(), code = asm().op(0x42, 0).named(0x57, "inner").op(0x01))
+        val error = runCatching { vm(movie(inner, outer)).callGlobal("outer", emptyList()) }.exceptionOrNull() as LingoError
+        assertEquals(listOf("movie.inner", "movie.outer"), error.lingoTrace)
+        assertTrue(error.message.endsWith("[in movie.inner < movie.outer]"))
     }
 
     @Test fun host_builtins_movie_props_and_value_parser() {

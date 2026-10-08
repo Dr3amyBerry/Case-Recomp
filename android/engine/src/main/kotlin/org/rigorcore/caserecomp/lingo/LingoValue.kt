@@ -3,7 +3,11 @@ package org.rigorcore.caserecomp.lingo
 import java.util.Locale
 
 /** Runtime failure inside Lingo code; carries the script/handler where it happened when known. */
-class LingoError(message: String) : RuntimeException(message)
+class LingoError(message: String) : RuntimeException(message) {
+    /** Lingo handlers the error unwound through, innermost first ("script.handler"). */
+    val lingoTrace = mutableListOf<String>()
+    override val message: String get() = if (lingoTrace.isEmpty()) super.message!! else "${super.message} [in ${lingoTrace.joinToString(" < ")}]"
+}
 
 /**
  * Lingo values. Lists and property lists are mutable reference types, as in Director:
