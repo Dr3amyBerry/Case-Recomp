@@ -27,6 +27,7 @@ fun interface TextRasterizer {
  */
 private const val BLACK = 0xFF000000.toInt()
 private const val WHITE = 0xFFFFFFFF.toInt()
+private const val OPAQUE = 0xFF000000.toInt()
 
 class StageRenderer(
     private val runtime: DirectorRuntime,
@@ -52,6 +53,10 @@ class StageRenderer(
         if (alpha == 0) return
         val w = item.right - item.left; val h = item.bottom - item.top
         if (w <= 0 || h <= 0) return
+        // Parked sprites (titles move them to 999,999) are skipped before touching their media.
+        if (item.right <= 0 || item.bottom <= 0 || item.left >= width || item.top >= height) {
+            if (item.rotation == 0.0) return
+        }
         when (item.member.type) {
             "bitmap" -> item.member.pixels?.let { blit(it, item, alpha) }
             "shape" -> {
@@ -100,18 +105,38 @@ class StageRenderer(
         }
         val y0 = maxOf(0, item.top); val y1 = minOf(height, item.bottom)
         val x0 = maxOf(0, item.left); val x1 = minOf(width, item.right)
+        val n = x1 - x0
+        if (n <= 0 || y1 <= y0) return
+        // Source column of each destination column, computed once per blit.
+        val columns = columnMap
+        for (i in 0 until n) {
+            var sx = (x0 + i - item.left) * src.width / w
+            if (item.flipH) sx = src.width - 1 - sx
+            columns[i] = sx
+        }
+        val sp = src.pixels; val fp = frame.pixels
         for (y in y0 until y1) {
             var sy = (y - item.top) * src.height / h
             if (item.flipV) sy = src.height - 1 - sy
             val row = sy * src.width
-            val out = y * width
-            for (x in x0 until x1) {
-                var sx = (x - item.left) * src.width / w
-                if (item.flipH) sx = src.width - 1 - sx
-                put(out + x, src.pixels[row + sx], useAlpha, keyWhite, alpha)
+            val out = y * width + x0
+            if (!useAlpha && !keyWhite && alpha == 255) {
+                for (i in 0 until n) fp[out + i] = sp[row + columns[i]] or OPAQUE
+                continue
+            }
+            for (i in 0 until n) {
+                val p = sp[row + columns[i]]
+                if (keyWhite && (p and 0xFFFFFF) == 0xFFFFFF) continue
+                val sa = if (useAlpha) p ushr 24 else 255
+                if (sa == 0) continue
+                val a = if (alpha == 255) sa else sa * alpha / 255
+                if (a == 0) continue
+                fp[out + i] = if (a == 255) p or OPAQUE else LingoImage.blendPixel(fp[out + i], p, a)
             }
         }
     }
+
+    private val columnMap = IntArray(width)
 
     private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean) {
         val w = (item.right - item.left).toDouble(); val h = (item.bottom - item.top).toDouble()

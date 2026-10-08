@@ -143,6 +143,8 @@ class DirectorLauncherActivity : Activity() {
                     clock = SystemClock::elapsedRealtime,
                     environment = DirectorEnvironment(moviePath = "C:\\CaseRecomp\\", platform = "Windows,32", runMode = "Projector"),
                     extensions = xtras, textMetrics = text,
+                    // Keep a scene's decoded cast in memory, within a third of this app's heap.
+                    mediaCacheBytes = (Runtime.getRuntime().maxMemory() / 3).coerceIn(32L shl 20, 256L shl 20),
                 )
                 runtime.start()
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder)

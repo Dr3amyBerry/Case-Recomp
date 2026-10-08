@@ -32,14 +32,23 @@ internal class DirectorStageView(
     private var active = false
     private var down = false
     private val intervalMillis = (1000L / runtime.movie.tempo.coerceIn(1, 60)).coerceAtLeast(16L)
+    /** Fixed-rate schedule: the next frame is due one interval after the previous one was due. */
+    private var nextFrameAt = 0L
+    private var statsSince = 0L
+    private var statsFrames = 0
+    private var statsWork = 0L
     private val advance = object : Runnable {
         override fun run() {
             if (!active) return
             try {
                 if (!runtime.quitRequested) {
+                    val start = android.os.SystemClock.uptimeMillis()
                     runtime.tick()
                     invalidate()
-                    postDelayed(this, intervalMillis)
+                    logStats(start)
+                    // Late frames are not made up in a burst: resync when more than one frame behind.
+                    nextFrameAt = maxOf(nextFrameAt + intervalMillis, start - intervalMillis)
+                    postDelayed(this, (nextFrameAt - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0L))
                 } else active = false
             } catch (e: Exception) {
                 active = false
@@ -48,6 +57,20 @@ internal class DirectorStageView(
         }
     }
     var onRuntimeError: ((Exception) -> Unit)? = null
+
+    /** Debug builds with the tag at DEBUG log ticks per second and the time spent per tick. */
+    private fun logStats(start: Long) {
+        if (!android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) return
+        statsFrames++
+        statsWork += android.os.SystemClock.uptimeMillis() - start
+        if (statsSince == 0L) statsSince = start
+        if (start - statsSince >= 5000) {
+            android.util.Log.d(TAG, "fps %.1f, tick %.1f ms, draw %.1f ms".format(
+                statsFrames * 1000f / (start - statsSince), statsWork.toFloat() / statsFrames, drawWork.toFloat() / statsFrames.coerceAtLeast(1)))
+            statsSince = start; statsFrames = 0; statsWork = 0; drawWork = 0
+        }
+    }
+    private var drawWork = 0L
 
     init {
         isFocusable = true
@@ -59,6 +82,7 @@ internal class DirectorStageView(
         if (active || runtime.quitRequested) return
         active = true
         invalidate()
+        nextFrameAt = android.os.SystemClock.uptimeMillis() + intervalMillis
         postDelayed(advance, intervalMillis)
     }
 
@@ -70,11 +94,13 @@ internal class DirectorStageView(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(Color.BLACK)
+        val drawStart = android.os.SystemClock.uptimeMillis()
         val frame = renderer.render()
         bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
         val area = viewport.fit(width, height)
         destination.set(area.left, area.top, area.left + area.width, area.top + area.height)
         canvas.drawBitmap(bitmap, null, destination, drawPaint)
+        drawWork += android.os.SystemClock.uptimeMillis() - drawStart
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

@@ -63,6 +63,8 @@ class DirectorRuntime(
     val environment: DirectorEnvironment = DirectorEnvironment(),
     private val extensions: LingoHost? = null,
     val textMetrics: TextMetrics = TextMetrics.Approximate,
+    /** Budget for decoded member media; ports size it to the device's heap. */
+    private val mediaCacheBytes: Long = DEFAULT_MEDIA_CACHE_BYTES,
 ) : LingoHost {
     val vm = LingoVm(bundle, this, random)
     private val startTime = clock()
@@ -213,16 +215,28 @@ class DirectorRuntime(
         updateRollover()
     }
 
-    private val mediaImages = object : LinkedHashMap<Pair<String, Int>, LingoImage>(64, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<String, Int>, LingoImage>?) = size > MEDIA_IMAGE_CACHE
-    }
+    private val mediaImages = LinkedHashMap<Pair<String, Int>, LingoImage>(256, 0.75f, true)
+    private var mediaImageBytes = 0L
 
-    /** Decoded member media, cached (least recently used first out); blank and opaque without media. */
+    /**
+     * Decoded member media, cached least recently used first out within [mediaCacheBytes] so a
+     * scene's whole cast stays decoded; blank and opaque without media.
+     */
     fun mediaImage(member: CastMember, data: MemberData): LingoImage {
         val file = member.lib.file?.file ?: ""
-        return mediaImages.getOrPut(file to data.number) {
-            media.image(file, data) ?: LingoImage(data.width, data.height).also { it.useAlpha = false }
+        val key = file to data.number
+        mediaImages[key]?.let { return it }
+        val image = media.image(file, data) ?: LingoImage(data.width, data.height).also { it.useAlpha = false }
+        mediaImages[key] = image
+        mediaImageBytes += image.pixels.size * 4L
+        val eldest = mediaImages.entries.iterator()
+        while (mediaImageBytes > mediaCacheBytes && mediaImages.size > 1 && eldest.hasNext()) {
+            val entry = eldest.next()
+            if (entry.key == key) continue
+            mediaImageBytes -= entry.value.pixels.size * 4L
+            eldest.remove()
         }
+        return image
     }
 
     private val flashMovies = HashMap<Pair<String, Int>, SwfMovie?>()
@@ -539,7 +553,8 @@ class DirectorRuntime(
     }
 
     companion object {
-        const val MEDIA_IMAGE_CACHE = 96
+        /** Decoded media kept in memory: a full scene of this era fits comfortably. */
+        const val DEFAULT_MEDIA_CACHE_BYTES = 96L * 1024 * 1024
     }
 
     /** Whether a Lingo value is the given symbol (helper for hosts and tests). */
