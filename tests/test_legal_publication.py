@@ -37,6 +37,21 @@ class LegalPublicationTest(unittest.TestCase):
                 self.assertIn("contact@rigorcore.com",
                               (ROOT / path).read_text(encoding="utf-8"))
 
+    def test_license_audit_records_verified_third_parties(self):
+        notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+        for library, license_id in (("mutagen", "GPL-2.0-or-later"),
+                                    ("Pyodide", "MPL-2.0"),
+                                    ("Pillow", "MIT-CMU")):
+            with self.subTest(library=library):
+                self.assertIn(library, notices)
+                self.assertIn(license_id, notices)
+        policy = (ROOT / "LICENSING_STATUS.md").read_text(encoding="utf-8")
+        self.assertIn("pendiente", policy.lower())
+        self.assertIn("LICENSE", policy)
+        self.assertIn("INTEROPERABILITY_VENEZUELA.md",
+                      (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertTrue((ROOT / "docs/INTEROPERABILITY_VENEZUELA.md").is_file())
+
     def test_proprietary_packages_remain_gitignored(self):
         rules = (ROOT / ".gitignore").read_text(encoding="utf-8")
         for ext in ("*.director.zip", "*.crflow", "*.crscene", "*.keystore", "*.jks"):

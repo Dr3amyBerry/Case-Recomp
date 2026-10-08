@@ -16,6 +16,8 @@
 
 [**Aviso legal (Venezuela)**](LEGAL.md) · [**Privacidad**](PRIVACY.md) · [**Términos**](TERMS.md) · [**Derechos y reclamaciones**](COPYRIGHT_POLICY.md) · [**Licencias de terceros**](THIRD_PARTY_NOTICES.md) · [**Estado de licencia del código**](LICENSING_STATUS.md).
 
+**Situación de licencias y compatibilidad en Venezuela:** [evaluación de interoperabilidad](docs/INTEROPERABILITY_VENEZUELA.md) y [estado de licencia del motor](LICENSING_STATUS.md).
+
 **Contacto legal y privacidad:** [contact@rigorcore.com](mailto:contact@rigorcore.com). Usa Issues solo para errores técnicos no sensibles.
 
 **El convertidor procesa el contenido del juego en tu navegador**, pero descarga Pyodide desde una CDN y está alojado en GitHub Pages: consulta la política de privacidad para conocer esos servicios externos. No publiques archivos del juego ni datos personales en issues.
@@ -63,13 +65,15 @@ Los otros juegos que aparecen en la app (*Prime Suspects* y *Ravenhearst*) está
 
 **Case Recomp** lets you play **Mystery Case Files: Huntsville** on Android using **your own original PC copy of the game**. The app includes no game. You convert your game's files into a `.zip` file and import it into the app.
 
-> ⚠️ **Beta version.** It may have bugs, graphics or sound glitches, and parts that do not yet work as in the original game. If you find a problem, please tell us by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues) (say what you were doing and, if you can, add a screenshot). **Provided as is, without warranty of any kind.**
+> ⚠️ **Beta version.** It may have bugs, graphics or sound glitches, and parts that do not yet work as in the original game. If you find a problem, please tell us by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues) (describe the steps; do not attach original game assets, proprietary screenshots or private information). **Provided as is, without warranty of any kind.**
 
 ### Legal and privacy notices
 
 **Independent project:** Case Recomp is not affiliated with, sponsored or approved by Big Fish Games or other rights holders. Game names identify compatibility; all original trademarks and game content belong to their respective owners. No commercial game is included. **Possessing an original copy does not automatically allow all conversions or circumvention:** follow applicable licence terms and laws. Do not share converted ZIPs.
 
 [**Legal (Venezuela)**](LEGAL.md) · [**Privacy**](PRIVACY.md) · [**Terms**](TERMS.md) · [**Copyright requests**](COPYRIGHT_POLICY.md) · [**Third-party notices**](THIRD_PARTY_NOTICES.md) · [**Code licensing status**](LICENSING_STATUS.md).
+
+**Licensing and Venezuelan interoperability:** [assessment](docs/INTEROPERABILITY_VENEZUELA.md) and [source-code licensing status](LICENSING_STATUS.md).
 
 **Legal and privacy contact:** [contact@rigorcore.com](mailto:contact@rigorcore.com). Use Issues only for non-sensitive technical reports.
 

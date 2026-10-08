@@ -55,3 +55,9 @@ El proyecto no vende contenido de juegos ni verifica automáticamente su titular
 - [Plan de pendientes de cumplimiento](LEGAL_RELEASE_CHECKLIST.md)
 
 **Contacto:** para incidencias técnicas no sensibles: https://github.com/Dr3amyBerry/Case-Recomp/issues . **No publique allí datos personales, llaves, ZIPs del juego ni denuncias con material propietario.** **Contacto privado legal y de privacidad: [contact@rigorcore.com](mailto:contact@rigorcore.com)**. Debe verificarse el funcionamiento del buzón y completarse la identificación legal del operador antes de una distribución más amplia.
+
+## Sobre otros proyectos de recompilación en Venezuela
+
+Que existan videojuegos recompilados, motores de compatibilidad o portadores que no hayan recibido reclamaciones conocidas **no demuestra una autorización legal general**, una licencia de los titulares ni una sentencia que avale este caso. Tampoco la gratuidad o no incluir contenidos comerciales en el APK hace desaparecer todos los derechos de reproducción, adaptación, contrato o medidas tecnológicas.
+
+En Venezuela, el artículo 17 define la protección de los programas de computación; el artículo 44 numerales 5 y 6 se refiere a una copia de seguridad y a la carga en memoria para el usuario lícito, respectivamente. No equiparar esas excepciones con una libertad general de descompilar/convertir videojuegos. Una opinión jurídica aplicable a Case Recomp debería identificar **la edición exacta del juego, su EULA, los actos técnicos concretos del conversor, las jurisdicciones destinatarias y los derechos de terceros**. Fuente primaria: https://www.wipo.int/wipolex/es/legislation/details/3989 .
