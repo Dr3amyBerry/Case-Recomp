@@ -50,11 +50,33 @@ These components exist in code; they are **not verified to reproduce Huntsville 
 - Whether saves survive on-device force-stop/relaunch and whether an earlier `.crcontent` package remains usable through the old shell.
 - Keep all proprietary logs, user profiles, private screenshots and raw Lingo out of GitHub; publish only sanitized aggregate issue summaries and synthetic reproductions.
 
+## On-device QA with Windows Subsystem for Android (2026-10-08)
+
+WSA (Android 13, 1600×900) on the test PC runs the debug APK with the private package. Nothing proprietary leaves the PC.
+
+**Setup**
+1. `adb connect 127.0.0.1:58526`, accept the RSA prompt inside WSA once, check `adb devices`.
+2. `gradle :app:assembleDebug` and `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+3. Push the private ZIP to the app's own folder and import it without the document picker:
+   `adb push huntsville.director.zip /sdcard/Android/data/org.rigorcore.caserecomp.synthetic.debug/files/import/` then
+   `adb shell am start -n org.rigorcore.caserecomp.synthetic.debug/org.rigorcore.caserecomp.app.MainActivity --ez director true --es import_external huntsville.director.zip`.
+   Later launches only need `--ez director true`. (In Git Bash set `MSYS_NO_PATHCONV=1` so device paths are not rewritten.)
+4. `adb shell setprop log.tag.CaseRecompDirector DEBUG` enables debug-only diagnostics: touch → stage point and hit sprite, fps/tick/draw timings every 5 s, each sound started, and **F12** (`adb shell input keyevent KEYCODE_F12`) logs every on-stage sprite with a point where a click reaches it.
+5. Saves exported from the private JVM harness can be applied with `--es import_save <file>.json` (pushed to the same import folder) to jump to any case.
+
+Stage coordinates map to the 1600×900 WSA display as `screen = (320 + ceil(1.2·x), 105 + ceil(1.2·y))`.
+
+**Verified on WSA:** splash, name entry (keyboard), user list/new user, main menu, case report, map, hidden-object scenes (objects found, list and counter updated, pickup animation, completion dialog), idle and hurry-up prompts, crime computer puzzle including its tutorial, the "ATRAPADO" epilogue and rank badges, the next case, saves persisted across restarts, the final case and the ending newspaper; main theme, ambient music and effects play; music pauses with the app. Scenes run at a steady 30 fps (≈5 ms render) and ~90 MB PSS.
+
+**Fixed in this round (engine-generic):** Flash clip masks and strict-decoder JPEG data; Text Xtra styles (font, size, bold, colour, alignment, indents, member rect) and Director-like wrapping; score stretch flag (bitmap/text sprites use member size); score sprite colours colorize text; matte text hit-testing; only sprites with mouse handlers receive the mouse; cast member numbering from each cast's minMember; real cast file sizes for FileIO probes; control-character keys; Flash `duplicateMovieClip`/`removeMovieClip`; SWA and zero-padded MP3 audio without FFmpeg; byte-budgeted media cache and fixed-rate frame pacing.
+
 ## Known limitations / next engineering tasks
 
-- The new Android launcher currently uses software rendering on the UI thread and a simple frame scheduler. Measure/optimize only after real-game correctness is established.
-- Exact Director text metrics/fields, Flash actions, alpha/ink modes, Xtra behavior, sound duration/loop semantics and save compatibility can differ from Windows.
-- Audio is a best-effort `MediaPlayer` adapter. Undecoded SWA sounds in an input package cannot play until its private generator is run with a vetted FFmpeg conversion path.
+- Rendering is software compositing on the UI thread (fast enough now: ~5 ms per scene frame on WSA).
+- Text uses Android system families in place of the title's embedded fonts; per-face width/size factors approximate the originals, so a few labels wrap or size slightly differently from Windows. Only the style of a member's first visible run is applied (no per-run styling yet).
+- Score behaviours that reference members missing from every cast (internal 863–866, 909) are ignored, as Director does.
+- Every sound start writes a short temporary file for `MediaPlayer`; a `SoundPool` path for short effects would lower latency.
+- The Director launcher is still a debug-only path reached from the synthetic shell; release builds stay disabled.
 - The VM must not quietly fall back to the manually reconstructed Phase 9 game for unimplemented native semantics. Keep those proofs as independent regression references.
 - After C–G pass on the real device, add **specific regression tests for the divergences actually observed**, not another generic round of shell benchmarking.
 
