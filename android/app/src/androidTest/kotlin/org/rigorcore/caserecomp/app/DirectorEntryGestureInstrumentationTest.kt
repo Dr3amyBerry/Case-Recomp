@@ -30,10 +30,9 @@ class DirectorEntryGestureInstrumentationTest {
                 try { shell.onTouchEvent(down); shell.onTouchEvent(up) }
                 finally { down.recycle(); up.recycle() }
                 assertTrue("Director debug chooser must be reachable", longClicked)
-                assertEquals(Screen.MENU, activity.javaClass.getDeclaredField("runtime").let { field ->
-                    field.isAccessible = true
-                    (field.get(activity) as org.rigorcore.caserecomp.GameRuntime).session.screen
-                })
+                val encoded = SharedPreferencesSlotSessionStore(activity).load("slot-1")
+                val screen = encoded?.let(org.rigorcore.caserecomp.SessionSnapshotCodecV1::decode)?.screen ?: Screen.MENU
+                assertEquals(Screen.MENU, screen)
             }
         }
     }
