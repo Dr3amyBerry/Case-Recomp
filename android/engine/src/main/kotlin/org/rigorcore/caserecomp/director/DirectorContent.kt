@@ -85,12 +85,10 @@ class DirectorContent private constructor(
 
     private fun readManifest(): String {
         val entry = zip.getEntry("manifest.json") ?: throw LingoError("content has no manifest")
-        if (entry.size < 1 || entry.size > MAX_MANIFEST_BYTES) throw LingoError("content manifest size invalid")
-        return zip.getInputStream(entry).use { input ->
-            val bytes = input.readNBytes((MAX_MANIFEST_BYTES + 1).toInt())
-            if (bytes.size.toLong() != entry.size) throw LingoError("content manifest size mismatch")
-            String(bytes, Charsets.UTF_8)
-        }
+        if (entry.size !in 1..MAX_MANIFEST_BYTES) throw LingoError("content manifest size invalid")
+        val bytes = zip.getInputStream(entry).use { boundedRead(it, MAX_MANIFEST_BYTES) }
+        if (bytes.size.toLong() != entry.size) throw LingoError("content manifest size mismatch")
+        return String(bytes, Charsets.UTF_8)
     }
 
     private fun mediaPath(castFile: String, member: MemberData, extension: String) =
@@ -131,7 +129,7 @@ class DirectorContent private constructor(
                 }
                 val manifestEntry = zip.getEntry("manifest.json") ?: throw LingoError("content has no manifest")
                 if (manifestEntry.size !in 1..MAX_MANIFEST_BYTES) throw LingoError("content manifest too large")
-                val raw = zip.getInputStream(manifestEntry).use { it.readNBytes((MAX_MANIFEST_BYTES + 1).toInt()) }
+                val raw = zip.getInputStream(manifestEntry).use { boundedRead(it, MAX_MANIFEST_BYTES) }
                 if (raw.size.toLong() != manifestEntry.size) throw LingoError("content manifest size mismatch")
                 val manifest = parseObject(String(raw, Charsets.UTF_8))
                 if (manifest["format"] != FORMAT || manifest["version"] != 1L) throw LingoError("unsupported content package")
@@ -162,6 +160,21 @@ class DirectorContent private constructor(
                 zip.close()
                 throw e
             }
+        }
+
+        /** No Java 9 readNBytes(): runnable down to Android API 26 with a strict inflation cap. */
+        private fun boundedRead(input: InputStream, limit: Long): ByteArray {
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(64 * 1024)
+            var total = 0L
+            while (true) {
+                val n = input.read(buffer)
+                if (n < 0) break
+                total += n
+                if (total > limit) throw LingoError("Director content JSON exceeds size cap")
+                output.write(buffer, 0, n)
+            }
+            return output.toByteArray()
         }
 
         private fun validPath(path: String): Boolean =

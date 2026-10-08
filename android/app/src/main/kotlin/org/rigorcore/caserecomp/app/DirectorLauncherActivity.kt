@@ -95,12 +95,15 @@ class DirectorLauncherActivity : Activity() {
         val loaded = DirectorContent.open(file, AndroidDirectorImageDecoder)
         try {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
-            val store = AndroidDirectorStore(this)
-            val xtras = StandardXtras(store)
+            val store = AndroidDirectorStore(this, file.nameWithoutExtension)
             val text = AndroidDirectorText()
             val output = AndroidDirectorSound(this, loaded)
             try {
                 val movie = loaded.movie
+                // Existing original-game FileIO/Buddy API probes must be able to discover bundled casts.
+                val xtras = StandardXtras(store, castFileSize = { path ->
+                    if (movie.externalCast(path) != null) 1 else -1
+                })
                 require(movie.stageWidth in 1..4096 && movie.stageHeight in 1..4096 &&
                     movie.stageWidth.toLong() * movie.stageHeight <= 16L * 1024 * 1024) {
                     "invalid Director stage geometry"

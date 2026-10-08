@@ -73,14 +73,18 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
 }
 
 /** Registry and FileIO logical values are kept in Android private SharedPreferences. */
-internal class AndroidDirectorStore(context: Context) : DirectorStore {
+internal class AndroidDirectorStore(context: Context, packageId: String) : DirectorStore {
+    init { require(Regex("[a-f0-9]{64}").matches(packageId)) }
     private val prefs = context.getSharedPreferences("case-recomp-director-user-data", Context.MODE_PRIVATE)
-    override fun get(key: String): String? = if (key.length <= 512) prefs.getString(key, null) else null
+    // Even when two bundles use the same BuddyAPI/registry key, their saves never cross.
+    private val prefix = packageId + "/"
+    private fun storedKey(key: String) = prefix + key
+    override fun get(key: String): String? = if (key.length <= 512) prefs.getString(storedKey(key), null) else null
     override fun put(key: String, value: String) {
         require(key.length <= 512 && value.length <= 256 * 1024) { "Director save exceeds storage cap" }
-        check(prefs.edit().putString(key, value).commit()) { "cannot persist Director save" }
+        check(prefs.edit().putString(storedKey(key), value).commit()) { "cannot persist Director save" }
     }
-    override fun remove(key: String) { if (key.length <= 512) prefs.edit().remove(key).commit() }
+    override fun remove(key: String) { if (key.length <= 512) prefs.edit().remove(storedKey(key)).commit() }
 }
 
 /**
