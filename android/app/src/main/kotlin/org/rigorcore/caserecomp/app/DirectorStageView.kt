@@ -112,39 +112,92 @@ internal class DirectorStageView(
         drawWork += android.os.SystemClock.uptimeMillis() - drawStart
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        val point = viewport.stagePoint(event.x, event.y, width, height)
+    /**
+     * A finger has no hover: titles show rollover feedback (mouseEnter) before the click acts.
+     * A touch therefore first moves the pointer there, and delivers mouseDown a moment later
+     * (or on an earlier release); after the release the pointer leaves the stage again.
+     */
+    private var pendingDown: Pair<Int, Int>? = null
+    private val deliverDown = Runnable { pendingDown?.let { (x, y) -> input { pressAt(x, y) } } }
+    private val liftPointer = Runnable { input { runtime.mouseMove(-1, -1) } }
+
+    private fun pressAt(x: Int, y: Int) {
+        pendingDown = null
+        if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
+            android.util.Log.d(TAG, "down $x,$y -> sprite ${runtime.activeSpriteAt(x, y)?.number}")
+        }
+        runtime.mouseDown(x, y)
+    }
+
+    /** Runs input against the VM, then redraws and honours a quit. */
+    private inline fun input(action: () -> Unit): Boolean {
         try {
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    if (point == null) return false
-                    down = true
-                    requestFocus()
-                    if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
-                        android.util.Log.d(TAG, "down ${point.first},${point.second} -> sprite ${runtime.activeSpriteAt(point.first, point.second)?.number}")
-                    }
-                    runtime.mouseDown(point.first, point.second)
-                }
-                MotionEvent.ACTION_MOVE -> point?.let { runtime.mouseMove(it.first, it.second) }
-                MotionEvent.ACTION_UP -> {
-                    if (down) {
-                        // An out-of-stage release still reaches mouseUpOutside through hit-testing.
-                        runtime.mouseUp(point?.first ?: -1, point?.second ?: -1)
-                        down = false
-                        performClick()
-                    }
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    if (down) { runtime.mouseUp(-1, -1); down = false }
-                }
-                else -> return false
-            }
+            action()
         } catch (e: Exception) {
             onRuntimeError?.invoke(e)
             return true
         }
         invalidate()
         checkQuit()
+        return true
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val point = viewport.stagePoint(event.x, event.y, width, height)
+        val mouse = event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE
+        return when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (point == null) return false
+                down = true
+                requestFocus()
+                removeCallbacks(liftPointer)
+                input {
+                    if (mouse) pressAt(point.first, point.second)
+                    else {
+                        runtime.mouseMove(point.first, point.second)
+                        pendingDown = point
+                        postDelayed(deliverDown, TOUCH_ROLLOVER_MILLIS)
+                    }
+                }
+            }
+            MotionEvent.ACTION_MOVE -> input { point?.let { runtime.mouseMove(it.first, it.second) } }
+            MotionEvent.ACTION_UP -> {
+                if (!down) return true
+                down = false
+                removeCallbacks(deliverDown)
+                val handled = input {
+                    pendingDown?.let { (x, y) -> pressAt(x, y) }
+                    // An out-of-stage release still reaches mouseUpOutside through hit-testing.
+                    runtime.mouseUp(point?.first ?: -1, point?.second ?: -1)
+                }
+                performClick()
+                if (!mouse) postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+                handled
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                removeCallbacks(deliverDown)
+                val pressed = down && pendingDown == null
+                pendingDown = null
+                down = false
+                postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+                input { if (pressed) runtime.mouseUp(-1, -1) }
+            }
+            else -> false
+        }
+    }
+
+    /** A connected mouse hovers: rollovers follow it as on the original desktop. */
+    override fun onHoverEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
+                removeCallbacks(liftPointer)
+                val point = viewport.stagePoint(event.x, event.y, width, height)
+                input { runtime.mouseMove(point?.first ?: -1, point?.second ?: -1) }
+            }
+            // Also sent when a button is pressed; the following down cancels the lift.
+            MotionEvent.ACTION_HOVER_EXIT -> postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+            else -> return super.onHoverEvent(event)
+        }
         return true
     }
 
@@ -239,11 +292,17 @@ internal class DirectorStageView(
 
     fun release() {
         pauseFrames()
+        removeCallbacks(deliverDown)
+        removeCallbacks(liftPointer)
         bitmap.recycle()
     }
 
     private companion object {
         const val TAG = "CaseRecompDirector"
+        /** How long a touch shows its rollover before mouseDown (about three frames). */
+        const val TOUCH_ROLLOVER_MILLIS = 100L
+        /** How long the pointer lingers after a release before it leaves the stage. */
+        const val TOUCH_LIFT_MILLIS = 150L
         // Director's `the key` is the character itself: RETURN, BACKSPACE and ESC are control characters.
         const val RETURN = "\r"
         const val BACKSPACE = "\b"
