@@ -352,12 +352,15 @@ class DirectorRuntime(
         .firstOrNull { it.span != null && it.hit(x, y) }
 
     /**
-     * Topmost *active* sprite (one with behaviours) under a point: mouse events go there,
-     * as `the clickOn` reports; sprites without scripts never intercept the mouse.
+     * Topmost *active* sprite under a point: one whose behaviours handle a mouse event. Mouse
+     * events go there, as `the clickOn` reports; sprites without scripts, or whose scripts only
+     * run frame events (e.g. an invisible flicker overlay), never intercept the mouse.
      */
     fun activeSpriteAt(x: Int, y: Int): Sprite? = sprites.asReversed()
         .sortedByDescending { it.locZ }
-        .firstOrNull { it.span != null && it.instances.isNotEmpty() && it.hit(x, y) }
+        .firstOrNull { it.span != null && it.handlesMouse() && it.hit(x, y) }
+
+    private fun Sprite.handlesMouse() = instances.any { instance -> MOUSE_EVENTS.any { instance.script.handler(it) != null } }
 
     fun mouseMove(x: Int, y: Int) {
         mouseX = x; mouseY = y
@@ -553,6 +556,9 @@ class DirectorRuntime(
     }
 
     companion object {
+        private val MOUSE_EVENTS = listOf("mouseDown", "mouseUp", "mouseUpOutside", "mouseEnter", "mouseLeave",
+            "mouseWithin", "rightMouseDown", "rightMouseUp")
+
         /** Decoded media kept in memory: a full scene of this era fits comfortably. */
         const val DEFAULT_MEDIA_CACHE_BYTES = 96L * 1024 * 1024
     }

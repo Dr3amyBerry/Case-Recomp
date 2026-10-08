@@ -130,6 +130,34 @@ class DirectorRuntimeUnitTest {
         assertEquals(listOf(true, false), listOf(rt.sprite(4).hit(101, 101), rt.sprite(4).hit(125, 101)))
     }
 
+    @Test fun sprites_without_mouse_handlers_do_not_intercept_clicks() {
+        val o = DirectorMovie.SPRITE_CHANNEL_OFFSET
+        val movie = DirectorMovie(
+            stageWidth = 800, stageHeight = 600, tempo = 30, labels = emptyList(),
+            castLibs = listOf(CastLibData(1, "Internal", "")),
+            internalCast = CastFile("", listOf(
+                MemberData(1, "loop", "script", scriptNumber = 1),
+                MemberData(2, "button", "script", scriptNumber = 2),
+                MemberData(3, "box", "shape", width = 40, height = 40),
+            ).associateBy { it.number }),
+            externalCasts = emptyMap(), frameCount = 1, channelCount = 2 + o,
+            sprites = listOf(
+                SpriteRun(1, 1, 1 + o, 0, 1, 3, 100, 100, 40, 40, 0, false, false),
+                SpriteRun(1, 1, 2 + o, 0, 1, 3, 100, 100, 40, 40, 0, false, false),
+            ),
+            spans = listOf(
+                SpanData(1, 1, 1 + o, listOf(BehaviorRef(1, 2, null))),
+                // An overlay whose behaviour only runs frame events (like a screen flicker).
+                SpanData(1, 1, 2 + o, listOf(BehaviorRef(1, 1, "[#target: 1]"))),
+            ),
+        )
+        val rt = DirectorRuntime(movie, bundle(), clock = { now })
+        rt.start()
+        assertEquals(1, rt.activeSpriteAt(110, 110)?.number)
+        rt.mouseDown(110, 110)
+        assertEquals(LInt(1), rt.g("gClicks"))
+    }
+
     @Test fun playback_labels_go_and_frame_script_loop() {
         val rt = runtime()
         rt.start()
