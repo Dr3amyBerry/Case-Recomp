@@ -33,6 +33,8 @@ class SpriteRun(
     val ink: Int, val castLib: Int, val member: Int,
     val x: Int, val y: Int, val width: Int, val height: Int,
     val blend: Int, val flipH: Boolean, val flipV: Boolean,
+    /** Score "stretch": only a stretched bitmap sprite is drawn at the score size instead of its member's. */
+    val stretch: Boolean = true,
 )
 
 class BehaviorRef(val castLib: Int, val member: Int, val parameters: String?)
@@ -119,7 +121,7 @@ class DirectorMovie(
                     val s = it as Map<*, *>
                     SpriteRun(s.int("start"), s.int("end"), s.int("channel"), s.int("ink"), s.int("cast_lib"),
                         s.int("member"), s.int("x"), s.int("y"), s.int("width"), s.int("height"), s.int("blend"),
-                        s["flip_h"] == true, s["flip_v"] == true)
+                        s["flip_h"] == true, s["flip_v"] == true, stretch = s["stretch"] != false)
                 },
                 spans = score.list("spans").map {
                     val s = it as Map<*, *>

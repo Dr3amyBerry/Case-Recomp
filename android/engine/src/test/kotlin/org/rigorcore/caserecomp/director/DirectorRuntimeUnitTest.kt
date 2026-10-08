@@ -101,6 +101,30 @@ class DirectorRuntimeUnitTest {
 
     private fun DirectorRuntime.g(name: String) = vm.global(name)
 
+    @Test fun only_stretched_bitmap_sprites_use_the_score_rect() {
+        val o = DirectorMovie.SPRITE_CHANNEL_OFFSET
+        val movie = DirectorMovie(
+            stageWidth = 800, stageHeight = 600, tempo = 30, labels = emptyList(),
+            castLibs = listOf(CastLibData(1, "Internal", "")),
+            internalCast = CastFile("", listOf(
+                MemberData(1, "pad", "bitmap", width = 40, height = 20, regX = 20, regY = 10),
+                MemberData(2, "box", "shape", width = 4, height = 4),
+            ).associateBy { it.number }),
+            externalCasts = emptyMap(), frameCount = 1, channelCount = 3 + o,
+            sprites = listOf(
+                SpriteRun(1, 1, 1 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = false),
+                SpriteRun(1, 1, 2 + o, 0, 1, 1, 100, 100, 25, 6, 0, false, false, stretch = true),
+                SpriteRun(1, 1, 3 + o, 0, 1, 2, 100, 100, 25, 6, 0, false, false, stretch = false),
+            ),
+            spans = emptyList(),
+        )
+        val rt = DirectorRuntime(movie, bundle(), clock = { now })
+        rt.start()
+        assertEquals(listOf(80, 90, 120, 110), rt.sprite(1).bounds().toList())
+        assertEquals(listOf(25, 6), listOf(rt.sprite(2).width, rt.sprite(2).height))
+        assertEquals("shapes keep the score rect", 25, rt.sprite(3).width)
+    }
+
     @Test fun playback_labels_go_and_frame_script_loop() {
         val rt = runtime()
         rt.start()
