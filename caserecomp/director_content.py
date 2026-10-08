@@ -83,10 +83,12 @@ def _sound(archive: DirectorArchive, media: dict, ffmpeg: Path | None) -> tuple[
     if "snd" in media:
         entry = archive.entries[media["snd"]]
         if archive._codec_name(entry.compression_index) == "unsupported":
-            if ffmpeg is None:
-                raise InspectionError("SWA sound needs FFmpeg")
-            from .audio import decode_swa, swa_encoded_resource
-            return decode_swa(swa_encoded_resource(archive, entry), ffmpeg)[0], "wav"
+            from .audio import decode_swa, swa_encoded_resource, swa_mpeg_audio
+            encoded = swa_encoded_resource(archive, entry)
+            if ffmpeg is not None:
+                return decode_swa(encoded, ffmpeg)[0], "wav"
+            # Without FFmpeg, keep the SWA's own MPEG frames: platforms play them as MP3.
+            return swa_mpeg_audio(encoded), "mp3"
         data = archive.get_resource(media["snd"])
         if data.startswith(b"RIFF"):
             return data, "wav"

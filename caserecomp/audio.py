@@ -46,6 +46,48 @@ def swa_encoded_resource(archive, entry) -> bytes:
     return encoded
 
 
+_MPEG_BITRATES = {  # kbps by (MPEG-1?, layer III) bitrate index
+    True: (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320),
+    False: (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160),
+}
+_MPEG_RATES = {3: (44100, 48000, 32000), 2: (22050, 24000, 16000), 0: (11025, 12000, 8000)}
+
+
+def _mpeg_frame_size(data: bytes, pos: int) -> int:
+    """Length of the MPEG audio layer III frame at pos, or 0 when no valid frame header is there."""
+    if pos + 4 > len(data):
+        return 0
+    header = int.from_bytes(data[pos:pos + 4], "big")
+    version, layer = (header >> 19) & 3, (header >> 17) & 3
+    bitrate_index, rate_index, padding = (header >> 12) & 15, (header >> 10) & 3, (header >> 9) & 1
+    if (header >> 21) != 0x7FF or version == 1 or layer != 1 or bitrate_index in (0, 15) or rate_index == 3:
+        return 0
+    bitrate = _MPEG_BITRATES[version == 3][bitrate_index] * 1000
+    return (144 if version == 3 else 72) * bitrate // _MPEG_RATES[version][rate_index] + padding
+
+
+def swa_mpeg_audio(encoded: bytes) -> bytes:
+    """MPEG audio of a Shockwave Audio stream, playable as .mp3 without a decoder.
+
+    SWA wraps MPEG layer III frames in a small header; the frames must form an
+    unbroken chain to the end of the payload or the stream is rejected.
+    """
+    if not 20 <= len(encoded) <= MAX_ENCODED_BYTES:
+        raise InspectionError("encoded SWA resource violates size cap")
+    start = next((i for i in range(min(len(encoded) - 4, 512)) if _mpeg_frame_size(encoded, i)), -1)
+    if start < 0:
+        raise InspectionError("SWA stream holds no MPEG audio frames")
+    pos = start
+    while pos < len(encoded):
+        size = _mpeg_frame_size(encoded, pos)
+        if size <= 0:
+            raise InspectionError("SWA MPEG frames are not contiguous")
+        pos += size
+    if pos != len(encoded):
+        raise InspectionError("truncated SWA MPEG frame")
+    return encoded[start:]
+
+
 def decode_swa(encoded: bytes, ffmpeg: Path) -> tuple[bytes, dict]:
     """Attempt native SWA MPEG payload decoding using explicit FFmpeg.
 

@@ -86,7 +86,8 @@ class DirectorContentTests(unittest.TestCase):
                 patch("caserecomp.movie_bundle.CastRelationships", FakeRelations), \
                 patch("caserecomp.director_content.build_movie_bundle", return_value={"format": "case-recomp-movie-bundle"}), \
                 patch("caserecomp.director_content.build_lingo_bundle", return_value={"format": "case-recomp-lingo-bundle"}), \
-                patch("caserecomp.director_content.read_local", return_value=b"source"):
+                patch("caserecomp.director_content.read_local", return_value=b"source"), \
+                patch("caserecomp.audio.swa_encoded_resource", return_value=b"not mpeg audio at all"):
             return build_director_content(Path("movie.dir"), [Path("01.cct")], root / "out.zip", **kwargs)
 
     def test_package_holds_bundles_and_member_media(self):
@@ -98,7 +99,8 @@ class DirectorContentTests(unittest.TestCase):
             self.assertEqual(paths, ["movie.json", "lingo.json", "media/internal/1.png", "media/internal/2.swf",
                                      "media/internal/3.mp3", "media/01/1.png"])
             self.assertEqual(manifest["counts"], {"bitmap": 2, "bundle": 2, "flash": 1, "sound": 1})
-            self.assertEqual(manifest["skipped"], {"sound: SWA sound needs FFmpeg": 1})
+            # Without FFmpeg an SWA keeps its MPEG frames; this fake one holds none, so it is skipped.
+            self.assertEqual(manifest["skipped"], {"sound: SWA stream holds no MPEG audio frames": 1})
             self.assertEqual(set(manifest["source_sha256"]), {"internal", "01"})
             with zipfile.ZipFile(root / "out.zip") as zf:
                 self.assertEqual(zf.read("media/internal/2.swf"), SWF)
