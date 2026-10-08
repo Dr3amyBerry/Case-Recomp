@@ -79,6 +79,9 @@ The launcher is now `HomeActivity`: the app (always landscape) opens on **Case R
 - The cover is not in the APK: `python -m caserecomp director-content … --cover NUMBER|CAST:NUMBER` records a packaged bitmap member as `"cover"` in the package manifest; the app saves that PNG beside the imported package. For Huntsville the private build uses `--cover 159` (`newLogo`).
 - `:app:assembleRelease` signs with `private/signing/release.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; git-ignored, keystore beside it). Without that file the release APK is unsigned. CI never builds a release and fails if signing material appears in the checkout.
 - Release package id `org.rigorcore.caserecomp.synthetic` (debug keeps `.debug`), so imports and saves are separate per build. Release builds have no adb import/save/scale extras and no `DirectorDebugBridge`; `import/presentation.json` nudges are still read from the release app's own import folder.
+- The home screen also lists *Prime Suspects* and *Ravenhearst* as locked "En desarrollo" cards, shows a beta notice (once as a dialog, then as a footer linking to GitHub issues), and the game screen has **Salir** under **Teclado** to return to it.
+- `web/` is an in-browser converter published to GitHub Pages by `.github/workflows/pages.yml`: Pyodide runs `web/convert.py` with the `caserecomp` package on the folder the user picks, detects the title by its casts, and offers the director-content ZIP for download; files never leave the browser. Its PNGs can differ from a desktop build by JPEG-decoder rounding (mean 0.8/255 on Huntsville; alpha identical).
+- `--cover` also takes a member name (`--cover newLogo`).
 - The earlier synthetic shell `MainActivity` stays installed for its tests and the debug adb route (`--ez director true`), but is no longer the launcher.
 
 ## Known limitations / next engineering tasks

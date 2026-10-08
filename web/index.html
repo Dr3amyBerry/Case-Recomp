@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case Recomp — Convertidor</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Convierte la carpeta de tu juego original en el archivo .zip para la app Case Recomp. Todo ocurre en tu navegador.">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161d29; --edge: #2d3748; --text: #e8edf4; --muted: #9aa7b8;
+    --gold: #e8b84a; --ok: #5cc98a; --bad: #ef6f6c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text); background: linear-gradient(180deg, #1b2333 0%, var(--bg) 60%);
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-size: 2.1rem; letter-spacing: .04em; margin: 0; }
+  .lang button { background: none; border: 1px solid var(--edge); color: var(--muted); border-radius: 999px;
+    padding: 4px 12px; cursor: pointer; font: inherit; font-size: .85rem; }
+  .lang button[aria-pressed="true"] { color: #000; background: var(--gold); border-color: var(--gold); }
+  .lead { color: var(--muted); margin: 8px 0 24px; }
+  .beta { border: 1px solid #5a4a1f; background: #2a2414; color: #f1dca6; border-radius: 12px;
+    padding: 12px 16px; font-size: .92rem; margin-bottom: 24px; }
+  .drop { display: block; border: 2px dashed var(--edge); border-radius: 16px; background: var(--panel);
+    padding: 40px 16px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color: var(--gold); background: #1c2536; }
+  .drop strong { display: block; font-size: 1.2rem; margin-bottom: 6px; }
+  .drop span { color: var(--muted); font-size: .92rem; }
+  input[type=file] { display: none; }
+  .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 16px; padding: 18px; margin-top: 20px; }
+  .card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+  .row { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .tag { font-size: .8rem; border-radius: 999px; padding: 2px 10px; background: #233049; color: var(--muted); }
+  .tag.ok { background: #183a2a; color: var(--ok); } .tag.bad { background: #3d1c1c; color: var(--bad); }
+  .files { color: var(--muted); font-size: .85rem; word-break: break-word; margin-top: 8px; }
+  .action { display: inline-block; margin-top: 16px; border: 0; border-radius: 999px; padding: 12px 26px;
+    background: var(--gold); color: #000; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .action[disabled] { opacity: .45; cursor: default; }
+  .status { margin-top: 14px; color: var(--muted); min-height: 1.5em; }
+  .status.bad { color: var(--bad); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: transparent;
+    border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -2px; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  ol { padding-left: 20px; } li { margin: 4px 0; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  a { color: var(--gold); }
+  footer { margin-top: 36px; color: var(--muted); font-size: .85rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Case Recomp</h1>
+    <div class="lang" role="group" aria-label="Idioma / Language">
+      <button type="button" data-lang="es" aria-pressed="true">ES</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+  <p class="lead" data-t="lead"></p>
+  <div class="beta" data-t="beta"></div>
+
+  <label class="drop" id="drop" for="folder">
+    <strong data-t="dropTitle"></strong>
+    <span data-t="dropHint"></span>
+  </label>
+  <input type="file" id="folder" webkitdirectory directory multiple>
+
+  <section class="card" id="result" hidden>
+    <h2 data-t="detected"></h2>
+    <div class="row"><strong id="gameName"></strong><span class="tag" id="gameTag"></span></div>
+    <div class="files" id="files"></div>
+    <button class="action" id="convert" type="button" data-t="convert"></button>
+    <a class="action" id="download" hidden></a>
+  </section>
+  <div class="status" id="status" aria-live="polite"></div>
+
+  <section class="card">
+    <h2 data-t="howTitle"></h2>
+    <ol>
+      <li data-t="how1"></li>
+      <li data-t="how2"></li>
+      <li data-t="how3"></li>
+      <li data-t="how4"></li>
+    </ol>
+    <p class="muted" data-t="privacy"></p>
+  </section>
+
+  <footer data-t="footer"></footer>
+</main>
+<script>
+const REPO = "https://github.com/Dr3amyBerry/Case-Recomp";
+const TEXT = {
+  es: {
+    lead: "Convierte la carpeta de tu juego original en el archivo .zip que importa la app Case Recomp.",
+    beta: "<strong>Beta.</strong> Puede tener errores. Si algo no funciona, avísanos en <a href=\"" + REPO + "/issues\">GitHub</a>. Se entrega tal cual, sin garantías de ningún tipo. No incluye ningún juego: necesitas tu propia copia original.",
+    dropTitle: "Elige o arrastra aquí la carpeta del juego",
+    dropHint: "La carpeta donde está instalado, por ejemplo la que contiene MysteryCaseFiles.exe y la carpeta data",
+    detected: "Juego detectado",
+    unknown: "Juego Director no reconocido",
+    noGame: "No se encontró ningún juego Director en esta carpeta.",
+    supported: "Compatible", inDevelopment: "En desarrollo", unsupported: "No compatible todavía",
+    files: (movie, casts) => `Ejecutable: ${movie} · ${casts} archivos de datos (.cct)`,
+    convert: "Crear archivo para la app",
+    download: (name) => `Descargar ${name}`,
+    reading: (n) => `Leyendo ${n} archivos…`,
+    loadingPython: "Preparando el convertidor (la primera vez tarda un poco)…",
+    converting: "Convirtiendo… suele tardar menos de un minuto.",
+    done: (s) => `Listo: ${s.entries} archivos dentro del paquete. Ahora pásalo a tu móvil y, en la app, pulsa Importar.`,
+    error: "Error: ",
+    howTitle: "Cómo se usa",
+    how1: "Instala la app Case Recomp en tu Android (descárgala desde <a href=\"" + REPO + "/releases\">Releases</a>).",
+    how2: "En tu PC, elige aquí la carpeta donde está instalado tu juego original.",
+    how3: "Pulsa «Crear archivo para la app» y descarga el .zip.",
+    how4: "Copia el .zip al móvil (por ejemplo a Descargas), abre la app y pulsa Importar.",
+    privacy: "Tus archivos no se suben a ningún sitio: la conversión se hace dentro de tu navegador. El .zip contiene datos de tu juego: es solo para ti, no lo compartas.",
+    footer: "Case Recomp es un proyecto de aficionados, sin relación con los autores ni editores de los juegos. <a href=\"" + REPO + "\">Código fuente</a>.",
+  },
+  en: {
+    lead: "Turn the folder of your original game into the .zip file the Case Recomp app imports.",
+    beta: "<strong>Beta.</strong> It may have bugs. If something does not work, tell us on <a href=\"" + REPO + "/issues\">GitHub</a>. Provided as is, without warranty of any kind. No game is included: you need your own original copy.",
+    dropTitle: "Choose or drop the game folder here",
+    dropHint: "The folder where it is installed, e.g. the one holding MysteryCaseFiles.exe and the data folder",
+    detected: "Game detected",
+    unknown: "Unrecognised Director game",
+    noGame: "No Director game was found in this folder.",
+    supported: "Supported", inDevelopment: "In development", unsupported: "Not supported yet",
+    files: (movie, casts) => `Executable: ${movie} · ${casts} data files (.cct)`,
+    convert: "Create file for the app",
+    download: (name) => `Download ${name}`,
+    reading: (n) => `Reading ${n} files…`,
+    loadingPython: "Preparing the converter (takes a moment the first time)…",
+    converting: "Converting… usually under a minute.",
+    done: (s) => `Done: ${s.entries} files in the package. Copy it to your phone and tap Import in the app.`,
+    error: "Error: ",
+    howTitle: "How to use it",
+    how1: "Install the Case Recomp app on your Android (download it from <a href=\"" + REPO + "/releases\">Releases</a>).",
+    how2: "On your PC, choose here the folder where your original game is installed.",
+    how3: "Press “Create file for the app” and download the .zip.",
+    how4: "Copy the .zip to your phone (e.g. Downloads), open the app and tap Import.",
+    privacy: "Your files are not uploaded anywhere: the conversion runs inside your browser. The .zip holds your game's data: it is for you only, do not share it.",
+    footer: "Case Recomp is a fan project, not affiliated with the games' authors or publishers. <a href=\"" + REPO + "\">Source code</a>.",
+  },
+};
+// Only Director files are read into memory.
+const WANTED = /\.(exe|dir|dxr|dcr|cct|cst|cxt)$/i;
+
+let lang = navigator.language && navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
+try { lang = localStorage.getItem("lang") || lang; } catch (e) {}
+let report = null, lastStatus = null, downloadUrl = null, summary = null;
+const $ = (id) => document.getElementById(id);
+const t = (key, ...args) => { const v = TEXT[lang][key]; return typeof v === "function" ? v(...args) : v; };
+
+function render() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach((el) => { el.innerHTML = t(el.dataset.t); });
+  document.querySelectorAll("[data-lang]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  if (report) showReport();
+  if (lastStatus) status(...lastStatus);
+  if (summary && downloadUrl) $("download").textContent = t("download", $("download").download);
+}
+function status(key, kind, ...args) {
+  lastStatus = [key, kind, ...args];
+  const el = $("status");
+  el.className = "status" + (kind === "bad" ? " bad" : "");
+  if (key === null) { el.textContent = ""; return; }
+  const text = key === "raw" ? args[0] : t(key, ...args);
+  el.innerHTML = (kind === "busy" ? '<span class="spinner"></span>' : "") + "";
+  el.append(document.createTextNode(text));
+}
+function showReport() {
+  $("result").hidden = false;
+  const tag = $("gameTag");
+  if (!report.movie) {
+    $("gameName").textContent = t("noGame"); tag.hidden = true; $("files").textContent = "";
+    $("convert").disabled = true; return;
+  }
+  tag.hidden = false;
+  $("gameName").textContent = report.title ? report.title.name : t("unknown");
+  tag.textContent = report.title ? (report.title.ready ? t("supported") : t("inDevelopment")) : t("unsupported");
+  tag.className = "tag " + (report.title && report.title.ready ? "ok" : "bad");
+  $("files").textContent = t("files", report.movie_name, report.casts.length);
+  $("convert").disabled = !(report.title && report.title.ready);
+}
+
+const worker = new Worker("worker.js");
+worker.onmessage = ({ data }) => {
+  if (data.type === "status") status(data.key, "busy");
+  else if (data.type === "scanned") { report = data.report; status(null); showReport(); }
+  else if (data.type === "converted") {
+    summary = data.summary;
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    downloadUrl = URL.createObjectURL(new Blob([data.bytes], { type: "application/zip" }));
+    const a = $("download");
+    a.href = downloadUrl; a.download = (summary.title ? summary.title.id : "game") + ".director.zip";
+    a.textContent = t("download", a.download); a.hidden = false;
+    $("convert").hidden = true;
+    status("done", "ok", summary);
+  } else if (data.type === "error") {
+    const line = data.message.trim().split("\n").pop();
+    status("raw", "bad", t("error") + line);
+    $("convert").disabled = !(report && report.title && report.title.ready);
+  }
+};
+
+async function load(files) {
+  const wanted = files.filter((f) => WANTED.test(f.name));
+  report = null; summary = null; $("download").hidden = true; $("convert").hidden = false;
+  status("reading", "busy", wanted.length);
+  const payload = await Promise.all(wanted.map(async (f) => ({ path: f.path, data: await f.file.arrayBuffer() })));
+  worker.postMessage({ type: "scan", files: payload }, payload.map((p) => p.data));
+}
+
+$("folder").addEventListener("change", (e) => {
+  load([...e.target.files].map((file) => ({ file, name: file.name, path: file.webkitRelativePath || file.name })));
+  e.target.value = "";
+});
+$("convert").addEventListener("click", () => { $("convert").disabled = true; worker.postMessage({ type: "convert" }); });
+
+// Dropping a folder: walk it with the entries API.
+function walk(entry, prefix, out) {
+  return new Promise((resolve) => {
+    if (entry.isFile) entry.file((file) => { out.push({ file, name: file.name, path: prefix + file.name }); resolve(); }, () => resolve());
+    else if (entry.isDirectory) {
+      const reader = entry.createReader(), all = [];
+      const next = () => reader.readEntries(async (batch) => {
+        if (!batch.length) { await Promise.all(all.map((e) => walk(e, prefix + entry.name + "/", out))); resolve(); }
+        else { all.push(...batch); next(); }
+      }, () => resolve());
+      next();
+    } else resolve();
+  });
+}
+const drop = $("drop");
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("over")));
+drop.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  const entries = [...e.dataTransfer.items].map((i) => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const out = [];
+  await Promise.all(entries.map((entry) => walk(entry, "", out)));
+  load(out);
+});
+document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => {
+  lang = b.dataset.lang; try { localStorage.setItem("lang", lang); } catch (e) {}
+  render();
+}));
+render();
+</script>
+</body>
+</html>

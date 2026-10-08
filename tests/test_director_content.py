@@ -12,7 +12,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from caserecomp.__main__ import main
-from caserecomp.director_content import build_director_content, cast_key
+from caserecomp.director_content import cover_path, build_director_content, cast_key
 from caserecomp.inspector import InspectionError
 from tests.test_movie_bundle import bitmap_specific, member, xtra_specific
 from tests.test_phase3b_media import packbits_literal
@@ -120,10 +120,21 @@ class DirectorContentTests(unittest.TestCase):
             with zipfile.ZipFile(root / "out.zip") as zf:
                 self.assertEqual(json.loads(zf.read("manifest.json"))["cover"], "media/01/1.png")
             (root / "out.zip").unlink()
-            for bad in ("2", "x", "0"):  # 2 is Flash, not a bitmap
+            for bad in ("2", "x", "0", "01:missing"):  # 2 is Flash, not a bitmap
                 with self.assertRaises(InspectionError):
                     self.build(root, cover=bad)
             self.assertFalse((root / "out.zip").exists())
+
+    def test_cover_by_member_name(self):
+        bundle = {"internal_members": [{"number": 7, "name": "logo", "type": "bitmap"},
+                                       {"number": 8, "name": "intro", "type": "sound"}],
+                  "external_casts": [{"file": "Dat1.cct", "members": [{"number": 3, "name": "logo", "type": "bitmap"}]}]}
+        self.assertEqual(cover_path("logo", bundle), "media/internal/7.png")
+        self.assertEqual(cover_path("dat1:logo", bundle), "media/dat1/3.png")
+        self.assertEqual(cover_path("12", bundle), "media/internal/12.png")
+        for bad in ("intro", "absent", "dat2:logo"):
+            with self.assertRaises(InspectionError):
+                cover_path(bad, bundle)
 
     def test_alpha_bitd_wav_and_skipped_members(self):
         with tempfile.TemporaryDirectory() as tmp:

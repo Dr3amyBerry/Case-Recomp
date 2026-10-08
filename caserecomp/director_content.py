@@ -124,12 +124,19 @@ def _archive_media(archive: DirectorArchive, key: str, ffmpeg: Path | None, skip
             skipped[f"{kind}: {exc}"] += 1
 
 
-def cover_path(cover: str) -> str:
-    """Package path of a cover bitmap given as "number" (movie cast) or "cast:number"."""
-    cast, _, number = cover.rpartition(":")
-    if not number.isdigit() or int(number) < 1:
-        raise InspectionError("cover must be a member number, optionally prefixed by its cast")
-    return f"media/{cast_key(cast)}/{int(number)}.png"
+def cover_path(cover: str, movie_bundle: dict | None = None) -> str:
+    """Package path of a cover bitmap: "number" or "name" (movie cast), or "cast:number" / "cast:name"."""
+    cast, _, member = cover.rpartition(":")
+    if not member.isdigit() and movie_bundle is not None:
+        if cast:
+            members = next((c["members"] for c in movie_bundle.get("external_casts", [])
+                            if cast_key(c["file"]) == cast_key(cast)), [])
+        else:
+            members = movie_bundle.get("internal_members", [])
+        member = next((str(m["number"]) for m in members if m.get("name") == member and m.get("type") == "bitmap"), member)
+    if not member.isdigit() or int(member) < 1:
+        raise InspectionError("cover must name a bitmap member by number or name, optionally prefixed by its cast")
+    return f"media/{cast_key(cast)}/{int(member)}.png"
 
 
 def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmpeg: Path | None = None,
@@ -166,7 +173,7 @@ def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmp
                 archive, _ = open_archive(path)
                 for item_path, data, key, number, kind in _archive_media(archive, cast_key(name), ffmpeg, skipped):
                     add(item_path, data, cast=key, member=number, kind=kind)
-            cover_entry = cover_path(cover) if cover else None
+            cover_entry = cover_path(cover, movie_bundle) if cover else None
             if cover_entry and not any(e["path"] == cover_entry and e.get("kind") == "bitmap" for e in entries):
                 raise InspectionError("cover member is not a packaged bitmap")
             manifest = {

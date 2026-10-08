@@ -1,0 +1,45 @@
+name: converter page
+
+# Publishes web/ (the in-browser game-folder -> app ZIP converter) to GitHub Pages,
+# with the caserecomp Python package zipped beside it for Pyodide.
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "caserecomp/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Assemble site
+        run: |
+          mkdir site
+          cp web/index.html web/worker.js web/convert.py site/
+          python3 - <<'EOF'
+          import pathlib, zipfile
+          with zipfile.ZipFile("site/caserecomp.zip", "w", zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(pathlib.Path("caserecomp").glob("*.py")):
+                  z.write(p, "caserecomp/" + p.name)
+          EOF
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

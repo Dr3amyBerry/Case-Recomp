@@ -29,6 +29,8 @@ import android.widget.Toast
  * cover shown is the bitmap that package names as its cover.
  */
 class HomeActivity : Activity() {
+    private data class Game(val title: String, val ready: Boolean)
+
     private lateinit var repository: PrivateDirectorRepository
     private lateinit var games: LinearLayout
     private var importing = false
@@ -39,7 +41,7 @@ class HomeActivity : Activity() {
         repository = PrivateDirectorRepository(this)
         games = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setPadding(dp(24), 0, dp(24), dp(16))
         }
         val column = LinearLayout(this).apply {
@@ -59,10 +61,38 @@ class HomeActivity : Activity() {
         column.addView(HorizontalScrollView(this).apply {
             isFillViewport = true
             isHorizontalScrollBarEnabled = false
-            addView(games, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            addView(games, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        column.addView(TextView(this).apply {
+            text = BETA_NOTICE
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(dp(24), 0, dp(24), dp(10))
+            setOnClickListener { openIssues() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         setContentView(column)
         hideSystemBars()
+        showBetaNoticeOnce()
+    }
+
+    /** First launch: this is a beta, delivered as is; problems are reported on GitHub. */
+    private fun showBetaNoticeOnce() {
+        val prefs = getSharedPreferences("case-recomp-home", MODE_PRIVATE)
+        if (prefs.getBoolean(BETA_SEEN, false)) return
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Versión beta")
+            .setMessage("Case Recomp está en beta: puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan " +
+                "como en el juego original.\n\nSi encuentras algún problema, avísanos en GitHub (toca el aviso de abajo en la " +
+                "pantalla principal).\n\nLa aplicación se entrega tal cual, sin garantías de ningún tipo. No incluye ningún juego: " +
+                "necesitas tu propia copia original.")
+            .setPositiveButton("Entendido") { _, _ -> prefs.edit().putBoolean(BETA_SEEN, true).apply() }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun openIssues() {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(ISSUES_URL))) }
     }
 
     override fun onResume() {
@@ -91,7 +121,41 @@ class HomeActivity : Activity() {
     /** Rebuild the cards from the repository's state (imported or not, its cover). */
     private fun refresh() {
         games.removeAllViews()
-        for (title in GAMES) games.addView(card(title), LinearLayout.LayoutParams(dp(coverHeight() * 3 / 2 + 24), ViewGroup.LayoutParams.WRAP_CONTENT))
+        for (game in GAMES) {
+            games.addView(if (game.ready) card(game.title) else lockedCard(game.title),
+                LinearLayout.LayoutParams(dp(coverHeight() * 3 / 2 + 24), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = dp(CARD_GAP / 2); marginEnd = dp(CARD_GAP / 2)
+                })
+        }
+    }
+
+    /** A title the engine is not verified against yet: shown, but not importable. */
+    private fun lockedCard(title: String): View = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+        background = rounded(CARD, dp(14).toFloat(), CARD_EDGE)
+        alpha = 0.6f
+        addView(FrameLayout(this@HomeActivity).apply {
+            background = rounded(COVER_BACK, dp(10).toFloat(), 0)
+            addView(TextView(this@HomeActivity).apply {
+                text = "🔒\n" + title
+                setTextColor(MUTED)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+                gravity = Gravity.CENTER
+            })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(coverHeight())))
+        addView(TextView(this@HomeActivity).apply {
+            text = title
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, dp(8))
+        })
+        addView(actionButton("En desarrollo", primary = false) {}.apply { isEnabled = false },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
     }
 
     private fun card(title: String): View {
@@ -216,14 +280,25 @@ class HomeActivity : Activity() {
     }
 
     /** Cover height (dp): what the screen leaves under the title, name and buttons. */
-    private fun coverHeight() = (resources.configuration.screenHeightDp - 220).coerceIn(120, 300)
+    private fun coverHeight(): Int {
+        val config = resources.configuration
+        val byHeight = config.screenHeightDp - 250
+        // Every title's card fits across the screen.
+        val byWidth = ((config.screenWidthDp - 48) / GAMES.size - CARD_GAP - 24) * 2 / 3
+        return minOf(byHeight, byWidth).coerceIn(100, 300)
+    }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density + 0.5f).toInt()
 
     private companion object {
         const val APP_TITLE = "Case Recomp"
-        /** Titles this engine build is verified against; each imports its own private package. */
-        val GAMES = listOf("Huntsville")
+        /** Titles shown; only [Game.ready] ones import a private package and play. */
+        val GAMES = listOf(Game("Huntsville", ready = true), Game("Prime Suspects", ready = false), Game("Ravenhearst", ready = false))
+        const val CARD_GAP = 16
+        const val BETA_SEEN = "beta-notice-seen"
+        const val ISSUES_URL = "https://github.com/Dr3amyBerry/Case-Recomp/issues"
+        const val BETA_NOTICE = "Beta: puede tener errores. Si encuentras alguno, avísanos en GitHub (toca aquí). " +
+            "Se entrega tal cual, sin garantías. No incluye ningún juego."
         const val REQUEST_ZIP = 7001
         const val TAG = "CaseRecompHome"
         const val TOP = 0xFF1B2333.toInt()

@@ -244,10 +244,19 @@ class DirectorLauncherActivity : Activity() {
         val layout = FrameLayout(this)
         layout.addView(newStage, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        layout.addView(Button(this).apply {
-            text = "Teclado"
-            alpha = 0.7f
-            setOnClickListener { newStage.showKeyboard() }
+        // Keyboard for the player-name entry; Exit returns to the game selection screen.
+        layout.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Button(this@DirectorLauncherActivity).apply {
+                text = "Teclado"
+                alpha = 0.7f
+                setOnClickListener { newStage.showKeyboard() }
+            })
+            addView(Button(this@DirectorLauncherActivity).apply {
+                text = "Salir"
+                alpha = 0.7f
+                setOnClickListener { finish() }
+            })
         }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END))
         setContentView(layout)
         newStage.requestFocus()
