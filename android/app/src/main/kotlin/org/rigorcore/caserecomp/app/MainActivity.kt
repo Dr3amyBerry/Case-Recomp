@@ -2,6 +2,9 @@ package org.rigorcore.caserecomp.app
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.view.Menu
+import android.view.MenuItem
 import android.os.Bundle
 import android.widget.Toast
 import org.rigorcore.caserecomp.AllowAllFlowGate
@@ -22,6 +25,23 @@ class MainActivity : Activity() {
     private var flowProofLoaded = false
     private var loadedContent: LoadedPrivateContent? = null
     private var bitmapLoader: BitmapAssetLoader = NoopBitmapAssetLoader
+
+    /** Debug-only entry; release remains disabled and existing synthetic shell unchanged. */
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            menu.add(0, DIRECTOR_MENU_ID, 0, "Director VM (private debug)")
+        }
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == DIRECTOR_MENU_ID &&
+            applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            startActivity(Intent(this, DirectorLauncherActivity::class.java))
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -160,6 +180,7 @@ class MainActivity : Activity() {
     override fun onDestroy() { runtime.onDestroy(); super.onDestroy() }
 
     companion object {
+        private const val DIRECTOR_MENU_ID = 6043
         private const val REQUEST_PRIVATE_CONTENT = 4041
         private const val REQUEST_VERIFIED_FLOW = 4042
         private const val REQUEST_VERIFIED_SCENE = 4043
