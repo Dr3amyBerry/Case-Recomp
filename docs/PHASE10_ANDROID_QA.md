@@ -74,7 +74,7 @@ When the stage is shown larger than 800×600 the compositor works at 2× (text d
 ## Known limitations / next engineering tasks
 
 - Rendering is software compositing on the UI thread (fast enough now: ~5 ms per scene frame on WSA).
-- Text uses Android system families in place of the title's embedded fonts; per-face width/size factors approximate the originals, so a few labels wrap or size slightly differently from Windows. Only the style of a member's first visible run is applied (no per-run styling yet).
+- Text uses Android system families in place of the title's embedded fonts. Width, size, line pitch and first-baseline factors per face were calibrated against native projector captures (map labels, scene panel, timer); embedded faces (`Name *`) take weight and slant from their name only; overflowing lines close up to 3/4 pitch before a box grows, and a leading empty line is ~0.6 of a line. A few texts still wrap differently (e.g. the panel's "Elementos necesarios…" is two lines instead of three). Only the style of a member's first visible run is applied (no per-run styling yet).
 - The leaderboard header is no longer clipped (fixed by the HTML table paragraph rule).
 - Score behaviours that reference members missing from every cast (internal 863–866, 909) are ignored, as Director does.
 - Every sound start writes a short temporary file for `MediaPlayer`; a `SoundPool` path for short effects would lower latency.

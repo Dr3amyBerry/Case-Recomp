@@ -20,7 +20,8 @@ import org.rigorcore.caserecomp.lingo.asText
  * - `label` — frame number and label
  * - `sprites|from|to` — one line per on-stage sprite: number, member, type, rect, blend, scripted
  * - `hit|n` — a stage point where a click reaches sprite n, or `none`
- * - `global|name`, `prop|target|name`, `call|target|method|args…` — target is `global:name`
+ * - `text|n` — sprite n's member name, size and text (returns shown as `/`)
+ * - `global|name`,`prop|target|name`, `call|target|method|args…` — target is `global:name`
  *   or `sprite:n`; arguments are integers, `#symbols` or strings; results as Lingo text
  * - `callsprites|from|to|method|args…` — the method on each sprite with a member, `n=result` lines
  * - `flashbutton|n` —a stage point on the first button of sprite n's Flash movie, or `none`
@@ -42,6 +43,7 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?) 
             "$n|${m.name}|${m.type}|${b[0]},${b[1]},${b[2]},${b[3]}|${s.blend}|${if (s.instances.isNotEmpty()) 1 else 0}"
         }.joinToString("\n")
         "hit" -> hitPoint(rt, parts[1].toInt())?.let { "${it.first} ${it.second}" } ?: "none"
+        "text" -> rt.sprite(parts[1].toInt()).member?.let { m -> "${m.name}|${m.width}x${m.height}|${m.text.replace('\r', '/')}" } ?: "none"
         "global" -> rt.vm.global(parts[1]).asText()
         "prop" -> rt.vm.getObjectProp(target(rt, parts[1]), parts[2]).asText()
         "call" -> {

@@ -92,7 +92,12 @@ class StageRenderer(
                 val color = LColor.of(runtime.sprite(item.sprite).getProp("color"))
                 if (item.member.data?.filled != false) fillRect(item.left, item.top, item.right, item.bottom, color.argb, alpha)
             }
-            "text", "field" -> textImage(item.member, w, h)?.let { blit(colorize(item.member, it, item.fore, item.back), item, alpha) }
+            "text", "field" -> textImage(item.member, w, h)?.let { image ->
+                // A box grown to its content comes back taller: it extends the sprite downwards.
+                val perStagePixel = (image.width / w).coerceAtLeast(1)
+                val grown = if (image.height > h * perStagePixel) item.copy(bottom = item.top + image.height * scale / perStagePixel) else item
+                blit(colorize(item.member, image, item.fore, item.back), grown, alpha)
+            }
             // Flash is sampled per stage pixel and written as scale x scale blocks: full-stage
             // animations would otherwise cost scale² times more for little visible gain.
             "flash" -> stageItem.flash?.let { drawFlash(it, stageItem, alpha) }

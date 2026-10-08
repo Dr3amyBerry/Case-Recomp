@@ -19,6 +19,7 @@ import org.rigorcore.caserecomp.director.TextLayout
 import org.rigorcore.caserecomp.director.TextLine
 import org.rigorcore.caserecomp.director.TextMetrics
 import org.rigorcore.caserecomp.director.TextRasterizer
+import org.rigorcore.caserecomp.lingo.toInt
 import java.io.File
 
 /** Pixel-size capped Android decoding for private PNG/JPEG member media. */
@@ -52,10 +53,17 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
 
     private fun apply(member: CastMember) {
         paint.textSize = (member.fontSize * shrink * size(member.font)).coerceAtLeast(1f)
+        // Fonts embedded in the title ("Name *") draw in their own weight and slant: Director
+        // does not embolden them, so only the face name says bold or italic.
+        val name = member.font.lowercase()
+        val embedded = member.font.trimEnd().endsWith("*")
+        val bold = if (embedded) "bold" in name else member.bold
+        val italic = if (embedded) "italic" in name else member.italic
+        paint.textSkewX = if ("readout" in name) -0.18f else 0f
         val style = when {
-            member.bold && member.italic -> Typeface.BOLD_ITALIC
-            member.bold -> Typeface.BOLD
-            member.italic -> Typeface.ITALIC
+            bold && italic -> Typeface.BOLD_ITALIC
+            bold -> Typeface.BOLD
+            italic -> Typeface.ITALIC
             else -> Typeface.NORMAL
         }
         paint.typeface = Typeface.create(family(member.font), style)
@@ -75,68 +83,142 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         return paint.measureText(text.replace('\t', ' ')).toInt()
     }
 
-    override fun lineHeight(member: CastMember): Int = (member.fontSize * shrink * size(member.font) * 1.25f).toInt().coerceAtLeast(1)
+    override fun lineHeight(member: CastMember): Int =
+        (member.fontSize * shrink * size(member.font) * leading(member.font)).toInt().coerceAtLeast(1)
 
     override fun render(member: CastMember, width: Int, height: Int): LingoImage? = render(member, width, height, 1)
 
     /** Lays out in stage pixels (same wrapping at every scale) and draws the glyphs [scale] times larger. */
     override fun render(member: CastMember, width: Int, height: Int, scale: Int): LingoImage? {
-        if (width <= 0 || height <= 0 || scale !in 1..4 || width.toLong() * height * scale * scale > 16L * 1024 * 1024) return null
-        val bitmap = Bitmap.createBitmap(width * scale, height * scale, Bitmap.Config.ARGB_8888)
+        if (width <= 0 || height <= 0 || scale !in 1..4) return null
         try {
-            val canvas = Canvas(bitmap)
-            canvas.scale(scale.toFloat(), scale.toFloat())
-            // The box was sized for the original font: rather than wrapping words or lines out of
-            // the visible box, squeeze then shrink the substitute until the text fits.
-            var lines = TextLayout.lines(member, width, this)
-            for ((squeeze, size) in FIT_STEPS) {
-                if (fits(lines, member, width, height)) break
-                condense = squeeze; shrink = size
-                lines = TextLayout.lines(member, width, this)
-            }
+            val lines = fit(member, width, height)
             val step = TextLayout.lineHeight(member, this)
             apply(member)
-            paint.color = member.textColor
-            paint.style = Paint.Style.FILL
-            var baseline = -paint.fontMetrics.ascent
-            for (line in lines) {
-                if (baseline > height + step) break
-                for ((dx, run) in line.segments) canvas.drawText(run, (line.x + dx).toFloat(), baseline, paint)
-                baseline += step
+            val metrics = paint.fontMetrics
+            val fixed = member.prop("fixedlinespace")?.toInt()?.takeIf { it > 0 } != null
+            val rows = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
+            // Lines that overflow the box close up (to 3/4 of their pitch), as the original's do;
+            // beyond that the box grows to its content, so the image may be taller than the box.
+            val pitch = if (!fixed && rows * step > height) maxOf(height.toFloat() / rows, step * MIN_PITCH) else step.toFloat()
+            val content = if (fixed) rows * step else ((rows - 1) * pitch + metrics.descent - metrics.ascent).toInt() + 1
+            val drawn = maxOf(height, minOf(content, height * 4))
+            if (width.toLong() * drawn * scale * scale > 16L * 1024 * 1024) return null
+            val bitmap = Bitmap.createBitmap(width * scale, drawn * scale, Bitmap.Config.ARGB_8888)
+            try {
+                val canvas = Canvas(bitmap)
+                canvas.scale(scale.toFloat(), scale.toFloat())
+                paint.color = member.textColor
+                paint.style = Paint.Style.FILL
+                // A fixed line space is a slot per line whose glyphs sit on its bottom (less the descent).
+                // The first baseline sits at about 0.8 em, as the originals' faces do; the platform
+                // faces' ascents run taller and would set every line a few pixels low.
+                var baseline = if (fixed) step - metrics.descent else minOf(-metrics.ascent, paint.textSize * FIRST_BASELINE)
+                for ((index, line) in lines.withIndex()) {
+                    if (baseline > drawn + step) break
+                    for ((dx, run) in line.segments) canvas.drawText(run, (line.x + dx).toFloat(), baseline, paint)
+                    // A leading empty line is short in the original (~0.6 of a line), unless lines are fixed.
+                    baseline += if (index == 0 && !fixed && line.text.isBlank()) pitch * LEADING_BLANK else pitch
+                }
+                val pixels = IntArray(bitmap.width * bitmap.height)
+                bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                return LingoImage(bitmap.width, bitmap.height, 32, pixels).also { it.useAlpha = true }
+            } finally {
+                bitmap.recycle()
             }
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            return LingoImage(bitmap.width, bitmap.height, 32, pixels).also { it.useAlpha = true }
         } finally {
             condense = 1f; shrink = 1f
-            bitmap.recycle()
         }
     }
 
-    /** Lines fit when none is wider than the box and their glyphs end inside its height. */
-    private fun fits(lines: List<TextLine>, member: CastMember, width: Int, height: Int): Boolean {
-        if (lines.any { line -> line.x + line.segments.last().let { (dx, run) -> dx + width(member, run) } > width }) return false
-        apply(member)
-        val glyphs = paint.fontMetrics.descent - paint.fontMetrics.ascent
-        // Trailing blank lines need not be visible.
-        val rows = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
-        return (rows - 1) * TextLayout.lineHeight(member, this) + glyphs <= height + 1
+    /**
+     * Lays the text out for a box sized for the original face. A substitute that needs more
+     * lines than the box holds is first squeezed horizontally (up to 15%) when that gives fewer
+     * lines. Extra lines are then absorbed by closing up the line pitch (see [render]) and, past
+     * that, by the box growing; the glyphs shrink only when the text is far too long for its box.
+     */
+    private fun fit(member: CastMember, width: Int, height: Int): List<TextLine> {
+        fun rows(lines: List<TextLine>) = lines.dropLastWhile { it.text.isBlank() }.size.coerceAtLeast(1)
+        fun tooWide(lines: List<TextLine>) = lines.any { line -> line.x + line.segments.last().let { (dx, run) -> dx + width(member, run) } > width }
+        /** Overflow once the pitch has closed up as far as it may. */
+        fun overflow(lines: List<TextLine>) = rows(lines) * TextLayout.lineHeight(member, this) * MIN_PITCH - height
+        var best: Pair<Float, List<TextLine>>? = null
+        for (squeeze in CONDENSE) {
+            condense = squeeze
+            val lines = TextLayout.lines(member, width, this)
+            if (tooWide(lines)) continue
+            val step = TextLayout.lineHeight(member, this)
+            // Fits at its natural pitch: keep the authored size and width.
+            if (rows(lines) * step - height <= step / 4) return lines
+            if (best == null || rows(lines) < rows(best.second)) best = squeeze to lines
+        }
+        condense = best?.first ?: CONDENSE.last()
+        val lines = best?.second ?: TextLayout.lines(member, width, this)
+        if (!tooWide(lines) && overflow(lines) <= TextLayout.lineHeight(member, this) * 3 / 2) return lines
+        // Far too long for the box (or a word wider than it): shrink as a last resort.
+        condense = CONDENSE.last()
+        for (size in SHRINK) {
+            shrink = size
+            val smaller = TextLayout.lines(member, width, this)
+            if (!tooWide(smaller) && overflow(smaller) <= TextLayout.lineHeight(member, this) / 4) return smaller
+        }
+        return TextLayout.lines(member, width, this)
     }
 
     private companion object {
-        val FIT_STEPS = listOf(0.95f to 1f, 0.9f to 1f, 0.85f to 1f, 0.85f to 0.9f, 0.85f to 0.8f, 0.85f to 0.7f)
+        /** How far overflowing lines may close up: the original sets "Elementos necesarios…" at ~0.77. */
+        const val MIN_PITCH = 0.75f
+        /** First baseline below the box top, per em: Palatino 14 sits at ~10.5 px in the original. */
+        const val FIRST_BASELINE = 0.78f
+        /** Height of a text's leading empty line per line pitch (measured on the original's panels). */
+        const val LEADING_BLANK = 0.6f
+        val CONDENSE = listOf(1f, 0.95f, 0.9f, 0.85f)
+        val SHRINK = listOf(0.9f, 0.8f, 0.7f)
 
-        /** Advance-width ratio of the authored face to its substitute (typewriter faces run narrow). */
-        fun width(font: String): Float = if ("typewriter" in font.lowercase()) 0.9f else 1f
+        /**
+         * Advance-width ratio of the authored face to its substitute, measured against the
+         * original's rendering (Palatino 14 sets "Taller Mecánico" in 99 px; typewriter faces run narrow).
+         */
+        fun width(font: String): Float {
+            val name = font.lowercase()
+            return when {
+                "typewriter" in name -> 0.9f
+                "palatino" in name -> 0.95f
+                "times" in name -> 0.86f
+                // Tekton's letters run wider than the platform sans at the same glyph size.
+                "tekto" in name -> 1.15f
+                // A narrow seven-segment readout ("19:58" is ~60 px at 36 pt).
+                "readout" in name -> 0.9f
+                else -> 1f
+            }
+        }
 
         /** Glyph size of the authored face relative to its substitute at the same point size. */
-        fun size(font: String): Float = if ("tekto" in font.lowercase()) 0.8f else 1f
+        fun size(font: String): Float {
+            val name = font.lowercase()
+            return when {
+                "tekto" in name -> 0.8f
+                "readout" in name -> 0.95f
+                else -> 1f
+            }
+        }
+
+        /** Line pitch per glyph size: the original lays Palatino 14 at ~15 px and Tekto 15 at ~13.5 px. */
+        fun leading(font: String): Float {
+            val name = font.lowercase()
+            return when {
+                "palatino" in name || "times" in name -> 1.08f
+                "tekto" in name -> 1.12f
+                else -> 1.25f
+            }
+        }
 
         fun family(font: String): String {
             val name = font.lowercase()
             return when {
                 "times" in name || "palatino" in name || "typewriter" in name || "georgia" in name -> "serif"
-                "courier" in name || "writer" in name || "readout" in name || "mono" in name -> "monospace"
+                "readout" in name -> "sans-serif-condensed"
+                "courier" in name || "writer" in name || "mono" in name -> "monospace"
                 "slapstick" in name || "comic" in name || "script" in name -> "casual"
                 else -> "sans-serif"
             }
