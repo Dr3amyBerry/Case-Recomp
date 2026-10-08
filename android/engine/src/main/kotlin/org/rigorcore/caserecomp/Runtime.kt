@@ -190,6 +190,8 @@ data class RenderFrame(
     val totalTargets: Int,
     val designWidth: Int,
     val designHeight: Int,
+    /** An acknowledge-mode scene is complete and shows its closing dialog. */
+    val awaitingAcknowledge: Boolean = false,
 )
 
 object RenderModelBuilder {
@@ -197,8 +199,10 @@ object RenderModelBuilder {
         val scene = session.selectedSceneId?.let { selected -> scenario.scenes.find { it.id == selected } }
         val found = scene?.let { session.found(it.id) }.orEmpty()
         val targets = scene?.targets.orEmpty().map { RenderTarget(it.id, it.bounds, it.z, it.id in found) }
+        val awaiting = scene != null && session.screen == Screen.SCENE &&
+            scene.completion == SceneCompletion.ACKNOWLEDGE_THEN_MAP && found == scene.targets.map { it.id }.toSet()
         return RenderFrame(session.screen, scene?.id, session.frame, targets, found.size, scene?.targets?.size ?: 0,
-            scenario.designWidth, scenario.designHeight)
+            scenario.designWidth, scenario.designHeight, awaiting)
     }
 }
 
@@ -263,6 +267,7 @@ class RuntimeTraceRecorder(private val sourcePackageSha256: String) : RuntimeObs
         is Input.FindObject -> "tap"
         is Input.AdvanceFrame -> "advance-frame"
         Input.BackToMap -> "back"
+        Input.Acknowledge -> "acknowledge"
         Input.Reset -> "reset"
     }
     private fun eventKind(event: EngineEvent): String = when (event) {
@@ -352,6 +357,10 @@ class GameRuntime(
         val layout = scenario.layout(sceneId) ?: return null
         val point = LetterboxViewport(scenario.designWidth.toFloat(), scenario.designHeight.toFloat())
             .gamePoint(screenX, screenY, viewWidth, viewHeight) ?: return null
+        if (engine.awaitingAcknowledge(session)) {
+            val region = scenario.scenes.first { it.id == sceneId }.acknowledgeRegion ?: return null
+            return if (region.contains(point)) Input.Acknowledge else null
+        }
         return engine.inputForTap(session, layout, point)
     }
 
