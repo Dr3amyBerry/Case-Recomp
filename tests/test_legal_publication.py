@@ -28,6 +28,14 @@ class LegalPublicationTest(unittest.TestCase):
         self.assertIn("LEGAL.md", home)
         self.assertIn("PRIVACY.md", home)
         self.assertIn("TERMS.md", home)
+        self.assertIn("mailto:contact@rigorcore.com", home)
+
+    def test_legal_contact_is_published_consistently(self):
+        for path in ("LEGAL.md", "PRIVACY.md", "TERMS.md", "COPYRIGHT_POLICY.md",
+                     "LEGAL_RELEASE_CHECKLIST.md", "README.md", "web/index.html"):
+            with self.subTest(path=path):
+                self.assertIn("contact@rigorcore.com",
+                              (ROOT / path).read_text(encoding="utf-8"))
 
     def test_proprietary_packages_remain_gitignored(self):
         rules = (ROOT / ".gitignore").read_text(encoding="utf-8")

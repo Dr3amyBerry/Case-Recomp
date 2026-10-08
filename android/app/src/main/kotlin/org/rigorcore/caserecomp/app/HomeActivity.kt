@@ -109,17 +109,20 @@ class HomeActivity : Activity() {
     /** The concise non-affiliation notice is visible offline; full bilingual notices open externally. */
     private fun showLegalNotices() {
         val labels = arrayOf("Aviso legal y marcas", "Política de privacidad", "Términos de uso",
-            "Licencias de terceros", "Estado de licencia del código")
+            "Licencias de terceros", "Estado de licencia del código", "Contacto: contact@rigorcore.com")
         val docs = arrayOf("LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md",
             "LICENSING_STATUS.md")
         android.app.AlertDialog.Builder(this)
             .setTitle("Case Recomp — información legal")
             .setItems(labels) { _, which ->
-                runCatching {
-                    startActivity(Intent(Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://github.com/Dr3amyBerry/Case-Recomp/blob/main/" + docs[which])))
-                }.onFailure {
-                    Toast.makeText(this, "No hay un navegador disponible", Toast.LENGTH_LONG).show()
+                val isContact = which == docs.size
+                val uri = if (isContact) android.net.Uri.parse("mailto:contact@rigorcore.com")
+                    else android.net.Uri.parse("https://github.com/Dr3amyBerry/Case-Recomp/blob/main/" + docs[which])
+                val action = if (isContact) Intent.ACTION_SENDTO else Intent.ACTION_VIEW
+                runCatching { startActivity(Intent(action, uri)) }.onFailure {
+                    Toast.makeText(this,
+                        if (isContact) "No hay aplicación de correo disponible" else "No hay navegador disponible",
+                        Toast.LENGTH_LONG).show()
                 }
             }
             .setNegativeButton("Cerrar", null)
