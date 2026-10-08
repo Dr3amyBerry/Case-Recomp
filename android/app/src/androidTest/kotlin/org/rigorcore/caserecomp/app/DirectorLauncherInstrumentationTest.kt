@@ -93,10 +93,10 @@ class DirectorLauncherInstrumentationTest {
                         try {
                             stage.draw(Canvas(output))
                             val pixel = output.getPixel(320, 240)
-                            // API 26 reports #00F000 on the emulator for a fully
-                            // green synthetic stage, while API 33/36 report #00FF00.
-                            // Require opaque saturated green (not a blank stage),
-                            // allowing a bounded <= 15/255 display colour difference.
+                            // API 26 tinted the focused stage with the theme's focus
+                            // highlight (#00F000, then #19FF19 on a dark theme); the
+                            // stage now disables it. Require opaque saturated green
+                            // (not a blank stage), allowing <= 15/255 difference.
                             painted = Color.alpha(pixel) == 255 &&
                                 Color.red(pixel) == 0 && Color.blue(pixel) == 0 &&
                                 Color.green(pixel) in 240..255

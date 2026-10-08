@@ -83,6 +83,8 @@ internal class DirectorStageView(
     init {
         isFocusable = true
         isFocusableInTouchMode = true
+        // Android 8 tints a focused view with the theme's focus highlight; the stage keeps its own colours.
+        if (android.os.Build.VERSION.SDK_INT >= 26) defaultFocusHighlightEnabled = false
         contentDescription = "Director game stage"
     }
 
