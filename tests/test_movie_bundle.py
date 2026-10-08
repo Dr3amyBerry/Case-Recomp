@@ -100,6 +100,28 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parsed, {"text": "Café\rOpen", "fonts": ["Arial", "Courier"]})
         self.assertEqual(parse_xmed_text(b"FFFF"), {"text": "", "fonts": []})
 
+    def test_xmed_paragraph_and_character_style(self):
+        def packed(*values: int) -> bytes:
+            return b"".join(b"\x02%X" % v if v >= 0 else b"\x02-%X" % -v for v in values)
+
+        version = 0x40001
+        # Section 7 par_info records: [0] left (unused), [1] centered; section 5 selects record 1.
+        par_tail = [0] * (8 + 1 + 8 + 1 + 10) + [0] + [0] * 16 + [0] * 8
+        paragraphs = packed(0, *par_tail) + packed(1, *par_tail)
+        # Section 6 style_info: [0] plain, [1] font 1, bold, 18pt, navy; section 4 selects style 1.
+        def style(font: int, bold: int, size: int, rgb: tuple[int, int, int]) -> bytes:
+            fixed = [0, size * 65536] + [0] * 9
+            return packed(font, 0, 0, 0, 0, 0, 0, 0, 0, *(c << 8 for c in rgb), 0, 0, 0, 0, 0,
+                          *fixed, 0, 0, 0, *([0] * 8), bold, *([0] * 31), 0, 0, 0, 0, 0, 0)
+        styles = packed(2) + style(0, 0, 12, (0, 0, 0)) + style(1, 1, 18, (0x20, 0x28, 0x4B))
+        font_table = b"".join(b"\x0040," + pascal(font) + bytes(0x40 - 1 - len(font)) for font in (b"Arial", b"Typewriter"))
+        data = (b"FFFF0000000600040001" + xmed_section(0, packed(version)) + xmed_section(2, b"\x002,Hi")
+                + xmed_section(8, font_table) + xmed_section(4, packed(0, 1, 2, 1))
+                + xmed_section(5, packed(0, 1, 2, 0)) + xmed_section(6, styles) + xmed_section(7, paragraphs))
+        parsed = parse_xmed_text(data)
+        self.assertEqual(parsed["alignment"], "center")
+        self.assertEqual(parsed["style"], {"font": "Typewriter", "font_size": 18, "font_style": ["bold"], "color": "#20284b"})
+
     def test_rejects_malformed_tables(self):
         bad = [
             lambda: parse_cast_list(b"x"),

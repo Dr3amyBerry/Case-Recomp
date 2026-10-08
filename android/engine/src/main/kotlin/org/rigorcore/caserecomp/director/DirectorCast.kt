@@ -139,7 +139,19 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
     val regX: Int get() = overrides["regpoint"]?.let { (it as LPoint).h.toInt() } ?: data?.regX ?: 0
     val regY: Int get() = overrides["regpoint"]?.let { (it as LPoint).v.toInt() } ?: data?.regY ?: 0
 
-    val fontSize: Int get() = overrides["fontsize"]?.toInt() ?: 12
+    val fontSize: Int get() = overrides["fontsize"]?.toInt() ?: data?.textStyle?.fontSize ?: 12
+
+    /** Text layout and face: Lingo values, else the authored style of the member's first run. */
+    val alignment: String get() = overrides["alignment"]?.asText()?.lowercase() ?: data?.textStyle?.alignment ?: "left"
+    val font: String get() = overrides["font"]?.asText() ?: data?.textStyle?.font ?: "Arial"
+    val fontStyle: List<String> get() = (overrides["fontstyle"] as? LingoValue.LList)?.items?.map { it.asText().lowercase() }
+        ?: data?.textStyle?.fontStyle ?: emptyList()
+    val bold: Boolean get() = "bold" in fontStyle
+    val italic: Boolean get() = "italic" in fontStyle
+
+    /** Text colour (ARGB): Lingo `color`, else the authored first-run colour, else black. */
+    val textColor: Int get() = (overrides["color"] ?: overrides["forecolor"])?.let { LColor.of(it).argb }
+        ?: data?.textStyle?.color ?: 0xFF000000.toInt()
 
     /** Character number under a member-relative point (length + 1 past the end of the text). */
     fun locToCharPos(x: Int, y: Int): Int {
@@ -184,6 +196,9 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
         "scriptinstancelist" -> LingoValue.LList()
         else -> overrides[p] ?: when (p) {
             "fontsize" -> LInt(fontSize)
+            "alignment" -> LingoValue.LSymbol(alignment)
+            "font" -> LString(font)
+            "fontstyle" -> LingoValue.LList(fontStyle.ifEmpty { listOf("plain") }.map { LingoValue.LSymbol(it) }.toMutableList())
             "fixedlinespace", "charspacing", "scrolltop" -> LInt(0)
             "forecolor" -> LInt(data?.foreColor ?: 255)
             "backcolor" -> LInt(data?.backColor ?: 0)

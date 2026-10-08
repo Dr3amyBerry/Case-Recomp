@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.media.MediaPlayer
 import org.rigorcore.caserecomp.director.CastMember
 import org.rigorcore.caserecomp.director.DirectorContent
@@ -14,6 +15,7 @@ import org.rigorcore.caserecomp.director.ImageDecoder
 import org.rigorcore.caserecomp.director.LColor
 import org.rigorcore.caserecomp.director.LingoImage
 import org.rigorcore.caserecomp.director.SoundOutput
+import org.rigorcore.caserecomp.director.TextLayout
 import org.rigorcore.caserecomp.director.TextMetrics
 import org.rigorcore.caserecomp.director.TextRasterizer
 import java.io.File
@@ -40,12 +42,28 @@ internal object AndroidDirectorImageDecoder : ImageDecoder {
     private const val MAX_PIXELS = 16L * 1024 * 1024
 }
 
+/**
+ * Text members drawn with platform fonts. The title's embedded font members are not
+ * usable on Android, so each authored face maps to the closest system family.
+ */
 internal class AndroidDirectorText : TextRasterizer, TextMetrics {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    override fun width(member: CastMember, text: String): Int {
+    private fun apply(member: CastMember) {
         paint.textSize = member.fontSize.toFloat().coerceAtLeast(1f)
-        return paint.measureText(text).toInt()
+        val style = when {
+            member.bold && member.italic -> Typeface.BOLD_ITALIC
+            member.bold -> Typeface.BOLD
+            member.italic -> Typeface.ITALIC
+            else -> Typeface.NORMAL
+        }
+        paint.typeface = Typeface.create(family(member.font), style)
+        paint.isUnderlineText = "underline" in member.fontStyle
+    }
+
+    override fun width(member: CastMember, text: String): Int {
+        apply(member)
+        return paint.measureText(text.replace('\t', ' ')).toInt()
     }
 
     override fun lineHeight(member: CastMember): Int = (member.fontSize * 1.25f).toInt().coerceAtLeast(1)
@@ -55,20 +73,33 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)
-            paint.textSize = member.fontSize.toFloat().coerceAtLeast(1f)
-            paint.color = LColor.of(member.getProp("foreColor")).argb
+            val lines = TextLayout.lines(member, width, this)
+            apply(member)
+            paint.color = member.textColor
             paint.style = Paint.Style.FILL
-            var baseline = -paint.fontMetrics.top
-            val step = lineHeight(member)
-            for (line in member.text.replace("\r\n", "\n").replace('\r', '\n').split('\n')) {
+            val step = TextLayout.lineHeight(member, this)
+            var baseline = -paint.fontMetrics.ascent
+            for (line in lines) {
                 if (baseline > height + step) break
-                canvas.drawText(line, 0f, baseline, paint)
+                canvas.drawText(line.text.replace('\t', ' '), line.x.toFloat(), baseline, paint)
                 baseline += step
             }
             val pixels = IntArray(width * height)
             bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-            return LingoImage(width, height, 32, pixels)
+            return LingoImage(width, height, 32, pixels).also { it.useAlpha = true }
         } finally { bitmap.recycle() }
+    }
+
+    private companion object {
+        fun family(font: String): String {
+            val name = font.lowercase()
+            return when {
+                "times" in name || "palatino" in name || "typewriter" in name || "georgia" in name -> "serif"
+                "courier" in name || "writer" in name || "readout" in name || "mono" in name -> "monospace"
+                "slapstick" in name || "comic" in name || "script" in name -> "casual"
+                else -> "sans-serif"
+            }
+        }
     }
 }
 

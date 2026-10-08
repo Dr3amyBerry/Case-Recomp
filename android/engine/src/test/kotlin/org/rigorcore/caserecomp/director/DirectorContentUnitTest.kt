@@ -19,7 +19,9 @@ class DirectorContentUnitTest {
 
     private val movieJson = """{"format":"case-recomp-movie-bundle","version":1,"stage":{"width":64,"height":48,"tempo":15},
         "labels":[],"cast_libs":[{"number":1,"name":"Internal","file_path":""},{"number":2,"name":"art","file_path":"art.cst"}],
-        "internal_members":[{"number":3,"name":"logo","type":"bitmap","width":2,"height":1}],
+        "internal_members":[{"number":3,"name":"logo","type":"bitmap","width":2,"height":1},
+          {"number":6,"name":"welcome","type":"xtra","xtra":"text","text":"aa bb cc","alignment":"center",
+           "style":{"font":"Typewriter","font_size":18,"font_style":["bold"],"color":"#20284b"}}],
         "external_casts":[{"file":"Art.CCT","sha256":"x","members":[{"number":1,"name":"tile","type":"bitmap","width":2,"height":1}]}],
         "score":{"frame_count":1,"channel_count":6,"sprite_record_size":48,"sprites":[],"spans":[]}}"""
     private val lingoJson = """{"format":"case-recomp-lingo-bundle","version":1,"names":[],"scripts":[]}"""
@@ -84,6 +86,26 @@ class DirectorContentUnitTest {
             // Header plus media/art/*: big enough that a cast is not mistaken for a missing download stub.
             assertEquals(1024 + files.getValue("media/art/1.png").size, content.castFileSize("C:\\game\\Art.cct"))
             assertEquals(-1, content.castFileSize("missing.cct"))
+        }
+    }
+
+    @Test fun text_members_carry_their_authored_style_into_layout() {
+        DirectorContent.open(pack(files), decoder).use { content ->
+            val rt = DirectorRuntime(content.movie, content.lingo, content)
+            val member = rt.member(org.rigorcore.caserecomp.lingo.LingoValue.LString("welcome"), null)
+            assertEquals(listOf("center", "Typewriter", "18"), listOf(member.alignment, member.font, member.fontSize.toString()))
+            assertTrue(member.bold)
+            assertEquals(0xFF20284B.toInt(), member.textColor)
+            // One unit per character: "aa bb" (5) fits a 6-wide box, "cc" wraps and is centred.
+            val metrics = object : TextMetrics {
+                override fun width(member: CastMember, text: String) = text.length
+                override fun lineHeight(member: CastMember) = 1
+            }
+            val lines = TextLayout.lines(member, 6, metrics)
+            assertEquals(listOf("aa bb", "cc"), lines.map { it.text })
+            assertEquals(listOf(0, 2), lines.map { it.x })
+            member.setProp("alignment", org.rigorcore.caserecomp.lingo.LingoValue.LSymbol("right"))
+            assertEquals(listOf(1, 4), TextLayout.lines(member, 6, metrics).map { it.x })
         }
     }
 

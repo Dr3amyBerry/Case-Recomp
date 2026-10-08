@@ -104,22 +104,133 @@ def parse_cast_list(data: bytes) -> list[dict]:
     return out
 
 
-def parse_xmed_text(data: bytes) -> dict:
-    """Plain text and font names of a Director text Xtra (XMED) member."""
-    sections: dict[int, bytes] = {}
-    pos = data.find(b"\x03")
-    while 0 <= pos and pos + 21 <= len(data):
-        header = data[pos + 1:pos + 21]
+XMED_HEADER = re.compile(rb"\x03([0-9A-F]{4})([0-9A-F]{8})([0-9A-F]{8})")
+
+
+def _xmed_sections(data: bytes) -> dict[int, tuple[int, bytes]]:
+    """Section key -> (declared count, body) of an XMED stream; the first copy of a key wins."""
+    sections: dict[int, tuple[int, bytes]] = {}
+    pos = 0
+    while True:
+        match = XMED_HEADER.search(data, pos)
+        if match is None:
+            return sections
+        length = int(match.group(2), 16)
+        # The declared length counts the 0x03 that starts the next section header.
+        body = data[match.end():match.end() + length]
+        if body.endswith(b"\x03"):
+            body = body[:-1]
+        sections.setdefault(int(match.group(1), 16), (int(match.group(3), 16), body))
+        pos = match.end() + max(0, length - 1)
+
+
+class _Packer:
+    """Paige's packed number stream: ctrl byte, hex digits; bit 7 repeats the last value
+    (with bit 6 a following byte gives the repeat count); ctrl type 1 is an unsigned short."""
+
+    def __init__(self, data: bytes):
+        self.data, self.pos, self.last, self.repeat = data, 0, 0, 0
+
+    def remaining(self) -> int:
+        return len(self.data) - self.pos
+
+    def num(self) -> int:
+        if self.repeat > 0:
+            self.repeat -= 1
+            return self.last
+        if self.pos >= len(self.data):
+            return 0
+        ctrl = self.data[self.pos]
+        self.pos += 1
+        if ctrl & 0x80:
+            if ctrl & 0x40 and self.pos < len(self.data):
+                self.repeat = self.data[self.pos] - 1
+                self.pos += 1
+            return self.last
+        start = self.pos
+        while self.pos < len(self.data) and chr(self.data[self.pos]) in "0123456789ABCDEFabcdef-":
+            self.pos += 1
+        digits = self.data[start:self.pos].decode("ascii")
         try:
-            section, length = int(header[0:4], 16), int(header[4:12], 16)
+            value = int(digits, 16) if digits else 0
         except ValueError:
-            pos = data.find(b"\x03", pos + 1)
-            continue
-        body = data[pos + 21:pos + 21 + length]
-        sections.setdefault(section, body)
-        pos = data.find(b"\x03", pos + 21 + length)
+            value = 0
+        if ctrl & 0x0F == 1:
+            value &= 0xFFFF
+        self.last = value
+        return value
+
+    def nums(self, count: int) -> list[int]:
+        return [self.num() for _ in range(count)]
+
+
+def _first_run_index(section: tuple[int, bytes] | None) -> int:
+    """Index named by the first (text offset, index) run of a run section."""
+    if section is None:
+        return 0
+    packer = _Packer(section[1])
+    packer.num()  # text offset
+    return packer.num()
+
+
+def _xmed_paragraph_justification(body: bytes, index: int, version: int) -> int:
+    """Justification (0 left, 1 center, 2 right, 3 full) of par_info [index] (section 7)."""
+    packer = _Packer(body)
+    for current in range(index + 1):
+        if packer.remaining() <= 0:
+            return 0
+        justification = packer.num()
+        if current == index:
+            return justification
+        packer.nums(8)  # line height, box, 3 indents, border, margin, line spacing
+        if version >= 65547:
+            packer.num()
+        packer.nums(8)
+        if version >= 65552:
+            packer.num()
+        packer.nums(2 + 8)  # refcon, dword2E8, gap2A8
+        extra = packer.num()
+        for _ in range(max(0, min(extra, 32))):
+            packer.nums(4)
+        packer.nums(max(0, extra - 32))
+        packer.nums((version >= 8) + (version >= 65548) + 4 * (version >= 65552) + (version >= 65555)
+                    + 9 * (version >= 131075))
+        if version >= 131090:
+            packer.nums(1 + 4 + (version >= 196614) + (version >= 196615) + (version >= 196616))
+    return 0
+
+
+def _xmed_char_style(body: bytes, index: int, version: int) -> dict | None:
+    """Font index, size, styles and colour of style_info [index] (section 6)."""
+    packer = _Packer(body)
+    packer.num()  # declared style count
+    for current in range(index + 1):
+        if packer.remaining() <= 4:
+            return None
+        font_index = packer.num()
+        packer.nums(4)  # two words, style number, word wrap
+        packer.nums(4)
+        fore = packer.nums(4)
+        packer.nums(4)  # back colour
+        if version < 65547:
+            packer.num()
+        fixed = packer.nums(11)  # Paige pg_fixed block: [1] is the point size (16.16)
+        packer.nums((version < 65547) + (version >= 65551) + 2 + 8)  # refcon, dword120, gapB4
+        flags = packer.nums(32 if version >= 257 else 16)
+        packer.nums((version >= 65536) + 4 * (version >= 65552) + (version >= 65555))
+        if current == index:
+            style = [name for name, on in zip(("bold", "italic", "underline"), flags) if on]
+            return {"font_index": font_index, "font_size": fixed[1] // 65536,
+                    "font_style": style, "color": "#%02x%02x%02x" % tuple((c >> 8) & 0xFF for c in fore[:3])}
+    return None
+
+
+def parse_xmed_text(data: bytes) -> dict:
+    """Plain text, font names and the first run's paragraph and character style of a
+    Director text Xtra (XMED) member, whose styling is stored as packed Paige records."""
+    sections = _xmed_sections(data)
     text = ""
-    raw = sections.get(2)
+    raw = sections.get(2, (0, None))[1]
     if raw is not None:
         if not raw.startswith(b"\x00") or b"," not in raw:
             raise InspectionError("unsupported XMED text section")
@@ -128,12 +239,27 @@ def parse_xmed_text(data: bytes) -> dict:
         if size > len(rest):
             raise InspectionError("truncated XMED text")
         text = rest[:size].decode("cp1252", errors="replace")  # lines end with RETURN, as Lingo sees them
+    font_table = sections.get(8, (0, b""))[1]
     fonts = []
-    for match in FONT_ENTRY.finditer(sections.get(8, b"")):
-        name = sections[8][match.end():match.end() + match.group(1)[0]]
+    for match in FONT_ENTRY.finditer(font_table):
+        name = font_table[match.end():match.end() + match.group(1)[0]]
         if len(name) == match.group(1)[0] and all(32 <= c < 127 for c in name):
             fonts.append(name.decode("ascii"))
-    return {"text": text, "fonts": list(dict.fromkeys(fonts))}
+    result: dict = {"text": text, "fonts": list(dict.fromkeys(fonts))}
+    version = _Packer(sections[0][1]).num() if 0 in sections else 0
+    if 7 in sections:
+        justification = _xmed_paragraph_justification(sections[7][1], _first_run_index(sections.get(5)), version)
+        result["alignment"] = {1: "center", 2: "right", 3: "justify"}.get(justification, "left")
+    if 6 in sections:
+        style = _xmed_char_style(sections[6][1], _first_run_index(sections.get(4)), version)
+        if style is not None:
+            font_index = style.pop("font_index")
+            if 0 <= font_index < len(fonts):
+                style["font"] = fonts[font_index]
+            if not 0 < style["font_size"] <= 200:
+                del style["font_size"]
+            result["style"] = style
+    return result
 
 
 def _rect(specific: bytes, pos: int) -> tuple[int, int, int, int]:

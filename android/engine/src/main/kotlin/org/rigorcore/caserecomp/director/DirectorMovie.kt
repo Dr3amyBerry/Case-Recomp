@@ -20,6 +20,16 @@ class MemberData(
     val foreColor: Int = 255,
     val backColor: Int = 0,
     val filled: Boolean = true,
+    /** Text Xtra style of the first run: alignment symbol name, font, point size, styles, ARGB colour. */
+    val textStyle: TextStyle? = null,
+)
+
+class TextStyle(
+    val alignment: String = "left",
+    val font: String? = null,
+    val fontSize: Int? = null,
+    val fontStyle: List<String> = emptyList(),
+    val color: Int? = null,
 )
 
 /** Members of one cast file (the movie's internal cast or an external .cct/.cxt). */
@@ -149,6 +159,22 @@ class DirectorMovie(
                 shape = m["shape"] as? String,
                 foreColor = m.optInt("fore_color", 255), backColor = m.optInt("back_color"),
                 filled = m["filled"] != false,
+                textStyle = textStyle(m),
+            )
+        }
+
+        private fun textStyle(m: Map<*, *>): TextStyle? {
+            val style = m["style"] as? Map<*, *>
+            val alignment = m["alignment"] as? String
+            if (style == null && alignment == null) return null
+            val color = (style?.get("color") as? String)?.takeIf { Regex("#[0-9a-fA-F]{6}").matches(it) }
+                ?.let { (0xFF000000 or it.substring(1).toLong(16)).toInt() }
+            return TextStyle(
+                alignment = alignment ?: "left",
+                font = style?.get("font") as? String,
+                fontSize = (style?.get("font_size") as? Long)?.toInt()?.takeIf { it in 1..200 },
+                fontStyle = (style?.get("font_style") as? List<*>).orEmpty().filterIsInstance<String>(),
+                color = color,
             )
         }
 
