@@ -104,9 +104,10 @@ class DirectorLauncherActivity : Activity() {
                 val xtras = StandardXtras(store, castFileSize = { path ->
                     if (movie.externalCast(path) != null) 1 else -1
                 })
-                require(movie.stageWidth in 1..4096 && movie.stageHeight in 1..4096 &&
-                    movie.stageWidth.toLong() * movie.stageHeight <= 16L * 1024 * 1024) {
-                    "invalid Director stage geometry"
+                require(movie.stageWidth in 1..2048 && movie.stageHeight in 1..2048 &&
+                    movie.stageWidth.toLong() * movie.stageHeight <= 4L * 1024 * 1024 &&
+                    movie.frameCount in 1..100_000 && movie.channelCount in 6..8_192) {
+                    "Director movie dimensions or channel counts exceed safe bounds"
                 }
                 val runtime = DirectorRuntime(
                     movie, loaded.lingo, media = loaded, sound = output,
