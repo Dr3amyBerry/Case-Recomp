@@ -125,6 +125,10 @@ def main(argv: list[str] | None = None) -> int:
     slice_proof.add_argument("--scene-id", required=True)
     slice_proof.add_argument("--output", required=True, type=Path)
 
+    lingo_bundle = cmd.add_parser("lingo-bundle", help="Private compiled-Lingo bundle (bytecode, no source) for the Kotlin VM")
+    lingo_bundle.add_argument("source", type=Path)
+    lingo_bundle.add_argument("--output", required=True, type=Path)
+
     scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
     scene_proof.add_argument("observation", type=Path)
     scene_proof.add_argument("scenario", type=Path)
@@ -296,6 +300,15 @@ def main(argv: list[str] | None = None) -> int:
                 package_id=args.package_id,
             )
             write_json_create_only(args.output, record)
+        elif args.command == "lingo-bundle":
+            from .lingo_bytecode import build_lingo_bundle
+            from .vertical_slice import write_json_create_only
+            from .pipeline import guard_destination
+            guard_destination(args.source, args.output)
+            bundle = build_lingo_bundle(args.source)
+            write_json_create_only(args.output, bundle)
+            record = {"format": bundle["format"], "scripts": len(bundle["scripts"]),
+                      "handlers": sum(len(script["handlers"]) for script in bundle["scripts"])}
         elif args.command == "scene-proof":
             from .verified_scene import verified_scene_from_observation
             from .vertical_slice import load_json, load_scenario_for_proof, write_json_create_only
