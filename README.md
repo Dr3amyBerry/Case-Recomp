@@ -13,6 +13,7 @@ A read-only/explicit-local-extraction toolkit for an independently obtained game
 - [x] **7 —** API 26/33/36 emulator QA, lifecycle/persistence, corruption/migration, low-memory/audio interruption and deterministic performance guardrails.
 - [x] **8 —** controlled synthetic debug APK, same-run byte reproducibility evidence, CycloneDX/provenance, external ADB process-kill/upgrade/save-backup QA and API 26/33/36 emulator validation; no production release/signing.
 - [~] **9 —** first playable hidden-object scene: a private `.crscene` proof from native-projector trials drives verified finds, completion, return to map, lock and persistence for one observed target configuration.
+- [~] **10 —** private Lingo decompilation plus a generic Kotlin Lingo VM that runs the user's own compiled scripts (bytecode bundle reader done).
 
 ## Install
 
@@ -75,6 +76,7 @@ For a directory containing 38 casts, run `convert-local /private/game/data --out
 - [Phase 8 — controlled synthetic debug packaging](docs/PHASE8.md)
 - [Phase 6B — native runtime capture consensus](docs/PHASE6B.md)
 - [Phase 7 QA preparation](docs/PHASE7_QA.md)
+- [Phase 10 — private decompilation and Lingo VM](docs/PHASE10.md)
 - [Phase 9 — first playable hidden-object scene](docs/PHASE9.md)
 - [Phase 6 — fail-closed verified vertical slice and `.crflow` proof](docs/PHASE6.md)
 - [Phase 5 — private local content import, asset catalog, slots and emulator tests](docs/PHASE5.md)

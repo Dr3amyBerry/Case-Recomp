@@ -29,7 +29,7 @@ Two controlled trials started from the same saved-profile snapshot, so their ini
 
 - Every verified target corresponds to exactly one Score sprite at the scene entry frame, drawn from the location's external cast. The Score position is the sprite's registration point at its centre. The region that changes on screen after a find lies inside that sprite.
 - Hit masks are the sprite's alpha minus every higher-channel sprite. This model reproduces all 16 observed trial clicks. It also reproduces 13 of 15 earlier exploratory clicks; the 2 mismatches sit on occlusion edges where the converted alpha of a covering sprite is imprecise.
-- All object sprites share one behaviour script whose handlers are `beginSprite`, `exitFrame` and an init handler, with no mouse handler. Mouse handling lives in overlay channels that carry `mouseDown` behaviours, including one script exposing `setClickSprite`/`getClickSprite`. This is a structural candidate for the click dispatcher. It is **not** confirmed as the responding handler; that would need runtime instrumentation.
+- Every object sprite carries the same item behaviour, whose compiled handlers include `mouseDown` and a hide handler, which is consistent with the observed click-to-hide response. (An earlier draft of this document named a different script and an overlay dispatcher; that conclusion came from an off-by-one script link, fixed in `score.member_script_number`, and is withdrawn.) Which handler runs on a click is now read from the privately decompiled Lingo (Phase 10) rather than inferred.
 
 ## Implementation
 
