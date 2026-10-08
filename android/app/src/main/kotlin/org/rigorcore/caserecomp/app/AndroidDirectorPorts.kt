@@ -186,6 +186,8 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
                 "palatino" in name -> 0.95f
                 "times" in name -> 0.86f
                 // Tekton's letters run wider than the platform sans at the same glyph size.
+                // The italic panel captions must stay inside a glass narrower than their boxes.
+                "tekto" in name && "italic" in name -> 0.95f
                 "tekto" in name -> 1.15f
                 // A narrow seven-segment readout ("19:58" is ~60 px at 36 pt).
                 "readout" in name -> 0.9f
@@ -197,6 +199,8 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         fun size(font: String): Float {
             val name = font.lowercase()
             return when {
+                // The italic instance sets smaller than the upright one at the same point size.
+                "tekto" in name && "italic" in name -> 0.68f
                 "tekto" in name -> 0.8f
                 "readout" in name -> 0.95f
                 else -> 1f
