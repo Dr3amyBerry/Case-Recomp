@@ -183,7 +183,33 @@ internal class DirectorStageView(
         }
     }
 
+    /** Debug aid for on-device QA (tag at DEBUG): F12 logs the on-stage display list. */
+    private fun logDisplayList() {
+        for (d in runtime.displayList()) {
+            if (d.right <= 0 || d.bottom <= 0 || d.left >= renderer.width || d.top >= renderer.height) continue
+            // First point (2 px grid) where a click reaches this sprite, if any.
+            var hit = ""
+            val sprite = runtime.sprite(d.sprite)
+            if (sprite.instances.isNotEmpty()) {
+                var tries = 0
+                search@ for (y in maxOf(0, d.top) until minOf(renderer.height, d.bottom) step 3) {
+                    for (x in maxOf(0, d.left) until minOf(renderer.width, d.right) step 3) {
+                        // Cheap own-pixel test first; only then ask which sprite is on top.
+                        if (!sprite.hit(x, y)) continue
+                        if (runtime.activeSpriteAt(x, y)?.number == d.sprite) { hit = " hit $x,$y"; break@search }
+                        if (++tries > 200) break@search
+                    }
+                }
+            }
+            android.util.Log.d(TAG, "sprite ${d.sprite} ${d.member.name} [${d.member.type}] ${d.left},${d.top},${d.right},${d.bottom} ink${d.ink} blend${d.blend}$hit")
+        }
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_F12 && android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
+            logDisplayList()
+            return true
+        }
         val key = when (keyCode) {
             KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> RETURN
             KeyEvent.KEYCODE_DEL -> BACKSPACE
