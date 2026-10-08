@@ -1,5 +1,9 @@
 package org.rigorcore.caserecomp.director
 
+import org.rigorcore.caserecomp.flash.Avm
+import org.rigorcore.caserecomp.flash.FlashHost
+import org.rigorcore.caserecomp.flash.FlashPlayer
+import org.rigorcore.caserecomp.flash.Undefined
 import org.rigorcore.caserecomp.lingo.LingoError
 import org.rigorcore.caserecomp.lingo.LingoValue
 import org.rigorcore.caserecomp.lingo.LingoValue.LInstance
@@ -16,11 +20,74 @@ import org.rigorcore.caserecomp.lingo.toDouble
 import org.rigorcore.caserecomp.lingo.toInt
 import kotlin.math.roundToInt
 
-/** Flash member playback state on a sprite (the movie itself is rendered elsewhere). */
-class FlashState {
-    var frame: LingoValue = LInt(1)
-    var playing = false
-    val variables = LinkedHashMap<String, String>()
+/**
+ * Flash member playback on a sprite: a [FlashPlayer] when the media supplies the SWF,
+ * otherwise only the Lingo-visible state (frame, playing, variables).
+ */
+class FlashState(private val runtime: DirectorRuntime, private val sprite: Sprite) {
+    private var source: CastMember? = null
+    var player: FlashPlayer? = null
+        private set
+    private var frame: LingoValue = LInt(1)
+    private var playing = false
+    private val variables = LinkedHashMap<String, String>()
+
+    /** The player for the sprite's current Flash member (created on first use), or null. */
+    fun current(): FlashPlayer? {
+        val m = sprite.member
+        if (m?.type != "flash") { reset(); return null }
+        if (m != source) {
+            reset()
+            source = m
+            player = runtime.flashMovie(m)?.let { movie ->
+                FlashPlayer(movie, object : FlashHost {
+                    override fun getURL(url: String, target: String) = runtime.flashURL(sprite, url)
+                    override fun warn(message: String) { runtime.warnings += "flash ${m.name}: $message" }
+                })
+            }
+        }
+        return player
+    }
+
+    fun reset() {
+        source = null; player = null
+        frame = LInt(1); playing = false; variables.clear()
+    }
+
+    /** Director's goToFrame plays on from the target frame (or label). */
+    fun goToFrame(target: LingoValue) {
+        val p = current()
+        frame = target
+        playing = true
+        p?.gotoAndPlay(if (target is LString) target.value else target.toDouble())
+    }
+
+    fun setPlaying(value: Boolean) {
+        val p = current()
+        playing = value
+        p?.root?.playing = value
+    }
+
+    val isPlaying: Boolean get() = current()?.root?.playing ?: playing
+    val frameValue: LingoValue get() = current()?.let { LInt(it.root.frame) } ?: frame
+
+    fun setVariable(name: String, value: String) {
+        val p = current()
+        variables[name] = value
+        p?.root?.set(name, value)
+    }
+
+    fun getVariable(name: String): String =
+        current()?.root?.get(name)?.takeIf { it !== Undefined }?.let { Avm.string(it) } ?: variables[name] ?: ""
+
+    /** Stage point to movie coordinates, through the sprite rectangle. */
+    fun toMovie(x: Int, y: Int): Pair<Double, Double>? {
+        val p = current() ?: return null
+        val b = sprite.bounds()
+        if (b[2] == b[0] || b[3] == b[1]) return null
+        val r = p.movie.bounds
+        return (r.xMin + (x - b[0]) * r.width / (b[2] - b[0])) to (r.yMin + (y - b[1]) * r.height / (b[3] - b[1]))
+    }
 }
 
 /**
@@ -35,7 +102,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
     internal var run: SpriteRun? = null
     private val set = HashMap<String, LingoValue>()
     val instances = mutableListOf<LInstance>()
-    val flash = FlashState()
+    val flash = FlashState(runtime, this)
 
     val member: CastMember? get() = (set["member"] as? CastMember)
         ?: run?.let { r -> if (r.member > 0) runtime.castLib(r.castLib)?.member(r.member) else null }
@@ -78,6 +145,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         if (!visible || m.type == "empty") return false
         val b = bounds()
         if (x < b[0] || x >= b[2] || y < b[1] || y >= b[3]) return false
+        if (m.type == "flash") return flash.toMovie(x, y)?.let { (mx, my) -> flash.player!!.hits(mx, my) } ?: true
         if (ink != 8 && ink != 36) return true
         val image = m.image ?: return true
         if (!image.useAlpha || b[2] == b[0] || b[3] == b[1]) return true
@@ -92,7 +160,7 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         span = newSpan
         set.clear()
         instances.clear()
-        flash.frame = LInt(1); flash.playing = false; flash.variables.clear()
+        flash.reset()
     }
 
     fun setMember(value: LingoValue) {
@@ -133,8 +201,8 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         "puppet" -> LingoValue.bool(set.isNotEmpty())
         "cursor" -> set["cursor"] ?: LInt(0)
         "name" -> LString("")
-        "playing" -> LingoValue.bool(flash.playing)
-        "frame" -> flash.frame
+        "playing" -> LingoValue.bool(flash.isPlaying)
+        "frame" -> flash.frameValue
         "ilk" -> LSymbol("sprite")
         else -> set[name.lowercase()] ?: throw LingoError("sprite has no property $name")
     }
@@ -170,11 +238,11 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
         val m = method.lowercase()
         if (member?.type == "flash") {
             when (m) {
-                "gotoframe" -> { flash.frame = args.firstOrNull() ?: LInt(1); return Void }
-                "play" -> { flash.playing = true; return Void }
-                "stop" -> { flash.playing = false; return Void }
-                "setvariable" -> { flash.variables[args.getOrElse(0) { Void }.asText()] = args.getOrElse(1) { Void }.asText(); return Void }
-                "getvariable" -> return LString(flash.variables[args.getOrElse(0) { Void }.asText()] ?: "")
+                "gotoframe" -> { flash.goToFrame(args.firstOrNull() ?: LInt(1)); return Void }
+                "play" -> { flash.setPlaying(true); return Void }
+                "stop" -> { flash.setPlaying(false); return Void }
+                "setvariable" -> { flash.setVariable(args.getOrElse(0) { Void }.asText(), args.getOrElse(1) { Void }.asText()); return Void }
+                "getvariable" -> return LString(flash.getVariable(args.getOrElse(0) { Void }.asText()))
             }
         }
         return runtime.sendSprite(this, method, args)

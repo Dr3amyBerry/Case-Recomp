@@ -1,5 +1,9 @@
 package org.rigorcore.caserecomp.director
 
+import org.rigorcore.caserecomp.flash.FlashError
+import org.rigorcore.caserecomp.flash.FlashPlayer
+import org.rigorcore.caserecomp.flash.SwfMovie
+import org.rigorcore.caserecomp.flash.SwfParser
 import org.rigorcore.caserecomp.lingo.LingoBundle
 import org.rigorcore.caserecomp.lingo.LingoError
 import org.rigorcore.caserecomp.lingo.LingoHost
@@ -27,6 +31,8 @@ data class DisplayItem(
     val sprite: Int, val member: CastMember,
     val left: Int, val top: Int, val right: Int, val bottom: Int,
     val ink: Int, val blend: Int, val rotation: Double, val flipH: Boolean, val flipV: Boolean,
+    /** Playing Flash movie of a Flash member sprite, drawn into the sprite rectangle. */
+    val flash: FlashPlayer? = null,
 )
 
 /** Projector environment the title sees through `the platform`, `the moviePath` and friends. */
@@ -199,8 +205,48 @@ class DirectorRuntime(
         frameEvent("prepareFrame")
         if (startMovie) vm.callGlobal("startMovie", emptyList())
         frameEvent("enterFrame")
+        for (sprite in sprites) if (sprite.span != null) sprite.flash.current()?.advance()
         soundChannels.forEach { it.update() }
         updateRollover()
+    }
+
+    private val flashMovies = HashMap<Pair<String, Int>, SwfMovie?>()
+
+    /** Parsed SWF of a Flash member (cached per cast file and slot), or null without media. */
+    fun flashMovie(member: CastMember): SwfMovie? {
+        val data = member.data ?: return null
+        val file = member.lib.file?.file ?: ""
+        return flashMovies.getOrPut(file to data.number) {
+            media.flash(file, data)?.let { bytes ->
+                try { SwfParser.parse(bytes) } catch (e: FlashError) { warnings += "flash ${member.name}: ${e.message}"; null }
+            }
+        }
+    }
+
+    /**
+     * getURL from a Flash sprite: "event: handler, args" sends a Lingo event to the sprite's
+     * behaviours (arguments parsed as Lingo literals) and "lingo: statement" runs a statement.
+     */
+    fun flashURL(sprite: Sprite, url: String) {
+        val trimmed = url.trim()
+        when {
+            trimmed.startsWith("event:", ignoreCase = true) -> {
+                val parts = trimmed.substring(6).split(',').map { it.trim() }
+                val args = parts.drop(1).filter { it.isNotEmpty() }.map { text ->
+                    LingoLiteralParser.parseOrVoid(text).takeIf { it != Void } ?: LString(text)
+                }
+                sendSprite(sprite, parts[0], args)
+            }
+            trimmed.startsWith("lingo:", ignoreCase = true) -> runStatement(trimmed.substring(6))
+            else -> warnings += "flash getURL ignored: $trimmed"
+        }
+    }
+
+    /** Topmost Flash sprite under a stage point with its movie coordinates. */
+    private fun flashAt(x: Int, y: Int): Pair<Sprite, Pair<Double, Double>>? {
+        val top = spriteAt(x, y) ?: return null
+        val point = top.flash.toMovie(x, y) ?: return null
+        return top to point
     }
 
     private fun leaveSpan(sprite: Sprite) {
@@ -286,6 +332,7 @@ class DirectorRuntime(
 
     fun mouseMove(x: Int, y: Int) {
         mouseX = x; mouseY = y
+        flashAt(x, y)?.let { (s, p) -> s.flash.player?.mouseMove(p.first, p.second) }
         updateRollover()
     }
 
@@ -293,6 +340,7 @@ class DirectorRuntime(
         vm.resetBudget()
         mouseMove(x, y)
         mouseIsDown = true
+        flashAt(x, y)?.let { (s, p) -> s.flash.player?.mouseDown(p.first, p.second) }
         downSprite = activeSpriteAt(x, y)
         spriteEvent(downSprite, "mouseDown")
         jumpAfterInput()
@@ -302,6 +350,7 @@ class DirectorRuntime(
         vm.resetBudget()
         mouseMove(x, y)
         mouseIsDown = false
+        flashAt(x, y)?.let { (s, p) -> s.flash.player?.mouseUp(p.first, p.second) }
         val target = downSprite
         downSprite = null
         if (target != null && target.span != null && !target.hit(x, y)) {
@@ -366,7 +415,7 @@ class DirectorRuntime(
         .sortedWith(compareBy({ it.locZ }, { it.number }))
         .map { s ->
             val b = s.bounds()
-            DisplayItem(s.number, s.member!!, b[0], b[1], b[2], b[3], s.ink, s.blend, s.rotation, s.flipH, s.flipV)
+            DisplayItem(s.number, s.member!!, b[0], b[1], b[2], b[3], s.ink, s.blend, s.rotation, s.flipH, s.flipV, s.flash.current())
         }
 
     private val stageLeft get() = (environment.desktopWidth - movie.stageWidth) / 2

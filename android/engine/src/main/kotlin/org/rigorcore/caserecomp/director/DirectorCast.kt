@@ -16,6 +16,9 @@ interface DirectorMedia {
     /** Decoded ARGB pixels of a bitmap member from cast file [castFile] ("" for the movie's own cast). */
     fun image(castFile: String, member: MemberData): LingoImage? = null
 
+    /** The SWF bytes of a Flash member. */
+    fun flash(castFile: String, member: MemberData): ByteArray? = null
+
     object None : DirectorMedia
 }
 
@@ -124,8 +127,14 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
                 ?: LingoImage(d.width, d.height).also { it.useAlpha = false }).also { overrides["image"] = it }
         }
 
-    val width: Int get() = (overrides["image"] as? LingoImage)?.width ?: overrides["width"]?.toInt() ?: data?.width ?: 0
-    val height: Int get() = (overrides["image"] as? LingoImage)?.height ?: overrides["height"]?.toInt() ?: data?.height ?: 0
+    val width: Int get() = (overrides["image"] as? LingoImage)?.width ?: overrides["width"]?.toInt()
+        ?: flashSize()?.first ?: data?.width ?: 0
+    val height: Int get() = (overrides["image"] as? LingoImage)?.height ?: overrides["height"]?.toInt()
+        ?: flashSize()?.second ?: data?.height ?: 0
+
+    /** Flash members take their size from the movie's stage. */
+    private fun flashSize(): Pair<Int, Int>? = if (type != "flash") null else
+        runtime.flashMovie(this)?.bounds?.let { it.width.toInt() to it.height.toInt() }
     val regX: Int get() = overrides["regpoint"]?.let { (it as LPoint).h.toInt() } ?: data?.regX ?: 0
     val regY: Int get() = overrides["regpoint"]?.let { (it as LPoint).v.toInt() } ?: data?.regY ?: 0
 

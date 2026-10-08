@@ -7,6 +7,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.rigorcore.caserecomp.flash.DialogSwf
 import org.rigorcore.caserecomp.lingo.Asm
 import org.rigorcore.caserecomp.lingo.LingoBundle
 import org.rigorcore.caserecomp.lingo.LingoError
@@ -48,6 +49,7 @@ class DirectorRuntimeUnitTest {
             handler("mouseEnter", asm().int(1).named(0x4F, "gHover").end()),
             handler("mouseLeave", asm().op(0x03).named(0x4F, "gHover").end()),
             handler("flash", asm().bump("gFlashes").end()),
+            handler("done", asm().op(0x4B, 1).named(0x4F, "gDone").end(), listOf("me", "n")),
         ))
         val movieScript = LingoScript("main", 6, ScriptType.MOVIE, emptyList(), emptyList(), listOf(LString("keyHandler()")), listOf(
             handler("prepareMovie", asm().op(0x44, 0).int(3).op(0x5D, 0).end(), emptyList()),
@@ -242,6 +244,33 @@ class DirectorRuntimeUnitTest {
         assertEquals(LString("openDialog"), sprite.getProp("frame"))
         assertEquals(LingoValue.TRUE, sprite.getProp("playing"))
         assertEquals(LString("80"), rt.vm.callMethod(sprite, "getVariable", listOf(sprite, LString("soundLevel"))))
+    }
+
+    @Test fun flash_movies_play_take_clicks_and_send_events_to_behaviours() {
+        val media = object : DirectorMedia {
+            override fun flash(castFile: String, member: MemberData) = if (member.name == "dialog") DialogSwf.bytes else null
+        }
+        val rt = runtime(media = media)
+        rt.start(); rt.go(LInt(3)); rt.tick()
+        val sprite = rt.sprite(2)
+        sprite.setProp("member", LString("dialog"))
+        assertEquals("size and centre registration come from the SWF stage", LRect(LInt(0), LInt(50), LInt(200), LInt(150)), sprite.getProp("rect"))
+        rt.vm.callMethod(sprite, "goToFrame", listOf(sprite, LString("open")))
+        rt.tick()
+        val player = sprite.flash.player!!
+        assertEquals(2, player.root.frame)
+        assertSame(player, rt.displayList().single { it.sprite == 2 }.flash)
+        assertNull("transparent areas of a Flash sprite do not hit", rt.spriteAt(150, 140)?.takeIf { it === sprite })
+        rt.mouseMove(35, 95)
+        rt.mouseDown(35, 95); rt.mouseUp(35, 95)
+        assertEquals(4, player.root.frame)
+        rt.tick()
+        assertEquals("getURL event reached the behaviour with a parsed argument", LInt(7), rt.g("gDone"))
+        assertEquals(LingoValue.FALSE, sprite.getProp("playing"))
+        rt.flashURL(sprite, "lingo: keyHandler()")
+        assertEquals(LInt(1), rt.g("gKeys"))
+        rt.flashURL(sprite, "http://example.invalid/")
+        assertTrue(rt.warnings.any { "ignored" in it })
     }
 
     @Test fun sound_channels_play_fade_and_report_busy() {
