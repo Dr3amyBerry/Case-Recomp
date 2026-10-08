@@ -148,3 +148,9 @@ New decompilations, exports and captures belong under the corresponding game
 folder. Huntsville outputs are specific to Huntsville; they are not Mystery P.I.
 outputs. Historical local manifests and capture logs retain their recorded paths;
 `private/relocation-2026-10-08.json` maps the previous locations to the new ones.
+
+### Multigame architecture / Arquitectura multijuego
+
+[Architecture and incremental plan](docs/MULTIGAME_ARCHITECTURE.md) ? [Huntsville audit](docs/HUNTSVILLE_COMPATIBILITY_AUDIT.md) ? [Versioned compatibility profiles](docs/GAME_COMPATIBILITY_PROFILE.md) ? [Mystery P.I. technical audit](docs/MYSTERY_PI_VEGAS_AUDIT.md) ? [Regression and acceptance plan](docs/MULTIGAME_REGRESSION_PLAN.md).
+
+These documents specify future work; they do not add a Mystery P.I. runtime or declare new game compatibility.
