@@ -63,7 +63,8 @@ WSA (Android 13, 1600×900) on the test PC runs the debug APK with the private p
    Later launches only need `--ez director true`. (In Git Bash set `MSYS_NO_PATHCONV=1` so device paths are not rewritten.)
 4. `adb shell setprop log.tag.CaseRecompDirector DEBUG` enables debug-only diagnostics: touch → stage point and hit sprite, fps/tick/draw timings every 5 s, each sound started, and **F12** (`adb shell input keyevent KEYCODE_F12`) logs every on-stage sprite with a point where a click reaches it.
 5. A debug-only automation bridge answers `adb shell am broadcast -a org.rigorcore.caserecomp.DIRECTOR_DEBUG --es cmd '<command>'` (frame label, on-stage sprites, click points, Lingo globals/properties/methods, Flash buttons; see `DirectorDebugBridge`). Senders need `android.permission.DUMP` (adb shell only). Private QA scripts use it to play the title on WSA with real taps.
-6. Saves exported from the private JVM harness can be applied with `--es import_save <file>.json` (pushed to the same import folder) to jump to any case.
+6. An optional `presentation.json` in the same import folder (`{"nudge": {"memberName": [dx, dy]}}`) shifts where named members are drawn, for title-specific visual touch-ups kept in the tester's private files.
+7. Saves exported from the private JVM harness can be applied with `--es import_save <file>.json` (pushed to the same import folder) to jump to any case.
 
 When the stage is shown larger than 800×600 the compositor works at 2× (text drawn at that resolution, bitmaps enlarged pixel-exactly, Flash sampled per stage pixel) and the view scales the frame to the window with bilinear filtering; `--ei stage_scale 1|2` forces a scale for comparison. Stage coordinates map to the 1600×900 WSA display as `screen = (320 + ceil(1.2·x), 105 + ceil(1.2·y))`.
 

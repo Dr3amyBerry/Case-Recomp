@@ -193,7 +193,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             val name = font.lowercase()
             return when {
                 "typewriter" in name -> 0.9f
-                "palatino" in name -> 0.95f
+                "palatino" in name -> 0.88f
                 "times" in name -> 0.86f
                 // Tekton's letters run wider than the platform sans at the same glyph size.
                 // The italic panel captions must stay inside a glass narrower than their boxes.

@@ -126,6 +126,24 @@ class DirectorLauncherActivity : Activity() {
         }.start()
     }
 
+    /**
+     * Debug/ADB route: optional `presentation.json` in the import folder,
+     * `{"nudge": {"memberName": [dx, dy]}}`, shifting where named members are drawn.
+     * Title-specific tweaks stay with the tester's private files, never in the app.
+     */
+    private fun presentationNudges(): Map<String, Pair<Int, Int>> = runCatching {
+        val file = File(getExternalFilesDir("import") ?: return emptyMap(), "presentation.json")
+        if (!file.isFile || file.length() > 64 * 1024) return emptyMap()
+        val nudge = org.json.JSONObject(file.readText()).optJSONObject("nudge") ?: return emptyMap()
+        nudge.keys().asSequence().mapNotNull { name ->
+            val pair = nudge.optJSONArray(name) ?: return@mapNotNull null
+            name to (pair.optInt(0).coerceIn(-50, 50) to pair.optInt(1).coerceIn(-50, 50))
+        }.toMap()
+    }.getOrElse {
+        Log.w(TAG, "presentation.json ignored: ${it.message}")
+        emptyMap()
+    }
+
     /** Debug/ADB route: a save (JSON object of store keys) pushed to the import folder. */
     private var pendingSave: String? = null
 
@@ -169,7 +187,7 @@ class DirectorLauncherActivity : Activity() {
                 val display = resources.displayMetrics
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { it in 1..2 } ?: if (fit > 1.05f) 2 else 1
-                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale)
+                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges())
                 return Session(loaded, runtime, renderer, output)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }

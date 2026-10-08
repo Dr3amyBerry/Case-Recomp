@@ -144,6 +144,15 @@ class StageRendererUnitTest {
         assertEquals("copy ink keeps the white edge", white, frameWith(0).pixels[0])
     }
 
+    @Test fun nudges_move_where_a_named_member_is_drawn() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        rt.start()
+        // The black 4x4 "box" shape at stage x 30..33 is drawn 4 px to the left.
+        val frame = StageRenderer(rt, nudges = mapOf("BOX" to (-4 to 0))).render()
+        assertEquals(0xFF000000.toInt(), frame.pixels[1 * 40 + 27])
+        assertEquals(blue, frame.pixels[1 * 40 + 32])
+    }
+
     @Test fun score_colours_colorize_text_white_to_back_and_black_to_fore() {
         val navy = 0xFF20284B.toInt()
         val colored = movie(textBack = LString("#20284b"))

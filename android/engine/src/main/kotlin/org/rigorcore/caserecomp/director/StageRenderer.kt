@@ -45,7 +45,14 @@ class StageRenderer(
     private val decoder: ImageDecoder? = null,
     val background: Int = 0xFF000000.toInt(),
     val scale: Int = 1,
+    /**
+     * Player-side presentation tweaks: member name (any case) to a drawing offset in stage
+     * pixels. Only where it is drawn moves; hit-testing and Lingo see the authored position.
+     */
+    nudges: Map<String, Pair<Int, Int>> = emptyMap(),
 ) {
+    private val nudges = nudges.mapKeys { it.key.lowercase() }
+
     /** Stage size in Director pixels. */
     val width = runtime.movie.stageWidth
     val height = runtime.movie.stageHeight
@@ -84,8 +91,10 @@ class StageRenderer(
         if (stageItem.right <= 0 || stageItem.bottom <= 0 || stageItem.left >= width || stageItem.top >= height) {
             if (stageItem.rotation == 0.0) return
         }
-        val item = if (scale == 1) stageItem else stageItem.copy(left = stageItem.left * scale, top = stageItem.top * scale,
-            right = stageItem.right * scale, bottom = stageItem.bottom * scale)
+        val (dx, dy) = if (nudges.isEmpty()) 0 to 0 else nudges[stageItem.member.name.lowercase()] ?: (0 to 0)
+        val item = if (scale == 1 && dx == 0 && dy == 0) stageItem else stageItem.copy(
+            left = (stageItem.left + dx) * scale, top = (stageItem.top + dy) * scale,
+            right = (stageItem.right + dx) * scale, bottom = (stageItem.bottom + dy) * scale)
         when (item.member.type) {
             "bitmap" -> item.member.pixels?.let { blit(it, item, alpha) }
             "shape" -> {
