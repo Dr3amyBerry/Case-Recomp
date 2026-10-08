@@ -346,7 +346,9 @@ def _score_record(archive: DirectorArchive) -> dict:
               "type": span.state.sprite_type, "ink": span.state.ink, "trails": span.state.trails,
               "stretch": span.state.stretch, "cast_lib": span.state.cast_lib, "member": span.state.cast_member,
               "x": span.state.x, "y": span.state.y, "width": span.state.width, "height": span.state.height,
-              "blend": span.state.blend, "flip_h": span.state.flip_h, "flip_v": span.state.flip_v}
+              "blend": span.state.blend, "flip_h": span.state.flip_h, "flip_v": span.state.flip_v,
+              **({"fore_color": span.state.fore_color} if span.state.fore_color != 255 else {}),
+              **({"back_color": span.state.back_color} if span.state.back_color != 0 else {})}
              for span in score.sprite_spans]
     # Each span row of the score (start, end, channel) is one Director sprite span; its
     # behaviours follow it, and a span without behaviours yields a single empty reference.

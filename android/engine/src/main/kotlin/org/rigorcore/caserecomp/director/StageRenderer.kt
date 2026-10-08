@@ -25,6 +25,9 @@ fun interface TextRasterizer {
  * background-transparent inks; shapes fill with their colour; Flash sprites draw
  * their shapes (solid or bitmap filled) through the movie's affine transforms.
  */
+private const val BLACK = 0xFF000000.toInt()
+private const val WHITE = 0xFFFFFFFF.toInt()
+
 class StageRenderer(
     private val runtime: DirectorRuntime,
     private val text: TextRasterizer = TextRasterizer.None,
@@ -52,12 +55,32 @@ class StageRenderer(
         when (item.member.type) {
             "bitmap" -> item.member.pixels?.let { blit(it, item, alpha) }
             "shape" -> {
-                val color = LColor.of(runtime.sprite(item.sprite).getProp("foreColor"))
+                val color = LColor.of(runtime.sprite(item.sprite).getProp("color"))
                 if (item.member.data?.filled != false) fillRect(item.left, item.top, item.right, item.bottom, color.argb, alpha)
             }
-            "text", "field" -> textImage(item.member, w, h)?.let { blit(it, item, alpha) }
+            "text", "field" -> textImage(item.member, w, h)?.let { blit(colorize(item.member, it, item.fore, item.back), item, alpha) }
             "flash" -> item.flash?.let { drawFlash(it, item, alpha) }
         }
+    }
+
+    /** Last colorized text image per member: (source image, fore, back) -> result. */
+    private val colorized = HashMap<CastMember, Pair<Triple<LingoImage, Int, Int>, LingoImage>>()
+
+    /** Director's sprite colours remap the member: black becomes [fore], white [back], greys between. */
+    private fun colorize(member: CastMember, src: LingoImage, fore: Int, back: Int): LingoImage {
+        if (fore == BLACK && back == WHITE) return src
+        val key = Triple(src, fore, back)
+        colorized[member]?.let { (k, image) -> if (k.first === src && k.second == fore && k.third == back) return image }
+        val out = LingoImage(src.width, src.height, src.depth, IntArray(src.pixels.size) { i ->
+            val p = src.pixels[i]
+            fun channel(shift: Int): Int {
+                val f = (fore shr shift) and 0xFF; val b = (back shr shift) and 0xFF
+                return f + (b - f) * ((p shr shift) and 0xFF) / 255
+            }
+            (p and 0xFF000000.toInt()) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+        }).also { it.useAlpha = src.useAlpha }
+        colorized[member] = key to out
+        return out
     }
 
     private fun textImage(member: CastMember, w: Int, h: Int): LingoImage? {

@@ -51,7 +51,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private fun apply(member: CastMember) {
-        paint.textSize = (member.fontSize * shrink).coerceAtLeast(1f)
+        paint.textSize = (member.fontSize * shrink * size(member.font)).coerceAtLeast(1f)
         val style = when {
             member.bold && member.italic -> Typeface.BOLD_ITALIC
             member.bold -> Typeface.BOLD
@@ -75,7 +75,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         return paint.measureText(text.replace('\t', ' ')).toInt()
     }
 
-    override fun lineHeight(member: CastMember): Int = (member.fontSize * shrink * 1.25f).toInt().coerceAtLeast(1)
+    override fun lineHeight(member: CastMember): Int = (member.fontSize * shrink * size(member.font) * 1.25f).toInt().coerceAtLeast(1)
 
     override fun render(member: CastMember, width: Int, height: Int): LingoImage? {
         if (width <= 0 || height <= 0 || width.toLong() * height > 16L * 1024 * 1024) return null
@@ -124,6 +124,9 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
 
         /** Advance-width ratio of the authored face to its substitute (typewriter faces run narrow). */
         fun width(font: String): Float = if ("typewriter" in font.lowercase()) 0.9f else 1f
+
+        /** Glyph size of the authored face relative to its substitute at the same point size. */
+        fun size(font: String): Float = if ("tekto" in font.lowercase()) 0.8f else 1f
 
         fun family(font: String): String {
             val name = font.lowercase()

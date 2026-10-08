@@ -2,6 +2,7 @@ package org.rigorcore.caserecomp.director
 
 import org.rigorcore.caserecomp.MiniJson
 import org.rigorcore.caserecomp.lingo.LingoError
+import org.rigorcore.caserecomp.lingo.LingoValue
 
 /** Cast member description from the movie bundle (no media; media is resolved by [DirectorMedia]). */
 class MemberData(
@@ -49,6 +50,9 @@ class SpriteRun(
     val blend: Int, val flipH: Boolean, val flipV: Boolean,
     /** Score "stretch": only a stretched bitmap sprite is drawn at the score size instead of its member's. */
     val stretch: Boolean = true,
+    /** Score sprite colours: an rgb "#rrggbb" string or a palette index (255 black, 0 white). */
+    val foreColor: LingoValue = LingoValue.LInt(255),
+    val backColor: LingoValue = LingoValue.LInt(0),
 )
 
 class BehaviorRef(val castLib: Int, val member: Int, val parameters: String?)
@@ -135,7 +139,8 @@ class DirectorMovie(
                     val s = it as Map<*, *>
                     SpriteRun(s.int("start"), s.int("end"), s.int("channel"), s.int("ink"), s.int("cast_lib"),
                         s.int("member"), s.int("x"), s.int("y"), s.int("width"), s.int("height"), s.int("blend"),
-                        s["flip_h"] == true, s["flip_v"] == true, stretch = s["stretch"] != false)
+                        s["flip_h"] == true, s["flip_v"] == true, stretch = s["stretch"] != false,
+                        foreColor = color(s["fore_color"]) ?: LingoValue.LInt(255), backColor = color(s["back_color"]) ?: LingoValue.LInt(0))
                 },
                 spans = score.list("spans").map {
                     val s = it as Map<*, *>
@@ -165,6 +170,12 @@ class DirectorMovie(
                 filled = m["filled"] != false,
                 textStyle = textStyle(m),
             )
+        }
+
+        private fun color(value: Any?): LingoValue? = when (value) {
+            is String -> LingoValue.LString(value)
+            is Long -> LingoValue.LInt(value.toInt())
+            else -> null
         }
 
         private fun textStyle(m: Map<*, *>): TextStyle? {

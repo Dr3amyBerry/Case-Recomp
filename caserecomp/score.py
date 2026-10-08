@@ -87,11 +87,14 @@ class SpriteState:
     blend: int
     flip_h: bool
     flip_v: bool
+    # Sprite colours: "#rrggbb" when the record holds RGB, else a palette index (255 black, 0 white).
+    fore_color: str | int = 255
+    back_color: str | int = 0
 
     def signature(self) -> tuple:
         return (self.channel, self.sprite_type, self.ink, self.trails, self.stretch,
                 self.cast_lib, self.cast_member, self.x, self.y, self.width,
-                self.height, self.blend, self.flip_h, self.flip_v)
+                self.height, self.blend, self.flip_h, self.flip_v, self.fore_color, self.back_color)
 
 
 @dataclass(frozen=True)
@@ -284,9 +287,17 @@ def _channel_state(raw: bytes, pos: int, record_size: int, frame: int, channel: 
         return None
     blend = raw[pos + 21] if record_size >= 24 else 0
     flags = raw[pos + 22] if record_size >= 24 else 0
+    fore, back = raw[pos + 2], raw[pos + 3]
+    if record_size >= 28:
+        # Director 7+: the colour code flags RGB colours, whose green and blue follow the record head.
+        code = raw[pos + 20]
+        if code & 0x10:
+            fore = "#%02x%02x%02x" % (raw[pos + 2], raw[pos + 24], raw[pos + 26])
+        if code & 0x20:
+            back = "#%02x%02x%02x" % (raw[pos + 3], raw[pos + 25], raw[pos + 27])
     return SpriteState(frame, channel, sprite_type, ink_byte & 0x3F,
                        bool(ink_byte & 0x40), bool(ink_byte & 0x80), cast_lib, cast_member,
-                       x, y, width, height, blend, bool(flags & 0x20), bool(flags & 0x40))
+                       x, y, width, height, blend, bool(flags & 0x20), bool(flags & 0x40), fore, back)
 
 
 def _parse_frame_data(data: bytes) -> tuple[int, int, int, int, tuple[SpriteState, ...]]:

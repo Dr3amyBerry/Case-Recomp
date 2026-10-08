@@ -111,6 +111,21 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(score.displayed_channels, channels)
         self.assertEqual([(s.channel, s.cast_member, s.x, s.y) for s in score.sprites], [(channel, 9, 7, 5)])
 
+    def test_director7_sprite_colours(self):
+        from caserecomp.score import _channel_state
+        record = bytearray(48)
+        record[0], record[1] = 16, 8
+        record[2], record[3] = 0x20, 0xFC  # red bytes of foreground and background
+        record[5], record[7] = 1, 3  # cast lib 1, member 3
+        struct.pack_into(">hhHH", record, 12, 10, 20, 5, 6)
+        record[20] = 0x30  # both colours are RGB
+        record[24], record[25], record[26], record[27] = 0x28, 0xB4, 0x4B, 0x29
+        state = _channel_state(bytes(record), 0, 48, 1, 6)
+        self.assertEqual((state.fore_color, state.back_color), ("#20284b", "#fcb429"))
+        record[20] = 0
+        state = _channel_state(bytes(record), 0, 48, 1, 6)
+        self.assertEqual((state.fore_color, state.back_color), (0x20, 0xFC))
+
     def test_strict_failures(self):
         cases = [
             lambda: parse_movie_config(b"x" * 57),

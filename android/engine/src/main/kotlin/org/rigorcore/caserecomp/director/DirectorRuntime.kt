@@ -33,6 +33,9 @@ data class DisplayItem(
     val ink: Int, val blend: Int, val rotation: Double, val flipH: Boolean, val flipV: Boolean,
     /** Playing Flash movie of a Flash member sprite, drawn into the sprite rectangle. */
     val flash: FlashPlayer? = null,
+    /** Sprite colours (ARGB) that colorize the member: black shows as [fore], white as [back]. */
+    val fore: Int = 0xFF000000.toInt(),
+    val back: Int = 0xFFFFFFFF.toInt(),
 )
 
 /** Projector environment the title sees through `the platform`, `the moviePath` and friends. */
@@ -427,7 +430,8 @@ class DirectorRuntime(
         .sortedWith(compareBy({ it.locZ }, { it.number }))
         .map { s ->
             val b = s.bounds()
-            DisplayItem(s.number, s.member!!, b[0], b[1], b[2], b[3], s.ink, s.blend, s.rotation, s.flipH, s.flipV, s.flash.current())
+            DisplayItem(s.number, s.member!!, b[0], b[1], b[2], b[3], s.ink, s.blend, s.rotation, s.flipH, s.flipV, s.flash.current(),
+                LColor.of(s.getProp("color")).argb, LColor.of(s.getProp("bgColor")).argb)
         }
 
     private val stageLeft get() = (environment.desktopWidth - movie.stageWidth) / 2
