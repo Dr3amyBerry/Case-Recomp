@@ -24,6 +24,15 @@ class LingoVmUnitTest {
     private fun movie(vararg handlers: LingoHandler, literals: List<LingoValue> = emptyList()) =
         LingoScript("movie", 1, ScriptType.MOVIE, emptyList(), emptyList(), literals, handlers.toList())
 
+    @Test fun literal_object_references_need_a_resolver() {
+        val text = "[#base: (sprite 267), #icon: (member 5 of castLib 2), #type: #music]"
+        assertEquals(LingoValue.Void, LingoLiteralParser.parseOrVoid(text))
+        val seen = mutableListOf<String>()
+        val parsed = LingoLiteralParser.parseOrVoid(text) { kind, numbers -> seen += "$kind$numbers"; LingoValue.LInt(numbers.first()) }
+        assertEquals(listOf("sprite[267]", "member[5, 2]"), seen)
+        assertEquals(LingoValue.LInt(267), (parsed as LingoValue.LPropList).entries.first().second)
+    }
+
     @Test fun arithmetic_and_return() {
         // on area w, h: return w * h + 3
         val f = handler("area", listOf("w", "h"), code = asm().op(0x4B, 0).op(0x4B, 1).op(0x04).int(3).op(0x05).ret())

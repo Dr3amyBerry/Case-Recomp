@@ -158,6 +158,21 @@ class DirectorRuntimeUnitTest {
         assertEquals(LInt(1), rt.g("gClicks"))
     }
 
+    @Test fun behaviour_parameters_resolve_sprite_and_member_references() {
+        val o = DirectorMovie.SPRITE_CHANNEL_OFFSET
+        val base = movie()
+        val movie = DirectorMovie(base.stageWidth, base.stageHeight, base.tempo, base.labels, base.castLibs, base.internalCast,
+            base.externalCasts, base.frameCount, base.channelCount,
+            listOf(SpriteRun(1, 4, 1 + o, 0, 1, 4, 400, 300, 800, 600, 0, false, false),
+                SpriteRun(1, 4, 2 + o, 0, 1, 3, 100, 100, 40, 20, 0, false, false)),
+            listOf(SpanData(1, 4, 1 + o, listOf(BehaviorRef(1, 1, "[#target: (sprite 2), #icon: (member 3 of castLib 1)]")))))
+        val rt = DirectorRuntime(movie, bundle(), clock = { now })
+        rt.start()
+        val props = rt.sprite(1).instances.single().properties
+        assertTrue(props["target"] === rt.sprite(2))
+        assertEquals("btn", (props["icon"] as CastMember).name)
+    }
+
     @Test fun playback_labels_go_and_frame_script_loop() {
         val rt = runtime()
         rt.start()

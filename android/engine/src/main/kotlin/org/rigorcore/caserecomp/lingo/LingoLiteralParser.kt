@@ -5,14 +5,21 @@ package org.rigorcore.caserecomp.lingo
  * #symbols, linear lists, property lists, VOID/TRUE/FALSE and point()/rect().
  * Anything else evaluates to VOID, as Director does for unparsable input.
  */
-class LingoLiteralParser private constructor(private val text: String) {
+class LingoLiteralParser private constructor(
+    private val text: String,
+    private val references: ((kind: String, numbers: List<Int>) -> LingoValue?)?,
+) {
     private var pos = 0
 
     companion object {
         private const val MAX_DEPTH = 64
 
-        fun parseOrVoid(text: String): LingoValue = runCatching {
-            val parser = LingoLiteralParser(text)
+        /**
+         * [references] resolves the object references Director writes in behaviour parameters,
+         * e.g. `(sprite 3)`, `(member 5 of castLib 2)`, `(castLib 2)`; without it they are invalid.
+         */
+        fun parseOrVoid(text: String, references: ((kind: String, numbers: List<Int>) -> LingoValue?)? = null): LingoValue = runCatching {
+            val parser = LingoLiteralParser(text, references)
             val value = parser.value(0)
             parser.skipSpace()
             if (parser.pos != text.length) LingoValue.Void else value
@@ -33,10 +40,34 @@ class LingoLiteralParser private constructor(private val text: String) {
         if (pos >= text.length) throw LingoError("unexpected end of literal")
         return when (val ch = text[pos]) {
             '[' -> list(depth)
+            '(' -> reference()
             '"' -> string()
             '#' -> { pos++; LingoValue.LSymbol(identifier()) }
             else -> if (ch == '-' || ch == '+' || ch == '.' || ch.isDigit()) number() else word(depth)
         }
+    }
+
+    /** `(kind n [of kind2 m])`: an object reference, resolved by the host. */
+    private fun reference(): LingoValue {
+        val resolve = references ?: throw LingoError("object reference without a resolver")
+        pos++
+        skipSpace()
+        val kind = identifier().lowercase()
+        val numbers = mutableListOf<Int>()
+        while (true) {
+            skipSpace()
+            when {
+                pos < text.length && text[pos].isDigit() -> {
+                    val start = pos
+                    while (pos < text.length && text[pos].isDigit()) pos++
+                    numbers += text.substring(start, pos).toInt()
+                }
+                pos < text.length && text[pos].isLetter() -> identifier()  // "of", "castLib"
+                else -> break
+            }
+        }
+        expect(')')
+        return resolve(kind, numbers) ?: LingoValue.Void
     }
 
     private fun identifier(): String {

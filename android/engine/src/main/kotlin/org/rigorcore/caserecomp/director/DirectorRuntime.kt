@@ -285,13 +285,21 @@ class DirectorRuntime(
         sprite.enterSpan(null)
     }
 
+    /** Object references in behaviour parameters: `(sprite n)`, `(member n of castLib m)`, `(castLib n)`. */
+    private fun reference(kind: String, numbers: List<Int>): LingoValue? = when (kind) {
+        "sprite" -> numbers.firstOrNull()?.takeIf { it in 1..sprites.size }?.let { sprite(it) }
+        "member" -> numbers.firstOrNull()?.let { n -> castLib(numbers.getOrElse(1) { 1 })?.member(n) }
+        "castlib" -> numbers.firstOrNull()?.let { castLib(it) }
+        else -> null
+    }
+
     /** Behaviour instance for a span, with spriteNum and the score parameters applied. */
     private fun instantiate(ref: BehaviorRef, sprite: Sprite?): LInstance? {
         val script = if (ref.castLib == 1) vm.bundle.scriptNumber(ref.member) else null
         if (script == null) { warnings += "behaviour member ${ref.castLib}:${ref.member} has no script"; return null }
         val instance = LInstance(script)
         instance.properties["spriteNum"] = LInt(sprite?.number ?: 0)
-        val params = ref.parameters?.let { LingoLiteralParser.parseOrVoid(it) }
+        val params = ref.parameters?.let { LingoLiteralParser.parseOrVoid(it, ::reference) }
         if (params is LPropList) for ((key, value) in params.entries) {
             val name = key.asText()
             val existing = instance.properties.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
