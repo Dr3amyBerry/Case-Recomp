@@ -126,6 +126,14 @@ class ScoreTests(unittest.TestCase):
         state = _channel_state(bytes(record), 0, 48, 1, 6)
         self.assertEqual((state.fore_color, state.back_color), (0x20, 0xFC))
 
+    def test_cast_numbering_starts_at_the_config_min_member(self):
+        from caserecomp.score import cast_first_member
+        config = bytearray(60)
+        struct.pack_into(">hh", config, 12, 2, 105)
+        archive = SimpleNamespace(entries={7: SimpleNamespace(tag="VWCF")}, get_resource=lambda rid: bytes(config))
+        self.assertEqual(cast_first_member(archive), 2)
+        self.assertEqual(cast_first_member(SimpleNamespace(entries={}, get_resource=None)), 1)
+
     def test_strict_failures(self):
         cases = [
             lambda: parse_movie_config(b"x" * 57),

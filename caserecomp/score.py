@@ -162,6 +162,18 @@ def parse_cast_order(data: bytes) -> tuple[int, ...]:
     return tuple(values)
 
 
+def cast_first_member(archive) -> int:
+    """Member number of a cast's first CAS* slot: the config's minMember (casts may start at 2)."""
+    configs = [rid for rid, entry in archive.entries.items() if entry.tag in ("DRCF", "VWCF")]
+    if not configs:
+        return 1
+    data = archive.get_resource(configs[0])
+    if len(data) < 16:
+        return 1
+    first = struct.unpack_from(">h", data, 12)[0]
+    return first if 1 <= first <= MAX_SCORE_ENTRIES else 1
+
+
 def build_scene_segments(score: ScoreModel, labels: tuple[FrameLabel, ...]) -> tuple[SceneSegment, ...]:
     """Build anonymous marker-delimited timeline segments for private analysis."""
     starts = sorted({1, *(label.frame for label in labels if 1 <= label.frame <= score.frame_count)})

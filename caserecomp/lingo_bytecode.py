@@ -17,7 +17,7 @@ from typing import Any
 from .director import open_archive, read_local
 from .inspector import InspectionError
 from .lingo_index import read_lctx, read_lnam
-from .score import parse_cast_order
+from .score import cast_first_member, parse_cast_order
 
 BUNDLE_FORMAT = "case-recomp-lingo-bundle"
 VERSION = 1
@@ -172,7 +172,7 @@ def build_lingo_bundle(path: Path) -> dict:
     names = read_lnam(archive.get_resource(entries["Lnam"][0]))
     _, script_ids = read_lctx(archive.get_resource(entries["LctX"][0]))
     members: dict[int, dict] = {}
-    for number, rid in enumerate(parse_cast_order(archive.get_resource(entries["CAS*"][0])), start=1):
+    for number, rid in enumerate(parse_cast_order(archive.get_resource(entries["CAS*"][0])), start=cast_first_member(archive)):
         if rid:
             meta = parse_script_member(archive.get_resource(rid))
             if meta:

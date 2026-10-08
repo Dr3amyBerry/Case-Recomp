@@ -20,7 +20,7 @@ from .inspector import InspectionError
 from .lingo_bytecode import build_lingo_bundle
 from .movie_bundle import _member_record, build_movie_bundle
 from .relationships import CastRelationships
-from .score import parse_cast_order
+from .score import cast_first_member, parse_cast_order
 
 FORMAT = "case-recomp-director-content"
 VERSION = 1
@@ -99,7 +99,7 @@ def _archive_media(archive: DirectorArchive, key: str, ffmpeg: Path | None, skip
     if not order_ids:
         return
     relations = CastRelationships(archive)
-    for number, rid in enumerate(parse_cast_order(archive.get_resource(order_ids[0])), start=1):
+    for number, rid in enumerate(parse_cast_order(archive.get_resource(order_ids[0])), start=cast_first_member(archive)):
         if not rid:
             continue
         member = _member_record(archive, relations, rid, number)

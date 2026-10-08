@@ -18,7 +18,7 @@ from pathlib import Path
 from .director import DirectorArchive, open_archive, read_local
 from .inspector import InspectionError
 from .relationships import CastRelationships
-from .score import (_score_entries, parse_cast_order, parse_frame_label_names, parse_movie_config,
+from .score import (_score_entries, cast_first_member, parse_cast_order, parse_frame_label_names, parse_movie_config,
                     parse_score)
 
 BUNDLE_FORMAT = "case-recomp-movie-bundle"
@@ -333,7 +333,7 @@ def cast_members(archive: DirectorArchive) -> list[dict]:
         return []
     relations = CastRelationships(archive)
     return [_member_record(archive, relations, rid, number)
-            for number, rid in enumerate(parse_cast_order(cast_order), start=1) if rid]
+            for number, rid in enumerate(parse_cast_order(cast_order), start=cast_first_member(archive)) if rid]
 
 
 def _score_record(archive: DirectorArchive) -> dict:
