@@ -145,7 +145,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
         var best: Pair<Float, List<TextLine>>? = null
         for (squeeze in CONDENSE) {
             condense = squeeze
-            val lines = TextLayout.lines(member, width, this)
+            val lines = layout(member, width)
             if (tooWide(lines)) continue
             val step = TextLayout.lineHeight(member, this)
             // Fits at its natural pitch: keep the authored size and width.
@@ -153,25 +153,35 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             if (best == null || rows(lines) < rows(best.second)) best = squeeze to lines
         }
         condense = best?.first ?: CONDENSE.last()
-        val lines = best?.second ?: TextLayout.lines(member, width, this)
+        val lines = best?.second ?: layout(member, width)
         if (!tooWide(lines) && overflow(lines) <= TextLayout.lineHeight(member, this) * 3 / 2) return lines
         // Far too long for the box (or a word wider than it): shrink as a last resort.
         condense = CONDENSE.last()
         for (size in SHRINK) {
             shrink = size
-            val smaller = TextLayout.lines(member, width, this)
+            val smaller = layout(member, width)
             if (!tooWide(smaller) && overflow(smaller) <= TextLayout.lineHeight(member, this) / 4) return smaller
         }
-        return TextLayout.lines(member, width, this)
+        return layout(member, width)
+    }
+
+    /**
+     * Centred text wraps a few pixels inside its box edges, as the original's centred captions
+     * do (e.g. "Elementos / necesarios para / resolver el crimen:" in a 125 px box).
+     */
+    private fun layout(member: CastMember, width: Int): List<TextLine> {
+        if (member.alignment != "center" || width <= 4 * CENTER_MARGIN) return TextLayout.lines(member, width, this)
+        return TextLayout.lines(member, width - 2 * CENTER_MARGIN, this).map { TextLine(it.text, it.x + CENTER_MARGIN, it.segments) }
     }
 
     private companion object {
+        const val CENTER_MARGIN = 6
         /** How far overflowing lines may close up: the original sets "Elementos necesarios…" at ~0.77. */
         const val MIN_PITCH = 0.75f
         /** First baseline below the box top, per em: Palatino 14 sits at ~10.5 px in the original. */
         const val FIRST_BASELINE = 0.78f
         /** Height of a text's leading empty line per line pitch (measured on the original's panels). */
-        const val LEADING_BLANK = 0.6f
+        const val LEADING_BLANK = 0.75f
         val CONDENSE = listOf(1f, 0.95f, 0.9f, 0.85f)
         val SHRINK = listOf(0.9f, 0.8f, 0.7f)
 
@@ -212,6 +222,8 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             val name = font.lowercase()
             return when {
                 "palatino" in name || "times" in name -> 1.08f
+                // The smaller italic captions keep the original's ~13.5 px pitch at 15 pt.
+                "tekto" in name && "italic" in name -> 1.32f
                 "tekto" in name -> 1.12f
                 else -> 1.25f
             }
