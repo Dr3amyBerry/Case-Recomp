@@ -227,6 +227,9 @@ class DirectorRuntime(
         val key = file to data.number
         mediaImages[key]?.let { return it }
         val image = media.image(file, data) ?: LingoImage(data.width, data.height).also { it.useAlpha = false }
+        // A 32-bit member whose alpha channel is fully opaque has no alpha to use: like Director,
+        // its ink (e.g. matte or background transparent removing white) then applies.
+        if (image.useAlpha && image.pixels.all { it ushr 24 == 0xFF }) image.useAlpha = false
         mediaImages[key] = image
         mediaImageBytes += image.pixels.size * 4L
         val eldest = mediaImages.entries.iterator()

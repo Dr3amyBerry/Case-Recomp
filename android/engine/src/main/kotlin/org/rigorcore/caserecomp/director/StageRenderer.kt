@@ -131,9 +131,12 @@ class StageRenderer(
         val w = item.right - item.left; val h = item.bottom - item.top
         if (src.width == 0 || src.height == 0) return
         val useAlpha = src.useAlpha
-        val keyWhite = !useAlpha && (item.ink == 36 || item.ink == 8)
+        // Background transparent (36) drops every white pixel; matte (8) only the white
+        // connected to the image edge, so white inside the outline stays.
+        val keyWhite = !useAlpha && item.ink == 36
+        val matte = if (!useAlpha && item.ink == 8) matteMask(src) else null
         if (item.rotation != 0.0) {
-            blitRotated(src, item, alpha, keyWhite); return
+            blitRotated(src, item, alpha, keyWhite, matte); return
         }
         val y0 = maxOf(0, item.top); val y1 = minOf(fh, item.bottom)
         val x0 = maxOf(0, item.left); val x1 = minOf(fw, item.right)
@@ -147,7 +150,7 @@ class StageRenderer(
             columns[i] = sx
         }
         val sp = src.pixels; val fp = frame.pixels
-        val opaque = !useAlpha && !keyWhite && alpha == 255
+        val opaque = !useAlpha && !keyWhite && matte == null && alpha == 255
         var previous = -1
         for (y in y0 until y1) {
             var sy = (y - item.top) * src.height / h
@@ -164,6 +167,7 @@ class StageRenderer(
             for (i in 0 until n) {
                 val p = sp[row + columns[i]]
                 if (keyWhite && (p and 0xFFFFFF) == 0xFFFFFF) continue
+                if (matte != null && matte[row + columns[i]]) continue
                 val sa = if (useAlpha) p ushr 24 else 255
                 if (sa == 0) continue
                 val a = if (alpha == 255) sa else sa * alpha / 255
@@ -175,7 +179,31 @@ class StageRenderer(
 
     private val columnMap = IntArray(fw)
 
-    private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean) {
+    /** Matte ink masks per image: true where white is reachable from the edge through white. */
+    private val matteMasks = java.util.WeakHashMap<LingoImage, BooleanArray>()
+
+    private fun matteMask(src: LingoImage): BooleanArray = matteMasks.getOrPut(src) {
+        val w = src.width; val h = src.height; val px = src.pixels
+        val clear = BooleanArray(w * h)
+        val queue = IntArray(w * h)
+        var head = 0; var tail = 0
+        fun visit(i: Int) {
+            if (!clear[i] && (px[i] and 0xFFFFFF) == 0xFFFFFF) { clear[i] = true; queue[tail++] = i }
+        }
+        for (x in 0 until w) { visit(x); visit((h - 1) * w + x) }
+        for (y in 0 until h) { visit(y * w); visit(y * w + w - 1) }
+        while (head < tail) {
+            val i = queue[head++]
+            val x = i % w
+            if (x > 0) visit(i - 1)
+            if (x < w - 1) visit(i + 1)
+            if (i >= w) visit(i - w)
+            if (i + w < w * h) visit(i + w)
+        }
+        clear
+    }
+
+    private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean, matte: BooleanArray?) {
         val w = (item.right - item.left).toDouble(); val h = (item.bottom - item.top).toDouble()
         val cx = item.left + w / 2; val cy = item.top + h / 2
         val rad = Math.toRadians(item.rotation)
@@ -190,6 +218,7 @@ class StageRenderer(
                 var sx = (ux * src.width / w).toInt(); var sy = (uy * src.height / h).toInt()
                 if (item.flipH) sx = src.width - 1 - sx
                 if (item.flipV) sy = src.height - 1 - sy
+                if (matte != null && matte[sy * src.width + sx]) continue
                 put(y * fw + x, src.pixels[sy * src.width + sx], src.useAlpha, keyWhite, alpha)
             }
         }

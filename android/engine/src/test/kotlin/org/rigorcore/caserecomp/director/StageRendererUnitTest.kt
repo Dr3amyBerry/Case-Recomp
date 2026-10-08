@@ -102,6 +102,48 @@ class StageRendererUnitTest {
         assertEquals(blue, px(62, 21))
     }
 
+    @Test fun matte_removes_edge_white_and_opaque_32_bit_members_take_their_ink() {
+        // 5x5 badge: white border, black ring, white centre; a 32-bit image whose alpha is all opaque.
+        val white = 0xFFFFFFFF.toInt(); val black = 0xFF000000.toInt()
+        val badge = IntArray(25) { i -> val x = i % 5; val y = i / 5
+            if (x == 0 || y == 0 || x == 4 || y == 4) white else if (x == 2 && y == 2) white else black }
+        fun frameWith(ink: Int): LingoImage {
+            val movie = DirectorMovie(
+                stageWidth = 10, stageHeight = 5, tempo = 30, labels = emptyList(),
+                castLibs = listOf(CastLibData(1, "Internal", "")),
+                internalCast = CastFile("", listOf(
+                    MemberData(1, "bg", "bitmap", width = 10, height = 5, regX = 0, regY = 0),
+                    MemberData(2, "badge", "bitmap", width = 5, height = 5, regX = 0, regY = 0),
+                ).associateBy { it.number }),
+                externalCasts = emptyMap(), frameCount = 1, channelCount = 2 + o,
+                sprites = listOf(
+                    SpriteRun(1, 1, 1 + o, 0, 1, 1, 0, 0, 10, 5, 0, false, false),
+                    SpriteRun(1, 1, 2 + o, ink, 1, 2, 0, 0, 5, 5, 0, false, false),
+                ),
+                spans = (1..2).map { SpanData(1, 1, it + o, emptyList()) },
+            )
+            val media = object : DirectorMedia {
+                override fun image(castFile: String, member: MemberData) = when (member.name) {
+                    "bg" -> LingoImage(10, 5, 32, IntArray(50) { blue }).also { it.useAlpha = false }
+                    "badge" -> LingoImage(5, 5, 32, badge.copyOf()).also { it.useAlpha = true }
+                    else -> null
+                }
+                override fun flash(castFile: String, member: MemberData): ByteArray? = null
+            }
+            val rt = DirectorRuntime(movie, LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+            rt.start()
+            return StageRenderer(rt).render()
+        }
+        val matte = frameWith(8)
+        assertEquals("edge white is removed", blue, matte.pixels[0])
+        assertEquals(black, matte.pixels[1 * 10 + 1])
+        assertEquals("white enclosed by the outline stays", white, matte.pixels[2 * 10 + 2])
+        val transparent = frameWith(36)
+        assertEquals(blue, transparent.pixels[0])
+        assertEquals("background transparent drops every white pixel", blue, transparent.pixels[2 * 10 + 2])
+        assertEquals("copy ink keeps the white edge", white, frameWith(0).pixels[0])
+    }
+
     @Test fun score_colours_colorize_text_white_to_back_and_black_to_fore() {
         val navy = 0xFF20284B.toInt()
         val colored = movie(textBack = LString("#20284b"))
