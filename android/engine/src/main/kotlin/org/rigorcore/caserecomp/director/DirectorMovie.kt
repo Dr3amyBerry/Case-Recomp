@@ -30,6 +30,10 @@ class TextStyle(
     val fontSize: Int? = null,
     val fontStyle: List<String> = emptyList(),
     val color: Int? = null,
+    /** Paragraph indents in pixels; the first line of a paragraph starts at [leftIndent] + [firstIndent]. */
+    val leftIndent: Int = 0,
+    val rightIndent: Int = 0,
+    val firstIndent: Int = 0,
 )
 
 /** Members of one cast file (the movie's internal cast or an external .cct/.cxt). */
@@ -166,7 +170,9 @@ class DirectorMovie(
         private fun textStyle(m: Map<*, *>): TextStyle? {
             val style = m["style"] as? Map<*, *>
             val alignment = m["alignment"] as? String
+            val indent = m["indent"] as? Map<*, *>
             if (style == null && alignment == null) return null
+            fun indent(key: String) = (indent?.get(key) as? Long)?.toInt()?.coerceIn(-1000, 1000) ?: 0
             val color = (style?.get("color") as? String)?.takeIf { Regex("#[0-9a-fA-F]{6}").matches(it) }
                 ?.let { (0xFF000000 or it.substring(1).toLong(16)).toInt() }
             return TextStyle(
@@ -175,6 +181,7 @@ class DirectorMovie(
                 fontSize = (style?.get("font_size") as? Long)?.toInt()?.takeIf { it in 1..200 },
                 fontStyle = (style?.get("font_style") as? List<*>).orEmpty().filterIsInstance<String>(),
                 color = color,
+                leftIndent = indent("left"), rightIndent = indent("right"), firstIndent = indent("first"),
             )
         }
 

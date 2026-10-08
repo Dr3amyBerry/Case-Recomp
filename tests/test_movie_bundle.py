@@ -107,7 +107,7 @@ class ParserTests(unittest.TestCase):
         version = 0x40001
         # Section 7 par_info records: [0] left (unused), [1] centered; section 5 selects record 1.
         par_tail = [0] * (8 + 1 + 8 + 1 + 10) + [0] + [0] * 16 + [0] * 8
-        paragraphs = packed(0, *par_tail) + packed(1, *par_tail)
+        paragraphs = packed(0, *par_tail) + packed(1, 0, 0, 3, 0, 4, *par_tail[5:])
         # Section 6 style_info: [0] plain, [1] font 1, bold, 18pt, navy; section 4 selects style 1.
         def style(font: int, bold: int, size: int, rgb: tuple[int, int, int]) -> bytes:
             fixed = [0, size * 65536] + [0] * 9
@@ -120,6 +120,7 @@ class ParserTests(unittest.TestCase):
                 + xmed_section(5, packed(0, 1, 2, 0)) + xmed_section(6, styles) + xmed_section(7, paragraphs))
         parsed = parse_xmed_text(data)
         self.assertEqual(parsed["alignment"], "center")
+        self.assertEqual(parsed["indent"], {"left": 3, "right": 0, "first": 4})
         self.assertEqual(parsed["style"], {"font": "Typewriter", "font_size": 18, "font_style": ["bold"], "color": "#20284b"})
 
     def test_rejects_malformed_tables(self):

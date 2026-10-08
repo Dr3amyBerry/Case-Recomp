@@ -21,7 +21,9 @@ class DirectorContentUnitTest {
         "labels":[],"cast_libs":[{"number":1,"name":"Internal","file_path":""},{"number":2,"name":"art","file_path":"art.cst"}],
         "internal_members":[{"number":3,"name":"logo","type":"bitmap","width":2,"height":1},
           {"number":6,"name":"welcome","type":"xtra","xtra":"text","text":"aa bb cc","alignment":"center",
-           "style":{"font":"Typewriter","font_size":18,"font_style":["bold"],"color":"#20284b"}}],
+           "style":{"font":"Typewriter","font_size":18,"font_style":["bold"],"color":"#20284b"}},
+          {"number":7,"name":"label","type":"xtra","xtra":"text","text":"aaaa bb","alignment":"left",
+           "indent":{"left":1,"right":0,"first":2}}],
         "external_casts":[{"file":"Art.CCT","sha256":"x","members":[{"number":1,"name":"tile","type":"bitmap","width":2,"height":1}]}],
         "score":{"frame_count":1,"channel_count":6,"sprite_record_size":48,"sprites":[],"spans":[]}}"""
     private val lingoJson = """{"format":"case-recomp-lingo-bundle","version":1,"names":[],"scripts":[]}"""
@@ -106,6 +108,11 @@ class DirectorContentUnitTest {
             assertEquals(listOf(0, 2), lines.map { it.x })
             member.setProp("alignment", org.rigorcore.caserecomp.lingo.LingoValue.LSymbol("right"))
             assertEquals(listOf(1, 4), TextLayout.lines(member, 6, metrics).map { it.x })
+            // Indents: the first line starts at left + first and is narrower, so "aaaa bb" wraps there.
+            val label = rt.member(org.rigorcore.caserecomp.lingo.LingoValue.LString("label"), null)
+            val indented = TextLayout.lines(label, 8, metrics)
+            assertEquals(listOf("aaaa", "bb"), indented.map { it.text })
+            assertEquals(listOf(3, 1), indented.map { it.x })
         }
     }
 

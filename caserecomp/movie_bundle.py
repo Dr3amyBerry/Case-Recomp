@@ -178,16 +178,18 @@ def _run_index_at(section: tuple[int, bytes] | None, offset: int) -> int:
     return found or 0
 
 
-def _xmed_paragraph_justification(body: bytes, index: int, version: int) -> int:
-    """Justification (0 left, 1 center, 2 right, 3 full) of par_info [index] (section 7)."""
+def _xmed_paragraph(body: bytes, index: int, version: int) -> tuple[int, int, int, int]:
+    """Justification (0 left, 1 center, 2 right, 3 full) and left, right and first-line
+    indents (pixels; the first line starts at left + first) of par_info [index] (section 7)."""
     packer = _Packer(body)
     for current in range(index + 1):
         if packer.remaining() <= 0:
-            return 0
+            return 0, 0, 0, 0
         justification = packer.num()
+        _line_height, _box, left, right, first = packer.nums(5)
         if current == index:
-            return justification
-        packer.nums(8)  # line height, box, 3 indents, border, margin, line spacing
+            return justification, left, right, first
+        packer.nums(3)  # border, margin, line spacing
         if version >= 65547:
             packer.num()
         packer.nums(8)
@@ -202,7 +204,7 @@ def _xmed_paragraph_justification(body: bytes, index: int, version: int) -> int:
                     + 9 * (version >= 131075))
         if version >= 131090:
             packer.nums(1 + 4 + (version >= 196614) + (version >= 196615) + (version >= 196616))
-    return 0
+    return 0, 0, 0, 0
 
 
 def _xmed_char_style(body: bytes, index: int, version: int) -> dict | None:
@@ -259,8 +261,12 @@ def parse_xmed_text(data: bytes) -> dict:
     # Member-level style is the one of the first visible character, not of leading blank lines.
     first = len(text) - len(text.lstrip("\r\n "))
     if 7 in sections:
-        justification = _xmed_paragraph_justification(sections[7][1], _run_index_at(sections.get(5), first), version)
+        justification, left, right, first_line = _xmed_paragraph(
+            sections[7][1], _run_index_at(sections.get(5), first), version)
         result["alignment"] = {1: "center", 2: "right", 3: "justify"}.get(justification, "left")
+        indents = {"left": left, "right": right, "first": first_line}
+        if any(0 < abs(v) <= 1000 for v in indents.values()):
+            result["indent"] = {k: v for k, v in indents.items() if abs(v) <= 1000}
     if 6 in sections:
         style = _xmed_char_style(sections[6][1], _run_index_at(sections.get(4), first), version)
         if style is not None:
