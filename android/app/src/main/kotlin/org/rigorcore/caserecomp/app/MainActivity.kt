@@ -10,6 +10,7 @@ import org.rigorcore.caserecomp.GameRuntime
 import org.rigorcore.caserecomp.NoopAudioPort
 import org.rigorcore.caserecomp.SlotSessionAdapter
 import org.rigorcore.caserecomp.VerifiedFlowGate
+import org.rigorcore.caserecomp.VerifiedSceneGate
 import org.rigorcore.caserecomp.sha256Hex
 
 class MainActivity : Activity() {
@@ -17,6 +18,8 @@ class MainActivity : Activity() {
     private lateinit var gameView: GameShellView
     private lateinit var contentRepository: PrivateContentRepository
     private lateinit var flowRepository: PrivateVerifiedFlowRepository
+    private lateinit var sceneRepository: PrivateVerifiedSceneRepository
+    private var flowProofLoaded = false
     private var loadedContent: LoadedPrivateContent? = null
     private var bitmapLoader: BitmapAssetLoader = NoopBitmapAssetLoader
 
@@ -24,18 +27,24 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         contentRepository = PrivateContentRepository(this)
         flowRepository = PrivateVerifiedFlowRepository(this)
+        sceneRepository = PrivateVerifiedSceneRepository(this)
         loadedContent = contentRepository.loadActive()
         val content = loadedContent
-        val scenario = content?.scenario ?: SyntheticContent.scenario()
+        val baseScenario = content?.scenario ?: SyntheticContent.scenario()
+        val sceneProofs = content?.let(sceneRepository::loadFor).orEmpty()
+        val scenario = sceneProofs.fold(baseScenario) { current, proof -> proof.applyTo(current) }
         val packageId = content?.manifest?.packageId ?: sha256Hex("synthetic-shell-v1")
         val slots = SharedPreferencesSlotSessionStore(this)
         val audio = content?.let { LifecycleMediaAudioPort(this, it) } ?: NoopAudioPort
         val proof = content?.let(flowRepository::loadFor)
-        val flowGate = when {
+        flowProofLoaded = proof != null
+        val navigationGate = when {
             content == null -> AllowAllFlowGate
-            proof != null -> VerifiedFlowGate(proof, scenario, content.manifest.scenarioSha256, content.manifest.packageId)
+            proof != null -> VerifiedFlowGate(proof, baseScenario, content.manifest.scenarioSha256, content.manifest.packageId)
             else -> DenyAllFlowGate
         }
+        // Private hidden-object finds are allowed only inside scenes with a bound verified-scene proof.
+        val flowGate = if (content == null) navigationGate else VerifiedSceneGate(navigationGate, sceneProofs)
         runtime = GameRuntime(
             scenario,
             AndroidMonotonicClock(),
@@ -48,7 +57,11 @@ class MainActivity : Activity() {
         bitmapLoader = content?.let(::AppPrivateBitmapAssetLoader) ?: NoopBitmapAssetLoader
         gameView = GameShellView(this, runtime, content, bitmapLoader)
         gameView.setOnLongClickListener {
-            if (loadedContent == null) requestPrivateContentImport() else requestVerifiedFlowImport()
+            when {
+                loadedContent == null -> requestPrivateContentImport()
+                !flowProofLoaded -> requestVerifiedFlowImport()
+                else -> requestVerifiedSceneImport()
+            }
             true
         }
         setContentView(gameView)
@@ -68,6 +81,14 @@ class MainActivity : Activity() {
             type = "application/json"
         }
         startActivityForResult(intent, REQUEST_VERIFIED_FLOW)
+    }
+
+    private fun requestVerifiedSceneImport() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        startActivityForResult(intent, REQUEST_VERIFIED_SCENE)
     }
 
     @Deprecated("Android platform callback retained to avoid an AndroidX Activity dependency in the shell")
@@ -107,6 +128,23 @@ class MainActivity : Activity() {
                     }
                 }.start()
             }
+            REQUEST_VERIFIED_SCENE -> {
+                val content = loadedContent ?: return
+                Thread {
+                    val result = runCatching {
+                        contentResolver.openInputStream(uri)?.use { sceneRepository.importProof(it, content) }
+                            ?: error("cannot open selected verified scene")
+                    }
+                    runOnUiThread {
+                        result.onSuccess {
+                            Toast.makeText(this, "Verified scene imported; hidden-object play unlocked", Toast.LENGTH_SHORT).show()
+                            recreate()
+                        }.onFailure {
+                            Toast.makeText(this, "Scene proof rejected: " + (it.message ?: "invalid proof"), Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }.start()
+            }
         }
     }
 
@@ -124,5 +162,6 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_PRIVATE_CONTENT = 4041
         private const val REQUEST_VERIFIED_FLOW = 4042
+        private const val REQUEST_VERIFIED_SCENE = 4043
     }
 }

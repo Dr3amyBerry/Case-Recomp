@@ -41,7 +41,7 @@ class GameShellView(
         when (model.screen) {
             Screen.MENU -> {
                 canvas.drawText("Tap to start", 28f, 130f, paint)
-                canvas.drawText(if (privateContent == null) "Long press to import private .crcontent" else "Long press to import verified .crflow", 28f, 170f, paint)
+                canvas.drawText(if (privateContent == null) "Long press to import private .crcontent" else "Long press to import verified .crflow / .crscene", 28f, 170f, paint)
             }
             Screen.MAP -> canvas.drawText("Tap to enter scene", 28f, 130f, paint)
             Screen.COMPLETE -> canvas.drawText("Scenario complete", 28f, 130f, paint)
@@ -68,6 +68,16 @@ class GameShellView(
                 paint.color = 0xFFF3F5F7.toInt()
                 paint.textSize = 22f
                 canvas.drawText("found ${model.foundCount}/${model.totalTargets}", 28f, height - 28f, paint)
+                model.acknowledgeRegion?.takeIf { model.awaitingAcknowledge }?.let { r ->
+                    paint.color = 0xCC10141A.toInt()
+                    canvas.drawRect(originX, originY, originX + model.designWidth * scale, originY + model.designHeight * scale, paint)
+                    paint.color = 0xFF4CAF50.toInt()
+                    canvas.drawRect(RectF(originX + r.left * scale, originY + r.top * scale,
+                        originX + r.right * scale, originY + r.bottom * scale), paint)
+                    paint.color = 0xFFF3F5F7.toInt()
+                    paint.textSize = 26f
+                    canvas.drawText("Scene complete - tap the button to return to the map", 28f, 130f, paint)
+                }
             }
         }
     }

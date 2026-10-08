@@ -25,6 +25,11 @@ android {
         }
     }
 
+    sourceSets {
+        // Synthetic, repository-public fixtures only; packaged into the instrumentation test APK, not the app.
+        getByName("androidTest").assets.srcDir("../../fixtures")
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

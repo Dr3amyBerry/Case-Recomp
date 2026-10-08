@@ -192,6 +192,8 @@ data class RenderFrame(
     val designHeight: Int,
     /** An acknowledge-mode scene is complete and shows its closing dialog. */
     val awaitingAcknowledge: Boolean = false,
+    /** Design-space button that closes that dialog; null when no dialog is shown. */
+    val acknowledgeRegion: GameRect? = null,
 )
 
 object RenderModelBuilder {
@@ -202,7 +204,7 @@ object RenderModelBuilder {
         val awaiting = scene != null && session.screen == Screen.SCENE &&
             scene.completion == SceneCompletion.ACKNOWLEDGE_THEN_MAP && found == scene.targets.map { it.id }.toSet()
         return RenderFrame(session.screen, scene?.id, session.frame, targets, found.size, scene?.targets?.size ?: 0,
-            scenario.designWidth, scenario.designHeight, awaiting)
+            scenario.designWidth, scenario.designHeight, awaiting, if (awaiting) scene?.acknowledgeRegion else null)
     }
 }
 
