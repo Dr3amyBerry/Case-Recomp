@@ -23,7 +23,7 @@ Run a burst at the same stage entry in each fresh session, with the same boundin
 
 ```powershell
 python -m caserecomp slice-capture-screen --burst --count 240 --interval-ms 16 `
-  --output C:\private\menu-session-1 --bbox 100 100 900 700
+  --output private/menu-session-1 --bbox 100 100 900 700
 ```
 
 `--output` is a create-only directory in this mode. Compare the `pixel_sha256` values in the two private `capture-burst.json` manifests and select a digest present in every session; use each matching `frames/NNNNNN.png` in that session's capture-input JSON. This preserves the existing exact-pixel consensus rule while making the raw capture cadence, frame list and hashes reproducible in the repository. Do not commit the bursts or manifests: they are screenshots of proprietary runtime content.

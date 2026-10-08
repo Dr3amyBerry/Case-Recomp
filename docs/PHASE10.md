@@ -30,7 +30,7 @@ The remaining ~250 called methods are defined by the game's own parent scripts a
 
 ## Private artefacts (never committed)
 
-Decompiled Lingo, the bytecode bundle, inventories and every game-derived file live under `C:\private\`. The repository holds only the generic reader, VM and runtime code, plus synthetic tests.
+Decompiled Lingo, the bytecode bundle, inventories and every game-derived file live under the git-ignored `private/` folder of the checkout (e.g. `private/huntsville-m3`, `private/huntsville-decompiled`). The repository holds only the generic reader, VM and runtime code, plus synthetic tests.
 
 ## Private-source audit and transition ownership
 
