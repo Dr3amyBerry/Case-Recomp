@@ -64,6 +64,11 @@ class LegalPublicationTest(unittest.TestCase):
         terms = (ROOT / "TERMS.md").read_text(encoding="utf-8")
         self.assertIn("PolyForm Noncommercial", terms)
 
+    def test_android_apk_bundles_exact_offline_license(self):
+        root_license = (ROOT / "LICENSE").read_bytes()
+        bundled = (ROOT / "android/app/src/main/assets/case_recomp_license.txt").read_bytes()
+        self.assertEqual(root_license, bundled)
+
     def test_proprietary_packages_remain_gitignored(self):
         rules = (ROOT / ".gitignore").read_text(encoding="utf-8")
         for ext in ("*.director.zip", "*.crflow", "*.crscene", "*.keystore", "*.jks"):
