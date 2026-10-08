@@ -78,9 +78,8 @@ class DirectorLauncherInstrumentationTest {
         ActivityScenario.launch(DirectorLauncherActivity::class.java).use { scenario ->
             var painted = false
             var lastState = "not inspected"
-            // API 26 emulator software rendering and async ZIP load can be slower
-            // than newer images; failure still requires a visible, correctly coloured stage.
-            for (attempt in 0 until 300) {
+            // Await asynchronous content import, then inspect the Android stage output.
+            for (attempt in 0 until 100) {
                 scenario.onActivity { activity ->
                     val root = activity.findViewById<ViewGroup>(android.R.id.content)
                     val frame = root.getChildAt(0) as? android.widget.FrameLayout
@@ -94,7 +93,13 @@ class DirectorLauncherInstrumentationTest {
                         try {
                             stage.draw(Canvas(output))
                             val pixel = output.getPixel(320, 240)
-                            painted = pixel == Color.GREEN
+                            // API 26 reports #00F000 on the emulator for a fully
+                            // green synthetic stage, while API 33/36 report #00FF00.
+                            // Require opaque saturated green (not a blank stage),
+                            // allowing a bounded <= 15/255 display colour difference.
+                            painted = Color.alpha(pixel) == 255 &&
+                                Color.red(pixel) == 0 && Color.blue(pixel) == 0 &&
+                                Color.green(pixel) in 240..255
                             lastState = "stage ready, center=0x" + Integer.toHexString(pixel)
                         } finally { output.recycle() }
                     } else {
