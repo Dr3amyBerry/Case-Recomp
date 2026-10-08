@@ -212,3 +212,13 @@ unchanged 1,152-case text comparison. The new input-offset test checks moved and
 old control areas, wrong-member exclusion, default behavior and unchanged bounds.
 Private app data is restored after these checks. Human visual acceptance remains
 pending, and Stage 2 is still gated by explicit approval.
+
+## Follow-up: caret raised slightly and a visible bot demonstration
+
+Profile revision 4 raises only the name-dialog caret by 3 stage pixels relative to
+revision 3: sprite 31/member cursor now uses (+12,+3). Name, button and list-row
+offsets remain as previously reviewed. App JVM tests and all 18 WSA instrumentation
+tests pass. A visible one-case run of the existing private wsa_autoplay.py bot is
+requested by the reviewer. The bot reads debug state and sends normal Android taps,
+including object collection and tile swaps, rather than setting completion flags.
+Run evidence and recordings remain private. This request does not authorize Stage 2.

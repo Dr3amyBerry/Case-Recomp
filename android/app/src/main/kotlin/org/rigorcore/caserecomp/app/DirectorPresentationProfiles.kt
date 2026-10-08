@@ -94,7 +94,7 @@ internal object DirectorPresentationProfiles {
     // Calibrations from 6c03811, 252ba53, cfeadd2 and 747d659. Values unchanged.
     // See docs/HUNTSVILLE_PRESENTATION_ISOLATION.md for evidence and retirement criteria.
     val HUNTSVILLE_ES = DirectorPresentationProfile(
-        id = "huntsville-es-presentation", schemaVersion = 1, revision = 3,
+        id = "huntsville-es-presentation", schemaVersion = 1, revision = 4,
         text = DirectorTextPresentation(
             defaultFont = FontPresentation(linePitchScale = 1.25f),
             fontRules = listOf(
@@ -118,7 +118,7 @@ internal object DirectorPresentationProfiles {
         // is also used by the separately calibrated user list (sprites 277..281).
         scopedNudges = mapOf(
             (33 to "enterNameField1") to (0 to 6),
-            (31 to "cursor") to (12 to 6),
+            (31 to "cursor") to (12 to 3),
             (19 to "changeUserA") to (6 to 0),
             (19 to "changeUserB") to (6 to 0),
             (277 to "enterNameField1") to (0 to 6),
