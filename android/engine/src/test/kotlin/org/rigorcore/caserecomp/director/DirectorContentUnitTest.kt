@@ -116,6 +116,24 @@ class DirectorContentUnitTest {
         }
     }
 
+    @Test fun html_tables_become_tabbed_rows_with_font_and_tab_stops() {
+        DirectorContent.open(pack(files), decoder).use { content ->
+            val rt = DirectorRuntime(content.movie, content.lingo, content)
+            val member = rt.member(org.rigorcore.caserecomp.lingo.LingoValue.LString("label"), null)
+            member.setProp("html", org.rigorcore.caserecomp.lingo.LingoValue.LString(
+                "<TABLE><TR><TD WIDTH=10><font size=5 color=#FFFFFF face='Arial'>A</FONT></TD><TD WIDTH=4></TD>" +
+                    "<TD WIDTH=20>B</TD></TR><TR><TD>C</TD><TD></TD><TD>D</TD></TR></TABLE>"))
+            assertEquals("A\t\tB\rC\t\tD", member.text)
+            assertEquals(listOf(10, 14), member.tabStops)
+            assertEquals(listOf(18, 0xFFFFFFFF.toInt(), "Arial"), listOf(member.fontSize, member.textColor, member.font))
+            val metrics = object : TextMetrics {
+                override fun width(member: CastMember, text: String) = text.length
+                override fun lineHeight(member: CastMember) = 1
+            }
+            assertEquals(listOf(0 to "A", 10 to "", 14 to "B"), TextLayout.lines(member, 40, metrics).first().segments)
+        }
+    }
+
     @Test fun rejects_missing_unlisted_and_duplicate_manifest_paths() {
         assertThrows(LingoError::class.java) {
             DirectorContent.open(pack(files, listed = files - "media/internal/3.png"), decoder)

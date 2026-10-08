@@ -97,7 +97,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
             var baseline = -paint.fontMetrics.ascent
             for (line in lines) {
                 if (baseline > height + step) break
-                canvas.drawText(line.text.replace('\t', ' '), line.x.toFloat(), baseline, paint)
+                for ((dx, run) in line.segments) canvas.drawText(run, (line.x + dx).toFloat(), baseline, paint)
                 baseline += step
             }
             val pixels = IntArray(width * height)
@@ -111,7 +111,7 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
 
     /** Lines fit when none is wider than the box and their glyphs end inside its height. */
     private fun fits(lines: List<TextLine>, member: CastMember, width: Int, height: Int): Boolean {
-        if (lines.any { width(member, it.text) > width }) return false
+        if (lines.any { line -> line.x + line.segments.last().let { (dx, run) -> dx + width(member, run) } > width }) return false
         apply(member)
         val glyphs = paint.fontMetrics.descent - paint.fontMetrics.ascent
         // Trailing blank lines need not be visible.

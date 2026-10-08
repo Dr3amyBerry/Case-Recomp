@@ -141,6 +141,9 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
 
     val fontSize: Int get() = overrides["fontsize"]?.toInt() ?: data?.textStyle?.fontSize ?: 12
 
+    /** Tab stops (pixels from the left) set by HTML table cell widths; empty for default stops. */
+    val tabStops: List<Int> get() = (overrides["tabstops"] as? LingoValue.LList)?.items?.map { it.toInt() } ?: emptyList()
+
     /** Text layout and face: Lingo values, else the authored style of the member's first run. */
     val alignment: String get() = overrides["alignment"]?.asText()?.lowercase() ?: data?.textStyle?.alignment ?: "left"
     val font: String get() = overrides["font"]?.asText() ?: data?.textStyle?.font ?: "Arial"
@@ -214,7 +217,22 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
     override fun setProp(name: String, value: LingoValue) {
         when (val p = name.lowercase()) {
             "text" -> text = value.asText()
-            "html" -> { text = htmlToText(value.asText()); overrides["html"] = value }
+            "html" -> {
+                val html = value.asText()
+                text = htmlToText(html)
+                overrides["html"] = value
+                // The first <font> tag styles the member; table cell widths become tab stops.
+                FONT_TAG.find(html)?.groupValues?.get(1)?.let { attrs ->
+                    attr(attrs, "size")?.toIntOrNull()?.let { overrides["fontsize"] = LInt(HTML_SIZES[it.coerceIn(1, 7) - 1]) }
+                    attr(attrs, "color")?.removePrefix("#")?.toIntOrNull(16)?.let {
+                        overrides["color"] = LColor((it shr 16) and 0xFF, (it shr 8) and 0xFF, it and 0xFF)
+                    }
+                    attr(attrs, "face")?.let { overrides["font"] = LString(it) }
+                }
+                val firstRow = ROW.find(html)?.value ?: ""
+                val widths = CELL_WIDTH.findAll(firstRow).map { it.groupValues[1].toInt() }.toList()
+                if (widths.size > 1) overrides["tabstops"] = LingoValue.LList(widths.runningReduce(Int::plus).dropLast(1).map { LInt(it) }.toMutableList())
+            }
             "image" -> overrides["image"] = (value as? LingoImage)?.duplicate() ?: throw LingoError("member.image needs an image")
             "number", "membernum", "castlibnum", "type", "width", "height", "rect" ->
                 throw LingoError("cannot set member property $name")
@@ -236,11 +254,20 @@ class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val num
 
     companion object {
         private val TAG = Regex("<[^>]*>")
-        private val BREAK = Regex("(?i)<br\\s*/?>|</p>")
+        private val BREAK = Regex("(?i)<br\\s*/?>|</p>|</tr>")
+        private val CELL_END = Regex("(?i)</td>")
+        private val FONT_TAG = Regex("(?i)<font\\b([^>]*)>")
+        private val ROW = Regex("(?is)<tr\\b.*?</tr>")
+        private val CELL_WIDTH = Regex("(?i)<td\\b[^>]*\\bwidth\\s*=\\s*\"?(\\d+)")
+        /** HTML <font size> 1..7 in points, as Director's HTML import maps them. */
+        private val HTML_SIZES = intArrayOf(8, 10, 12, 14, 18, 24, 36)
 
-        /** Plain text of the simple HTML that titles assign to text members. */
-        fun htmlToText(html: String): String = html.replace(BREAK, "\r").replace(TAG, "")
+        private fun attr(attrs: String, name: String): String? =
+            Regex("(?i)\\b$name\\s*=\\s*(?:'([^']*)'|\"([^\"]*)\"|([^\\s>]+))").find(attrs)?.groupValues?.drop(1)?.firstOrNull { it.isNotEmpty() }
+
+        /** Plain text of the simple HTML that titles assign to text members: rows end lines, cells are tab separated. */
+        fun htmlToText(html: String): String = html.replace(BREAK, "\r").replace(CELL_END, "\t").replace(TAG, "")
             .replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&nbsp;", " ").replace("&amp;", "&")
-            .trimEnd('\r')
+            .replace(Regex("\t+\r"), "\r").trimEnd('\r', '\t')
     }
 }
