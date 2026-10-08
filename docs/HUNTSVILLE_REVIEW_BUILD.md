@@ -2,20 +2,21 @@
 
 Estado: **PENDIENTE_VALIDACION_HUMANA**. Fecha: 2026-10-08.
 
-Build actualizada: cursor separado del nombre, Cambiar usuario 6 pixeles a la derecha
+Build actualizada: cursor separado del nombre y subido 3 pixeles respecto a la build anterior,
+Cambiar usuario 6 pixeles a la derecha
 y filas de agentes 6 pixeles mas abajo; el area de clic del boton acompana su dibujo.
 
-Implementacion: [db1ec55](https://github.com/Dr3amyBerry/Case-Recomp/commit/db1ec551eec960f201f1b821af2765f2bb4c9056).
+Implementacion: [09e4f2b](https://github.com/Dr3amyBerry/Case-Recomp/commit/09e4f2b0aa202832db5dc545a327d5c3c4e0c51b).
 La entrega posterior cambia solo documentacion; el codigo de la APK corresponde a este commit.
 [Lista exacta de ajustes, identidad y evidencia](HUNTSVILLE_PRESENTATION_ISOLATION.md).
 
 ## APK local firmada
 
-Archivo: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-db1ec55-release.apk`.
+Archivo: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-09e4f2b-release.apk`.
 Version: 0.6.0; versionCode: 8; minSdk: 26; targetSdk: 36.
 Application ID: `org.rigorcore.caserecomp.synthetic` (conservado).
-Tamano: 904447 bytes.
-SHA-256: `d51ea3f41f0395fdd8584ec388a94b5af3850f91a01f036893e88872174aaa3b`.
+Tamano: 904367 bytes.
+SHA-256: `105938968b51bc4eb09addc499c02550a374541a47337ba7838aa5379e0b07c9`.
 Certificado SHA-256: `8be7a724e1feaa07de177433b1cdbde283d28793716aebb0f2b21a5a8061a5d2`.
 `apksigner verify` paso y el certificado coincide con la release instalada previamente en WSA.
 
@@ -24,8 +25,8 @@ No se publico una release de produccion ni se subieron recursos comerciales.
 La unica entrada assets de la APK es `case_recomp_license.txt`; el renderer anterior
 congelado y los fixtures sinteticos pertenecen exclusivamente a la APK de pruebas.
 
-APK debug alternativa: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-db1ec55-debug.apk`.
-SHA-256: `167b22361b930fe2c1f3df0ef9a2193ee7cd011f1f97ccf9f136e1c72c3f5aee`; ID con sufijo `.debug`, datos separados de release.
+APK debug alternativa: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-09e4f2b-debug.apk`.
+SHA-256: `0103ccd26a35efbbb7cf5a872e3c5487ac7c058b7872f099c4f13f4f4a5c674c`; ID con sufijo `.debug`, datos separados de release.
 Los artefactos y su JSON de metadatos son locales e ignorados por Git.
 El archivo heredado no seguido DirectorAndroidPorts.kt se mantuvo sin cambios;
 la APK reproduce ese arbol local documentado, no un checkout limpio.
@@ -35,7 +36,7 @@ la APK reproduce ese arbol local documentado, no un checkout limpio.
 Desde la raiz del repo en PowerShell, para actualizar WSA:
 
 ```powershell
-adb -s 127.0.0.1:58526 install -r .\local-output\huntsville-profile-review\case-recomp-0.6.0-huntsville-profile-db1ec55-release.apk
+adb -s 127.0.0.1:58526 install -r .\local-output\huntsville-profile-review\case-recomp-0.6.0-huntsville-profile-09e4f2b-release.apk
 adb -s 127.0.0.1:58526 shell am start -n org.rigorcore.caserecomp.synthetic/org.rigorcore.caserecomp.app.HomeActivity
 ```
 
@@ -83,3 +84,21 @@ memoria y seleccion del paquete activo en el HUB permanecen documentadas.
 
 El punto de control procede de la directiva del usuario: "DETEN COMPLETAMENTE EL
 TRABAJO AL TERMINAR LA ETAPA 1". No se ha iniciado la Etapa 2 durante este trabajo.
+
+## Visible bot run (2026-10-08)
+
+The existing private wsa_autoplay.py bot completed the current case 1 on WSA.
+It resumed the existing Robot save rather than starting a new inventory. Result:
+1 remaining object tapped, puzzle solved after 37 swaps, final label map, exit 0.
+Runtime duration: 221 seconds. All game actions were normal ADB touch input from
+the bot; the assistant observed state without clicking through the level.
+
+Two private recordings cover the run:
+private/huntsville/profile-isolation/2026-10-08/bot-demo/case-bot-demo-01.mp4
+and case-bot-demo-02.mp4 in the same directory. Logs, result.json and completion
+screenshots are beside them. Recordings and game content are not uploaded to Git.
+The run continues the DEBUG save, whose original files/preferences backup is kept
+in profile-isolation/2026-10-08/wsa-debug-data-before.tar. Demo progress is left
+available in debug; release saves are separate and unaffected by bot progression.
+APK release was updated with install -r afterward, without changing the foreground
+debug game. Visual acceptance and Stage 2 authorization remain pending.
