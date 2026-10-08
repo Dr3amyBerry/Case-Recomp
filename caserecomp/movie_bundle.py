@@ -205,17 +205,21 @@ def _score_record(archive: DirectorArchive) -> dict:
               "x": span.state.x, "y": span.state.y, "width": span.state.width, "height": span.state.height,
               "blend": span.state.blend, "flip_h": span.state.flip_h, "flip_v": span.state.flip_v}
              for span in score.sprite_spans]
-    behaviors = []
+    # Each span row of the score (start, end, channel) is one Director sprite span; its
+    # behaviours follow it, and a span without behaviours yields a single empty reference.
+    sprite_spans: dict[tuple[int, int, int], list[dict]] = {}
     for ref in score.behaviors:
+        behaviors = sprite_spans.setdefault((ref.start_frame, ref.end_frame, ref.channel), [])
         if ref.cast_member is None:
             continue
         parameters = None
         if ref.parameter_entry is not None:
             parameters = entries[ref.parameter_entry].rstrip(b"\0").decode("latin-1")
-        behaviors.append({"start": ref.start_frame, "end": ref.end_frame, "channel": ref.channel,
-                          "cast_lib": ref.cast_lib, "member": ref.cast_member, "parameters": parameters})
+        behaviors.append({"cast_lib": ref.cast_lib, "member": ref.cast_member, "parameters": parameters})
     return {"frame_count": score.frame_count, "channel_count": score.channel_count,
-            "sprite_record_size": score.sprite_record_size, "sprites": spans, "behaviors": behaviors}
+            "sprite_record_size": score.sprite_record_size, "sprites": spans,
+            "spans": [{"start": start, "end": end, "channel": channel, "behaviors": behaviors}
+                      for (start, end, channel), behaviors in sprite_spans.items()]}
 
 
 def external_cast_files(directory: Path, limit: int = MAX_CAST_LIBS) -> list[Path]:

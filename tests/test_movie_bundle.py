@@ -155,8 +155,21 @@ class BundleTests(unittest.TestCase):
         score = bundle["score"]
         self.assertEqual((score["frame_count"], len(score["sprites"])), (2, 1))
         self.assertEqual(score["sprites"][0]["member"], 2)
-        self.assertEqual(score["behaviors"], [{"start": 1, "end": 2, "channel": 6, "cast_lib": 1, "member": 2,
-                                               "parameters": "[x:1]"}])
+        self.assertEqual(score["spans"], [{"start": 1, "end": 2, "channel": 6, "behaviors": [
+            {"cast_lib": 1, "member": 2, "parameters": "[x:1]"}]}])
+
+    def test_spans_without_behaviours_are_kept(self):
+        from caserecomp.score import BehaviorRef, parse_score
+        real = parse_score(score_fixture())
+        refs = (BehaviorRef(1, 1, 0, None, None, None, None), BehaviorRef(2, 2, 6, 1, 2, None, None),
+                BehaviorRef(2, 2, 6, 1, 3, None, None))
+        with patch("caserecomp.movie_bundle.parse_score",
+                   return_value=SimpleNamespace(**{**real.__dict__, "behaviors": refs})):
+            spans = self.build(self.movie())["score"]["spans"]
+        self.assertEqual(spans, [
+            {"start": 1, "end": 1, "channel": 0, "behaviors": []},
+            {"start": 2, "end": 2, "channel": 6, "behaviors": [
+                {"cast_lib": 1, "member": 2, "parameters": None}, {"cast_lib": 1, "member": 3, "parameters": None}]}])
 
     def test_bundle_rejects_wrong_archive_kinds(self):
         with self.assertRaises(InspectionError):
