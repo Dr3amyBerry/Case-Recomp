@@ -4,7 +4,7 @@
 
 ## Identidad y alcance
 
-Case Recomp es un proyecto independiente de **compatibilidad de formatos y ejecución**, alojado en https://github.com/Dr3amyBerry/Case-Recomp, mantenido bajo la cuenta pública del repositorio. La sede/domicilio legal, el titular contractual del proyecto y un canal privado de contacto **aún no están declarados**; no se inventan.
+Case Recomp es un proyecto independiente de **compatibilidad de formatos y ejecución**, alojado en https://github.com/Dr3amyBerry/Case-Recomp, mantenido bajo la cuenta pública del repositorio. La identidad jurídica del titular del proyecto y el domicilio legal siguen pendientes de declarar. **Contacto designado para asuntos legales y privacidad: [contact@rigorcore.com](mailto:contact@rigorcore.com)**. El mantenedor proporcionó esta dirección; su recepción efectiva aún no se ha verificado.
 
 **No afiliación.** Case Recomp NO está afiliado, patrocinado, autorizado ni respaldado por Big Fish Games, BFG Entertainment u otros titulares de los juegos. Los nombres *Mystery Case Files*, *Huntsville*, *Prime Suspects* y *Ravenhearst*, así como logotipos, personajes, escenas, música y otros materiales, pertenecen a sus respectivos titulares. Mencionar un título indica una compatibilidad técnica pretendida, **no** un derecho de marca, licencia o respaldo.
 
@@ -54,4 +54,4 @@ El proyecto no vende contenido de juegos ni verifica automáticamente su titular
 - [Estado de licencia del código](LICENSING_STATUS.md)
 - [Plan de pendientes de cumplimiento](LEGAL_RELEASE_CHECKLIST.md)
 
-**Contacto:** para incidencias técnicas no sensibles: https://github.com/Dr3amyBerry/Case-Recomp/issues . **No publique allí datos personales, llaves, ZIPs del juego ni denuncias con material propietario.** El canal privado legal y de privacidad está pendiente de designación; es un requisito previo para distribución más amplia.
+**Contacto:** para incidencias técnicas no sensibles: https://github.com/Dr3amyBerry/Case-Recomp/issues . **No publique allí datos personales, llaves, ZIPs del juego ni denuncias con material propietario.** **Contacto privado legal y de privacidad: [contact@rigorcore.com](mailto:contact@rigorcore.com)**. Debe verificarse el funcionamiento del buzón y completarse la identificación legal del operador antes de una distribución más amplia.

@@ -6,7 +6,7 @@
 
 ### 1. Responsable y contacto
 
-El proyecto se mantiene desde https://github.com/Dr3amyBerry/Case-Recomp . **La identidad jurídica del responsable, domicilio y canal privado para solicitudes de datos están pendientes de publicación.** No sustituya este aviso por un supuesto domicilio o correo. Para fallos generales: https://github.com/Dr3amyBerry/Case-Recomp/issues; **no publique datos sensibles en issues públicos**. Antes de distribuir ampliamente la aplicación, se debe habilitar y anunciar un canal privado verificable.
+El proyecto se mantiene desde https://github.com/Dr3amyBerry/Case-Recomp . **Correo para privacidad y solicitudes de datos: [contact@rigorcore.com](mailto:contact@rigorcore.com)**, proporcionado por el mantenedor. Su recepción aún no se ha comprobado y la identidad jurídica y domicilio del responsable siguen pendientes de publicación. Para fallos generales: https://github.com/Dr3amyBerry/Case-Recomp/issues; **no publique datos sensibles en issues públicos**. Antes de distribuir ampliamente la aplicación, se debe habilitar y anunciar un canal privado verificable.
 
 ### 2. Qué sucede con los archivos del juego
 
@@ -29,7 +29,7 @@ Finalidades identificadas: conversión local solicitada; apertura de ZIPs del us
 
 ### 5. Derechos, menores y cambios
 
-Si desea acceder, corregir o eliminar datos procesados por servicios externos, consulte los canales del proveedor correspondiente. Para datos exclusivos de la app, puede borrar sus datos o desinstalarla. Se necesita un contacto privado operativo para solicitudes al mantenedor que no se puedan resolver en el dispositivo. No se ha verificado un servicio dirigido específicamente a menores ni un proceso de verificación de edad: **no se debe anunciar cumplimiento infantil o clasificación de edad sin evaluación adicional**.
+Si desea acceder, corregir o eliminar datos procesados por servicios externos, consulte los canales del proveedor correspondiente. Para datos exclusivos de la app, puede borrar sus datos o desinstalarla. Para solicitudes privadas al mantenedor no resueltas en el dispositivo, escriba a [contact@rigorcore.com](mailto:contact@rigorcore.com); confirme la recepción. No se ha verificado un servicio dirigido específicamente a menores ni un proceso de verificación de edad: **no se debe anunciar cumplimiento infantil o clasificación de edad sin evaluación adicional**.
 
 Si el proyecto incorpora analytics, anuncios, crash reporting, cuentas, subida de archivos o nuevos terceros, deberá actualizar este aviso **antes** de activar esas funciones y analizar bases legales, permisos y reglas de los destinos de distribución.
 
@@ -37,7 +37,7 @@ Si el proyecto incorpora analytics, anuncios, crash reporting, cuentas, subida d
 
 ### 1. Publisher and contact
 
-Case Recomp is maintained via https://github.com/Dr3amyBerry/Case-Recomp . **The legal identity/address of the controller and a private data-request channel have not yet been supplied.** General, non-sensitive bugs may be reported at https://github.com/Dr3amyBerry/Case-Recomp/issues . **Never post personal data, proprietary game files or confidential information in public issues.** A functioning private contact route is required before broader distribution.
+Case Recomp is maintained via https://github.com/Dr3amyBerry/Case-Recomp . **Privacy and data requests: [contact@rigorcore.com](mailto:contact@rigorcore.com)**, supplied by the maintainer but not independently delivery-tested. The controller's legal identity and address remain unconfirmed. General, non-sensitive bugs may be reported at https://github.com/Dr3amyBerry/Case-Recomp/issues . **Never post personal data, proprietary game files or confidential information in public issues.** A functioning private contact route is required before broader distribution.
 
 ### 2. Local files and game data
 
@@ -55,6 +55,6 @@ Links: https://docs.github.com/en/site-policy/privacy-policies/github-general-pr
 
 Local conversion, import/playback, saves, language preference and voluntary support requests are the identified purposes. Imported data remains locally until removed by the user or app/system cleanup; this is not a promise about external backups or provider retention. No general legal basis or server-side retention period is asserted without evidence.
 
-Users may delete local app data or uninstall. For service-provider requests use the corresponding provider's privacy tools. A verified private maintainer contact route is pending. Any future accounts, analytics, uploads, advertising or cloud synchronisation require updated disclosures and legal review before launch.
+Users may delete local app data or uninstall. For service-provider requests use the corresponding provider's privacy tools. For private maintainer requests, use [contact@rigorcore.com](mailto:contact@rigorcore.com); delivery and response still require verification. Any future accounts, analytics, uploads, advertising or cloud synchronisation require updated disclosures and legal review before launch.
 
 **Scope limitation:** this notice is based on repository code as of 2026-10-08, not an independent network forensic audit of all browsers, devices or hosting services.

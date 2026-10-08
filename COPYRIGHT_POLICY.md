@@ -14,7 +14,7 @@
 
 **Reportes no sensibles**: https://github.com/Dr3amyBerry/Case-Recomp/issues .
 
-**Solicitudes de titulares y reportes confidenciales**: se requiere habilitar y publicar una vía privada operativa con identidad del mantenedor y tiempo de atención. **PENDIENTE DE CONFIGURAR.** Nunca pida que el denunciante publique contenidos protegidos, claves ni documentos personales en un issue público.
+**Solicitudes de titulares y reportes confidenciales:** [contact@rigorcore.com](mailto:contact@rigorcore.com), dirección designada por el mantenedor. **La recepción, atención y responsable legal aún deben verificarse.** Nunca pida que el denunciante publique contenidos protegidos, claves ni documentos personales en un issue público.
 
 Para notificaciones formales sobre material alojado en GitHub, pueden emplearse los mecanismos de copyright/DMCA de GitHub: https://docs.github.com/en/site-policy/content-removal-policies/dmca-takedown-policy . Ello no sustituye el canal del propio mantenedor ni convierte cualquier denuncia en válida.
 
@@ -27,6 +27,6 @@ Procedimiento recomendado: acusar recibo por canal privado; identificar archivo/
 3. Auditar el árbol Git **y su historial**, APKs ya publicadas, Pages y artefactos de CI para evitar material comercial.
 4. Revisar nombres, iconos, portadas y capturas públicas para impedir confusión sobre aval oficial.
 5. Revisar procedencia y licencias de las aportaciones de terceros.
-6. Mantener una persona y contacto jurídico responsables sin exponer datos privados innecesariamente.
+6. Verificar que **contact@rigorcore.com** recibe comunicaciones y designar un responsable jurídico identificable, sin exponer datos privados innecesariamente.
 
 Documentos relacionados: [LEGAL.md](LEGAL.md), [TERMS.md](TERMS.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
