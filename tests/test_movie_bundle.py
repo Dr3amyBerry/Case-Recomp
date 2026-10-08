@@ -97,7 +97,7 @@ class ParserTests(unittest.TestCase):
 
     def test_xmed_text_and_fonts(self):
         parsed = parse_xmed_text(xmed(b"Caf\xe9\rOpen", fonts=(b"Arial", b"Courier")))
-        self.assertEqual(parsed, {"text": "Café\nOpen", "fonts": ["Arial", "Courier"]})
+        self.assertEqual(parsed, {"text": "Café\rOpen", "fonts": ["Arial", "Courier"]})
         self.assertEqual(parse_xmed_text(b"FFFF"), {"text": "", "fonts": []})
 
     def test_rejects_malformed_tables(self):

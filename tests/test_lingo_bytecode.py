@@ -69,6 +69,10 @@ class LscrTests(unittest.TestCase):
                          ("tick", ["me", "count"], ["total"], []))
         self.assertEqual(base64.b64decode(handler["bytecode"]), CODE)
 
+    def test_string_literals_use_the_mac_character_set(self):
+        script = parse_lscr(lscr(literals=[(1, 0, b"Peque\x96o N\xbc1\0")]), NAMES)
+        self.assertEqual(script["literals"], [{"type": "string", "value": "Pequeño Nº1"}])
+
     def test_negative_int_and_zero_extended(self):
         script = parse_lscr(lscr(literals=[(4, 0xFFFFFFFF, b""), (9, 0, bytes(10))]), NAMES)
         self.assertEqual(script["literals"], [{"type": "int", "value": -1}, {"type": "float", "value": 0.0}])

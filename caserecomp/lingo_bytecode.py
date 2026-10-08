@@ -79,8 +79,10 @@ def _literals(data: bytes, count: int, offset: int, data_offset: int) -> list[di
         if len(raw) != length:
             raise InspectionError("truncated Lscr literal data")
         if kind == 1:
+            # Script literals are stored in the Mac character set even in Windows-authored
+            # movies (an owned Director 8.5 title spells its Spanish text correctly only so).
             text = raw[:-1] if raw.endswith(b"\0") else raw
-            out.append({"type": "string", "value": text.decode("latin-1")})
+            out.append({"type": "string", "value": text.decode("mac_roman")})
         elif length == 8:
             out.append({"type": "float", "value": struct.unpack(">d", raw)[0]})
         elif length == 10:

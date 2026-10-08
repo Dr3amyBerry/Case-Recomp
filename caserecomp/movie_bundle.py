@@ -127,7 +127,7 @@ def parse_xmed_text(data: bytes) -> dict:
         size = int(size_hex, 16)
         if size > len(rest):
             raise InspectionError("truncated XMED text")
-        text = rest[:size].decode("cp1252", errors="replace").replace("\r", "\n")
+        text = rest[:size].decode("cp1252", errors="replace")  # lines end with RETURN, as Lingo sees them
     fonts = []
     for match in FONT_ENTRY.finditer(sections.get(8, b"")):
         name = sections[8][match.end():match.end() + match.group(1)[0]]
