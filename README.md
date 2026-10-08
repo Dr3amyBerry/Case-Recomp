@@ -119,3 +119,5 @@ The other games shown in the app (*Prime Suspects* and *Ravenhearst*) are **in d
 ---
 
 Developer documentation / Documentación para desarrolladores: [docs/DEVELOPER.md](docs/DEVELOPER.md).
+
+Contribuciones y protección de derechos / Contributions and rights: [CONTRIBUTING.md](CONTRIBUTING.md).
