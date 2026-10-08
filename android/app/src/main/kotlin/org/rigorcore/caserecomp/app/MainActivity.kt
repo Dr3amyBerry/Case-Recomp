@@ -45,6 +45,11 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
+            savedInstanceState == null && intent.getBooleanExtra(EXTRA_DIRECTOR, false)) {
+            // adb debug route: `am start -n <pkg>/org.rigorcore.caserecomp.app.MainActivity --ez director true`
+            startActivity(Intent(this, DirectorLauncherActivity::class.java).putExtras(intent))
+        }
         contentRepository = PrivateContentRepository(this)
         flowRepository = PrivateVerifiedFlowRepository(this)
         sceneRepository = PrivateVerifiedSceneRepository(this)
@@ -192,6 +197,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val DIRECTOR_MENU_ID = 6043
+        private const val EXTRA_DIRECTOR = "director"
         private const val REQUEST_PRIVATE_CONTENT = 4041
         private const val REQUEST_VERIFIED_FLOW = 4042
         private const val REQUEST_VERIFIED_SCENE = 4043

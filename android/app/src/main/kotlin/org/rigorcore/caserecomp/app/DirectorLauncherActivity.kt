@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -40,7 +41,8 @@ class DirectorLauncherActivity : Activity() {
         }
         repository = PrivateDirectorRepository(this)
         showStartScreen("Director/Lingo private debug")
-        openActive()
+        val external = intent.getStringExtra(EXTRA_IMPORT_EXTERNAL)
+        if (savedInstanceState == null && external != null) importExternal(external) else openActive()
     }
 
     private fun showStartScreen(message: String) {
@@ -75,6 +77,32 @@ class DirectorLauncherActivity : Activity() {
         startActivityForResult(intent, REQUEST_DIRECTOR_CONTENT)
     }
 
+    /**
+     * Debug/ADB route: import a ZIP the tester pushed to this app's own external files
+     * directory (`Android/data/<pkg>/files/import/`), avoiding the document picker.
+     */
+    private fun importExternal(name: String) {
+        val dir = getExternalFilesDir("import")?.canonicalFile
+        val file = dir?.let { File(it, name).canonicalFile }
+        if (dir == null || file == null || file.parentFile != dir || !file.isFile) {
+            showStartScreen("Director import rejected: no such file in app import folder")
+            return
+        }
+        val token = ++workerToken
+        showStartScreen("Importing and hashing private Director content…")
+        Thread {
+            val result = runCatching { createSession(file.inputStream().use(repository::import).path) }
+            runOnUiThread {
+                if (isFinishing || isDestroyed || token != workerToken) {
+                    result.getOrNull()?.close()
+                } else result.fold(::displaySession) {
+                    Log.e(TAG, "external import failed", it)
+                    showStartScreen("Director import rejected: " + (it.message ?: "invalid package"))
+                }
+            }
+        }.start()
+    }
+
     private fun openActive() {
         val token = ++workerToken
         showStartScreen("Validating private Director content…")
@@ -86,7 +114,10 @@ class DirectorLauncherActivity : Activity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed || token != workerToken) {
                     result.getOrNull()?.close()
-                } else result.fold(::displaySession) { showStartScreen("Director not started: " + (it.message ?: "invalid private package")) }
+                } else result.fold(::displaySession) {
+                    Log.e(TAG, "Director start failed", it)
+                    showStartScreen("Director not started: " + (it.message ?: "invalid private package"))
+                }
             }
         }.start()
     }
@@ -131,6 +162,7 @@ class DirectorLauncherActivity : Activity() {
         stage = newStage
         newStage.onRuntimeError = { error ->
             newStage.pauseFrames()
+            Log.e(TAG, "Director runtime paused", error)
             Toast.makeText(this, "Director runtime paused: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
         }
         val layout = FrameLayout(this)
@@ -201,5 +233,7 @@ class DirectorLauncherActivity : Activity() {
 
     private companion object {
         const val REQUEST_DIRECTOR_CONTENT = 6042
+        const val EXTRA_IMPORT_EXTERNAL = "import_external"
+        const val TAG = "CaseRecompDirector"
     }
 }
