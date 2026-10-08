@@ -2,19 +2,20 @@
 
 Estado: **PENDIENTE_VALIDACION_HUMANA**. Fecha: 2026-10-08.
 
-Build actualizada: nombre y cursor bajados 6 pixeles del escenario para alinearlos con Agente.
+Build actualizada: cursor separado del nombre, Cambiar usuario 6 pixeles a la derecha
+y filas de agentes 6 pixeles mas abajo; el area de clic del boton acompana su dibujo.
 
-Implementacion: [e2c4027](https://github.com/Dr3amyBerry/Case-Recomp/commit/e2c402749f3bdc05ff88e581503da4a6f9f9f946).
+Implementacion: [db1ec55](https://github.com/Dr3amyBerry/Case-Recomp/commit/db1ec551eec960f201f1b821af2765f2bb4c9056).
 La entrega posterior cambia solo documentacion; el codigo de la APK corresponde a este commit.
 [Lista exacta de ajustes, identidad y evidencia](HUNTSVILLE_PRESENTATION_ISOLATION.md).
 
 ## APK local firmada
 
-Archivo: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-e2c4027-release.apk`.
+Archivo: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-db1ec55-release.apk`.
 Version: 0.6.0; versionCode: 8; minSdk: 26; targetSdk: 36.
 Application ID: `org.rigorcore.caserecomp.synthetic` (conservado).
-Tamano: 903751 bytes.
-SHA-256: `30663efe195755c91e32ed1a06d764b1ec2ce2ab791fe6b36f86d92ab7ab88cb`.
+Tamano: 904447 bytes.
+SHA-256: `d51ea3f41f0395fdd8584ec388a94b5af3850f91a01f036893e88872174aaa3b`.
 Certificado SHA-256: `8be7a724e1feaa07de177433b1cdbde283d28793716aebb0f2b21a5a8061a5d2`.
 `apksigner verify` paso y el certificado coincide con la release instalada previamente en WSA.
 
@@ -23,8 +24,8 @@ No se publico una release de produccion ni se subieron recursos comerciales.
 La unica entrada assets de la APK es `case_recomp_license.txt`; el renderer anterior
 congelado y los fixtures sinteticos pertenecen exclusivamente a la APK de pruebas.
 
-APK debug alternativa: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-e2c4027-debug.apk`.
-SHA-256: `a5c9953fd0e13147737fd1c30a560f8929c72cb4dea660d567b0c137109d3e6d`; ID con sufijo `.debug`, datos separados de release.
+APK debug alternativa: `local-output/huntsville-profile-review/case-recomp-0.6.0-huntsville-profile-db1ec55-debug.apk`.
+SHA-256: `167b22361b930fe2c1f3df0ef9a2193ee7cd011f1f97ccf9f136e1c72c3f5aee`; ID con sufijo `.debug`, datos separados de release.
 Los artefactos y su JSON de metadatos son locales e ignorados por Git.
 El archivo heredado no seguido DirectorAndroidPorts.kt se mantuvo sin cambios;
 la APK reproduce ese arbol local documentado, no un checkout limpio.
@@ -34,7 +35,7 @@ la APK reproduce ese arbol local documentado, no un checkout limpio.
 Desde la raiz del repo en PowerShell, para actualizar WSA:
 
 ```powershell
-adb -s 127.0.0.1:58526 install -r .\local-output\huntsville-profile-review\case-recomp-0.6.0-huntsville-profile-e2c4027-release.apk
+adb -s 127.0.0.1:58526 install -r .\local-output\huntsville-profile-review\case-recomp-0.6.0-huntsville-profile-db1ec55-release.apk
 adb -s 127.0.0.1:58526 shell am start -n org.rigorcore.caserecomp.synthetic/org.rigorcore.caserecomp.app.HomeActivity
 ```
 
@@ -56,7 +57,7 @@ el ZIP Director privado por el flujo habitual. Los archivos del juego no van en 
 ## Resultados comprobados
 
 - Python: 276 pruebas, 2 omitidas por plataforma; baseline y candidata verdes.
-- Kotlin: 11 app + 82 engine, sin fallos ni omisiones locales; incluye arnese privado.
+- Kotlin: 11 app + 83 engine, sin fallos ni omisiones locales; incluye arnese privado.
 - Android WSA API 33: 18 pruebas pasaron; tres nuevas de presentacion/persistencia.
 - Comparacion Android: 1.152 combinaciones sinteticas con pixeles/dimensiones identicos
   al rasterizador anterior para Huntsville; metricas de ancho e interlineado iguales.
