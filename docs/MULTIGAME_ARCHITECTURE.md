@@ -150,5 +150,5 @@ Ver [especificaci?n de perfiles](GAME_COMPATIBILITY_PROFILE.md) y [plan de regre
 The app-side presentation registry is implemented and tested on WSA. See
 [Huntsville presentation isolation](HUNTSVILLE_PRESENTATION_ISOLATION.md) for the
 exact moved values, verified bundle selection, preserved generic behavior and
-limits. Status: `PENDIENTE_VALIDACION_HUMANA`. Mystery P.I. Stage 2 is gated by
-explicit human approval.
+limits. Status: `APROBADO_HUMANAMENTE` (2026-10-08). Mystery P.I. Stage 2 is
+explicitly authorized. See [approved baseline](HUNTSVILLE_APPROVED_REFERENCE.md).

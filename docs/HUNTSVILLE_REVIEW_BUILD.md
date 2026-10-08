@@ -1,6 +1,6 @@
 # Huntsville Stage 1 review build
 
-Estado: **PENDIENTE_VALIDACION_HUMANA**. Fecha: 2026-10-08.
+Estado: **APROBADO_HUMANAMENTE**. [Referencia congelada y autorizacion de Etapa 2](HUNTSVILLE_APPROVED_REFERENCE.md). Fecha: 2026-10-08.
 
 Build actualizada: cursor separado del nombre y subido 3 pixeles respecto a la build anterior,
 Cambiar usuario 6 pixeles a la derecha
@@ -81,7 +81,8 @@ el ZIP Director privado por el flujo habitual. Los archivos del juego no van en 
 
 ## Pendiente
 
-La aprobacion visual humana, dialogos/puzles completos, campana completa, comparacion
+La aprobacion visual humana de esta build esta registrada en HUNTSVILLE_APPROVED_REFERENCE.md.
+Dialogos/puzles completos, campana completa, comparacion
 con el juego nativo, otros Android y ediciones no registradas siguen pendientes.
 Un paquete cuya huella no este revisada conserva importacion/guardados y usa texto
 generico con aviso; requiere revision privada para agregar su huella al registro.
@@ -89,7 +90,7 @@ Las limitaciones previas de fuentes embebidas, texto multirun, Flash/Xtras, audi
 memoria y seleccion del paquete activo en el HUB permanecen documentadas.
 
 El punto de control procede de la directiva del usuario: "DETEN COMPLETAMENTE EL
-TRABAJO AL TERMINAR LA ETAPA 1". No se ha iniciado la Etapa 2 durante este trabajo.
+TRABAJO AL TERMINAR LA ETAPA 1". La autorizacion posterior de Etapa 2 y su inicio se registran en HUNTSVILLE_APPROVED_REFERENCE.md.
 
 ## Visible bot run (2026-10-08)
 

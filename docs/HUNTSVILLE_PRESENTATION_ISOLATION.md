@@ -1,6 +1,6 @@
 # Huntsville presentation isolation: Stage 1
 
-Status: PENDIENTE_VALIDACION_HUMANA. Stage 2 requires explicit human approval.
+Estado: **APROBADO_HUMANAMENTE**. [Referencia congelada y autorizacion de Etapa 2](HUNTSVILLE_APPROVED_REFERENCE.md).
 
 ## Scope and baseline
 

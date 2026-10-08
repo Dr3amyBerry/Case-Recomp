@@ -1,6 +1,6 @@
-﻿# Huntsville: reloj y guardado de sesion
+# Huntsville: reloj y guardado de sesion
 
-Estado: **PENDIENTE_VALIDACION_HUMANA**. Etapa 1; Mystery P.I. sigue pendiente de autorizacion.
+Estado: **APROBADO_HUMANAMENTE**. [Referencia congelada y autorizacion de Etapa 2](HUNTSVILLE_APPROVED_REFERENCE.md). Etapa 1; Mystery P.I. sigue pendiente de autorizacion.
 
 El reloj de reproduccion es monotono y excluye el tiempo que la actividad pasa en
 segundo plano. El temporizador del caso sigue perteneciendo al juego original.
