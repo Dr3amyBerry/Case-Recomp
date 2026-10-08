@@ -26,8 +26,9 @@ internal class DirectorStageView(
     private val renderer: StageRenderer,
 ) : View(context) {
     private val viewport = DirectorViewport(renderer.width, renderer.height)
-    private val bitmap = Bitmap.createBitmap(renderer.width, renderer.height, Bitmap.Config.ARGB_8888)
-    private val drawPaint = Paint().apply { isFilterBitmap = false }
+    private val bitmap = Bitmap.createBitmap(renderer.frame.width, renderer.frame.height, Bitmap.Config.ARGB_8888)
+    // Bilinear: a non-integer fit (e.g. 1.2x) otherwise doubles some pixel rows and columns but not others.
+    private val drawPaint = Paint().apply { isFilterBitmap = true }
     private val destination = RectF()
     private var active = false
     private var down = false
@@ -70,12 +71,14 @@ internal class DirectorStageView(
         statsWork += android.os.SystemClock.uptimeMillis() - start
         if (statsSince == 0L) statsSince = start
         if (start - statsSince >= 5000) {
-            android.util.Log.d(TAG, "fps %.1f, tick %.1f ms, draw %.1f ms".format(
-                statsFrames * 1000f / (start - statsSince), statsWork.toFloat() / statsFrames, drawWork.toFloat() / statsFrames.coerceAtLeast(1)))
-            statsSince = start; statsFrames = 0; statsWork = 0; drawWork = 0
+            android.util.Log.d(TAG, "fps %.1f, tick %.1f ms, draw %.1f ms (compose %.1f ms)".format(
+                statsFrames * 1000f / (start - statsSince), statsWork.toFloat() / statsFrames, drawWork.toFloat() / statsFrames.coerceAtLeast(1),
+                composeWork.toFloat() / statsFrames.coerceAtLeast(1)))
+            statsSince = start; statsFrames = 0; statsWork = 0; drawWork = 0; composeWork = 0
         }
     }
     private var drawWork = 0L
+    private var composeWork = 0L
 
     init {
         isFocusable = true
@@ -101,6 +104,7 @@ internal class DirectorStageView(
         canvas.drawColor(Color.BLACK)
         val drawStart = android.os.SystemClock.uptimeMillis()
         val frame = renderer.render()
+        composeWork += android.os.SystemClock.uptimeMillis() - drawStart
         bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
         val area = viewport.fit(width, height)
         destination.set(area.left, area.top, area.left + area.width, area.top + area.height)

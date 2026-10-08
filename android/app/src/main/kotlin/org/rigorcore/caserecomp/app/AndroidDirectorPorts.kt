@@ -77,11 +77,15 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
 
     override fun lineHeight(member: CastMember): Int = (member.fontSize * shrink * size(member.font) * 1.25f).toInt().coerceAtLeast(1)
 
-    override fun render(member: CastMember, width: Int, height: Int): LingoImage? {
-        if (width <= 0 || height <= 0 || width.toLong() * height > 16L * 1024 * 1024) return null
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    override fun render(member: CastMember, width: Int, height: Int): LingoImage? = render(member, width, height, 1)
+
+    /** Lays out in stage pixels (same wrapping at every scale) and draws the glyphs [scale] times larger. */
+    override fun render(member: CastMember, width: Int, height: Int, scale: Int): LingoImage? {
+        if (width <= 0 || height <= 0 || scale !in 1..4 || width.toLong() * height * scale * scale > 16L * 1024 * 1024) return null
+        val bitmap = Bitmap.createBitmap(width * scale, height * scale, Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)
+            canvas.scale(scale.toFloat(), scale.toFloat())
             // The box was sized for the original font: rather than wrapping words or lines out of
             // the visible box, squeeze then shrink the substitute until the text fits.
             var lines = TextLayout.lines(member, width, this)
@@ -100,9 +104,9 @@ internal class AndroidDirectorText : TextRasterizer, TextMetrics {
                 for ((dx, run) in line.segments) canvas.drawText(run, (line.x + dx).toFloat(), baseline, paint)
                 baseline += step
             }
-            val pixels = IntArray(width * height)
-            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-            return LingoImage(width, height, 32, pixels).also { it.useAlpha = true }
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            return LingoImage(bitmap.width, bitmap.height, 32, pixels).also { it.useAlpha = true }
         } finally {
             condense = 1f; shrink = 1f
             bitmap.recycle()

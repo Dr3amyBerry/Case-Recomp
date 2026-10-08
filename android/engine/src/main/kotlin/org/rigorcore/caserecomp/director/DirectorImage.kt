@@ -145,9 +145,13 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         val INK_NAMES = mapOf("copy" to 0, "matte" to 8, "backgroundtransparent" to 36, "blend" to 32)
 
         fun blendPixel(under: Int, over: Int, alpha: Int): Int {
-            fun ch(shift: Int) = (((over shr shift) and 0xFF) * alpha + ((under shr shift) and 0xFF) * (255 - alpha)) / 255
+            // Per channel: (over * alpha + under * (255 - alpha)) / 255. Written out: this runs per pixel.
+            val rest = 255 - alpha
+            val r = (((over shr 16) and 0xFF) * alpha + ((under shr 16) and 0xFF) * rest) / 255
+            val g = (((over shr 8) and 0xFF) * alpha + ((under shr 8) and 0xFF) * rest) / 255
+            val b = ((over and 0xFF) * alpha + (under and 0xFF) * rest) / 255
             val outAlpha = maxOf(under ushr 24, alpha)
-            return (outAlpha shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+            return (outAlpha shl 24) or (r shl 16) or (g shl 8) or b
         }
 
         fun colorArgb(value: LingoValue): Int = LColor.of(value).argb

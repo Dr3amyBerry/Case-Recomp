@@ -14,6 +14,13 @@ import kotlin.math.sin
 fun interface TextRasterizer {
     fun render(member: CastMember, width: Int, height: Int): LingoImage?
 
+    /**
+     * The same text, laid out for a [width] x [height] box, drawn [scale] times larger for a
+     * higher-resolution stage. Null when unsupported; the 1x image is then enlarged.
+     */
+    fun render(member: CastMember, width: Int, height: Int, scale: Int): LingoImage? =
+        if (scale == 1) render(member, width, height) else null
+
     object None : TextRasterizer {
         override fun render(member: CastMember, width: Int, height: Int): LingoImage? = null
     }
@@ -24,6 +31,9 @@ fun interface TextRasterizer {
  * ARGB frame. Bitmaps honour their alpha, sprite blend and the copy, matte and
  * background-transparent inks; shapes fill with their colour; Flash sprites draw
  * their shapes (solid or bitmap filled) through the movie's affine transforms.
+ *
+ * With [scale] > 1 the frame is that many times the stage size: bitmaps are enlarged
+ * pixel-exactly while text and Flash vectors are drawn at the higher resolution.
  */
 private const val BLACK = 0xFF000000.toInt()
 private const val WHITE = 0xFFFFFFFF.toInt()
@@ -34,29 +44,48 @@ class StageRenderer(
     private val text: TextRasterizer = TextRasterizer.None,
     private val decoder: ImageDecoder? = null,
     val background: Int = 0xFF000000.toInt(),
+    val scale: Int = 1,
 ) {
+    /** Stage size in Director pixels. */
     val width = runtime.movie.stageWidth
     val height = runtime.movie.stageHeight
-    val frame = LingoImage(width, height)
+    /** Frame size in output pixels. */
+    private val fw = width * scale
+    private val fh = height * scale
+    val frame = LingoImage(fw, fh)
+
+    init { require(scale in 1..4) { "stage scale must be 1..4" } }
 
     private val swfBitmaps = HashMap<Pair<Any, Int>, LingoImage?>()
     private val textCache = HashMap<CastMember, Triple<String, Pair<Int, Int>, LingoImage?>>()
 
     fun render(): LingoImage {
-        frame.pixels.fill(background)
-        for (item in runtime.displayList()) draw(item)
+        masksInUse = 0
+        val items = runtime.displayList()
+        // An opaque full-stage backdrop overwrites every pixel: clearing first is wasted work.
+        if (items.firstOrNull()?.let { coversStage(it) } != true) frame.pixels.fill(background)
+        for (item in items) draw(item)
         return frame
     }
 
-    private fun draw(item: DisplayItem) {
-        val alpha = item.blend.coerceIn(0, 100) * 255 / 100
+    private fun coversStage(item: DisplayItem): Boolean {
+        if (item.member.type != "bitmap" || item.blend < 100 || item.rotation != 0.0 || item.ink != 0) return false
+        if (item.left > 0 || item.top > 0 || item.right < width || item.bottom < height) return false
+        val pixels = item.member.pixels ?: return false
+        return !pixels.useAlpha && pixels.width > 0 && pixels.height > 0
+    }
+
+    private fun draw(stageItem: DisplayItem) {
+        val alpha = stageItem.blend.coerceIn(0, 100) * 255 / 100
         if (alpha == 0) return
-        val w = item.right - item.left; val h = item.bottom - item.top
+        val w = stageItem.right - stageItem.left; val h = stageItem.bottom - stageItem.top
         if (w <= 0 || h <= 0) return
         // Parked sprites (titles move them to 999,999) are skipped before touching their media.
-        if (item.right <= 0 || item.bottom <= 0 || item.left >= width || item.top >= height) {
-            if (item.rotation == 0.0) return
+        if (stageItem.right <= 0 || stageItem.bottom <= 0 || stageItem.left >= width || stageItem.top >= height) {
+            if (stageItem.rotation == 0.0) return
         }
+        val item = if (scale == 1) stageItem else stageItem.copy(left = stageItem.left * scale, top = stageItem.top * scale,
+            right = stageItem.right * scale, bottom = stageItem.bottom * scale)
         when (item.member.type) {
             "bitmap" -> item.member.pixels?.let { blit(it, item, alpha) }
             "shape" -> {
@@ -64,7 +93,9 @@ class StageRenderer(
                 if (item.member.data?.filled != false) fillRect(item.left, item.top, item.right, item.bottom, color.argb, alpha)
             }
             "text", "field" -> textImage(item.member, w, h)?.let { blit(colorize(item.member, it, item.fore, item.back), item, alpha) }
-            "flash" -> item.flash?.let { drawFlash(it, item, alpha) }
+            // Flash is sampled per stage pixel and written as scale x scale blocks: full-stage
+            // animations would otherwise cost scale² times more for little visible gain.
+            "flash" -> stageItem.flash?.let { drawFlash(it, stageItem, alpha) }
         }
     }
 
@@ -91,7 +122,8 @@ class StageRenderer(
     private fun textImage(member: CastMember, w: Int, h: Int): LingoImage? {
         val key = member.text to (w to h)
         textCache[member]?.let { (t, size, image) -> if (t == key.first && size == key.second) return image }
-        return text.render(member, w, h).also { textCache[member] = Triple(key.first, key.second, it) }
+        val image = text.render(member, w, h, scale) ?: if (scale != 1) text.render(member, w, h) else null
+        return image.also { textCache[member] = Triple(key.first, key.second, it) }
     }
 
     /** Scaled (nearest) blit honouring alpha, inks, flips and rotation about the rect centre. */
@@ -103,8 +135,8 @@ class StageRenderer(
         if (item.rotation != 0.0) {
             blitRotated(src, item, alpha, keyWhite); return
         }
-        val y0 = maxOf(0, item.top); val y1 = minOf(height, item.bottom)
-        val x0 = maxOf(0, item.left); val x1 = minOf(width, item.right)
+        val y0 = maxOf(0, item.top); val y1 = minOf(fh, item.bottom)
+        val x0 = maxOf(0, item.left); val x1 = minOf(fw, item.right)
         val n = x1 - x0
         if (n <= 0 || y1 <= y0) return
         // Source column of each destination column, computed once per blit.
@@ -115,13 +147,18 @@ class StageRenderer(
             columns[i] = sx
         }
         val sp = src.pixels; val fp = frame.pixels
+        val opaque = !useAlpha && !keyWhite && alpha == 255
+        var previous = -1
         for (y in y0 until y1) {
             var sy = (y - item.top) * src.height / h
             if (item.flipV) sy = src.height - 1 - sy
             val row = sy * src.width
-            val out = y * width + x0
-            if (!useAlpha && !keyWhite && alpha == 255) {
-                for (i in 0 until n) fp[out + i] = sp[row + columns[i]] or OPAQUE
+            val out = y * fw + x0
+            if (opaque) {
+                // Enlarged sprites repeat source rows: copy the row just written.
+                if (sy == previous) System.arraycopy(fp, out - fw, fp, out, n)
+                else for (i in 0 until n) fp[out + i] = sp[row + columns[i]] or OPAQUE
+                previous = sy
                 continue
             }
             for (i in 0 until n) {
@@ -136,7 +173,7 @@ class StageRenderer(
         }
     }
 
-    private val columnMap = IntArray(width)
+    private val columnMap = IntArray(fw)
 
     private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean) {
         val w = (item.right - item.left).toDouble(); val h = (item.bottom - item.top).toDouble()
@@ -144,8 +181,8 @@ class StageRenderer(
         val rad = Math.toRadians(item.rotation)
         val c = cos(rad); val s = sin(rad)
         val r = kotlin.math.hypot(w, h) / 2
-        for (y in maxOf(0, floor(cy - r).toInt()) until minOf(height, ceil(cy + r).toInt())) {
-            for (x in maxOf(0, floor(cx - r).toInt()) until minOf(width, ceil(cx + r).toInt())) {
+        for (y in maxOf(0, floor(cy - r).toInt()) until minOf(fh, ceil(cy + r).toInt())) {
+            for (x in maxOf(0, floor(cx - r).toInt()) until minOf(fw, ceil(cx + r).toInt())) {
                 // Inverse-rotate the destination pixel into the unrotated sprite rectangle.
                 val dx = x + 0.5 - cx; val dy = y + 0.5 - cy
                 val ux = dx * c + dy * s + w / 2; val uy = -dx * s + dy * c + h / 2
@@ -153,7 +190,7 @@ class StageRenderer(
                 var sx = (ux * src.width / w).toInt(); var sy = (uy * src.height / h).toInt()
                 if (item.flipH) sx = src.width - 1 - sx
                 if (item.flipV) sy = src.height - 1 - sy
-                put(y * width + x, src.pixels[sy * src.width + sx], src.useAlpha, keyWhite, alpha)
+                put(y * fw + x, src.pixels[sy * src.width + sx], src.useAlpha, keyWhite, alpha)
             }
         }
     }
@@ -167,8 +204,8 @@ class StageRenderer(
 
     private fun fillRect(left: Int, top: Int, right: Int, bottom: Int, argb: Int, alpha: Int) {
         val a = (argb ushr 24) * alpha / 255
-        for (y in maxOf(0, top) until minOf(height, bottom)) for (x in maxOf(0, left) until minOf(width, right)) {
-            val i = y * width + x
+        for (y in maxOf(0, top) until minOf(fh, bottom)) for (x in maxOf(0, left) until minOf(fw, right)) {
+            val i = y * fw + x
             frame.pixels[i] = if (a == 255) argb else LingoImage.blendPixel(frame.pixels[i], argb, a)
         }
     }
@@ -179,7 +216,7 @@ class StageRenderer(
         // Movie pixels to stage pixels through the sprite rectangle.
         val toStage = SwfMatrix((item.right - item.left) / r.width, 0.0, 0.0, (item.bottom - item.top) / r.height,
             item.left - r.xMin * (item.right - item.left) / r.width, item.top - r.yMin * (item.bottom - item.top) / r.height)
-        val coverage = HashMap<List<FlashDraw>, BooleanArray>()
+        val coverage = HashMap<List<FlashDraw>, Mask>()
         for (d in player.drawList()) {
             // Clip layers: a pixel is drawn only where every layer covers it.
             val masks = d.masks.map { layer -> coverage.getOrPut(layer) { maskCoverage(layer, toStage) } }
@@ -187,13 +224,35 @@ class StageRenderer(
         }
     }
 
-    private fun maskCoverage(layer: List<FlashDraw>, toStage: SwfMatrix): BooleanArray {
-        val covered = BooleanArray(width * height)
+    /** Stage-sized clip coverage; [top] until [bottom] are the rows that may hold covered pixels. */
+    private class Mask(val bits: BooleanArray) {
+        var top = 0
+        var bottom = 0
+    }
+
+    /** Masks reused from frame to frame (a stage-sized array per clip layer is costly to allocate). */
+    private val maskPool = ArrayList<Mask>()
+    private var masksInUse = 0
+
+    private fun maskCoverage(layer: List<FlashDraw>, toStage: SwfMatrix): Mask {
+        val mask = maskPool.getOrNull(masksInUse) ?: Mask(BooleanArray(width * height)).also { maskPool += it }
+        masksInUse++
+        mask.bits.fill(false, mask.top * width, mask.bottom * width)
+        mask.top = height; mask.bottom = 0
         for (d in layer) {
             val m = toStage * d.matrix
-            for (style in 1..d.shape.fills.size) scanFill(d, m, style) { y, x0, x1, _ -> covered.fill(true, y * width + x0, y * width + x1) }
+            for (style in 1..d.shape.fills.size) scanFill(d, m, style) { y, x0, x1, _ ->
+                mask.bits.fill(true, y * width + x0, y * width + x1)
+                mask.top = minOf(mask.top, y); mask.bottom = maxOf(mask.bottom, y + 1)
+            }
         }
-        return covered
+        if (mask.bottom < mask.top) mask.top = mask.bottom
+        return mask
+    }
+
+    private fun masked(masks: List<Mask>, i: Int): Boolean {
+        for (k in masks.indices) if (!masks[k].bits[i]) return true
+        return false
     }
 
     /** Scanline spans (stage y, x0 until x1, sample y) of one fill-style region of a shape, even-odd. */
@@ -219,33 +278,50 @@ class StageRenderer(
         }
     }
 
-    /** Scanline fill of every fill-style region of a Flash shape (even-odd per region). */
-    private fun drawShape(player: FlashPlayer, d: FlashDraw, m: SwfMatrix, alpha: Int, masks: List<BooleanArray>) {
+    /** One stage pixel of Flash output: a scale x scale block of the frame. */
+    private fun plot(x: Int, y: Int, p: Int, alpha: Int) {
+        if (scale == 1) { put(y * fw + x, p, true, false, alpha); return }
+        val a = (p ushr 24) * alpha / 255
+        if (a == 0) return
+        val fp = frame.pixels
+        for (dy in 0 until scale) {
+            val start = (y * scale + dy) * fw + x * scale
+            for (i in start until start + scale) fp[i] = if (a == 255) p else LingoImage.blendPixel(fp[i], p, a)
+        }
+    }
+
+    /** Scanline fill of every fill-style region of a Flash shape (even-odd per region), in stage pixels. */
+    private fun drawShape(player: FlashPlayer, d: FlashDraw, m: SwfMatrix, alpha: Int, masks: List<Mask>) {
         if (alpha <= 0) return
         val inv = m.inverse() ?: return
+        val a = alpha.coerceAtMost(255)
         for ((index, fill) in d.shape.fills.withIndex()) {
             fill ?: continue
-            val bitmap = (fill as? SwfFill.Bitmap)?.let { swfBitmap(player, it.bitmapId) }
-            val fillInverse = (fill as? SwfFill.Bitmap)?.matrix?.inverse()
-            if (fill is SwfFill.Bitmap && (bitmap == null || fillInverse == null)) continue
+            if (fill is SwfFill.Solid) {
+                scanFill(d, m, index + 1) { y, x0, x1, _ ->
+                    for (x in x0 until x1) if (!masked(masks, y * width + x)) plot(x, y, fill.argb, a)
+                }
+                continue
+            }
+            val bitmapFill = fill as? SwfFill.Bitmap ?: continue
+            val image = swfBitmap(player, bitmapFill.bitmapId) ?: continue
+            val fi = bitmapFill.matrix.inverse() ?: continue
+            val iw = image.width; val ih = image.height; val src = image.pixels
             scanFill(d, m, index + 1) { y, x0, x1, sy ->
+                // Bitmap coordinates are affine in x: evaluate at the span start, then step per pixel.
+                val lx0 = inv.x(x0 + 0.5, sy); val ly0 = inv.y(x0 + 0.5, sy)
+                val lx1 = inv.x(x0 + 1.5, sy); val ly1 = inv.y(x0 + 1.5, sy)
+                var bxf = fi.x(lx0, ly0); var byf = fi.y(lx0, ly0)
+                val dx = fi.x(lx1, ly1) - bxf; val dy = fi.y(lx1, ly1) - byf
                 for (x in x0 until x1) {
-                    val i = y * width + x
-                    if (masks.any { !it[i] }) continue
-                    val p = when (fill) {
-                        is SwfFill.Solid -> fill.argb
-                        is SwfFill.Bitmap -> {
-                            val image = bitmap!!
-                            val fi = fillInverse!!
-                            val lx = inv.x(x + 0.5, sy); val ly = inv.y(x + 0.5, sy)
-                            val bx = floor(fi.x(lx, ly)).toInt(); val by = floor(fi.y(lx, ly)).toInt()
-                            if (bx !in 0 until image.width || by !in 0 until image.height) {
-                                if (fill.clipped) image.pixels[by.coerceIn(0, image.height - 1) * image.width + bx.coerceIn(0, image.width - 1)]
-                                else image.pixels[Math.floorMod(by, image.height) * image.width + Math.floorMod(bx, image.width)]
-                            } else image.pixels[by * image.width + bx]
-                        }
+                    if (!masked(masks, y * width + x)) {
+                        val bx = floor(bxf).toInt(); val by = floor(byf).toInt()
+                        val p = if (bx in 0 until iw && by in 0 until ih) src[by * iw + bx]
+                        else if (bitmapFill.clipped) src[by.coerceIn(0, ih - 1) * iw + bx.coerceIn(0, iw - 1)]
+                        else src[Math.floorMod(by, ih) * iw + Math.floorMod(bx, iw)]
+                        plot(x, y, p, a)
                     }
-                    put(i, p, true, false, alpha.coerceAtMost(255))
+                    bxf += dx; byf += dy
                 }
             }
         }

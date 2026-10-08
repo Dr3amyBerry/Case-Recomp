@@ -73,6 +73,35 @@ class StageRendererUnitTest {
         assertEquals(blue, px(12, 15))
     }
 
+    @Test fun scaled_stage_doubles_bitmaps_exactly_and_draws_text_at_full_resolution() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        rt.start()
+        val scales = mutableListOf<Int>()
+        val text = object : TextRasterizer {
+            override fun render(member: CastMember, width: Int, height: Int) = render(member, width, height, 1)
+            // Laid out for the stage box, drawn at the requested scale: a 1 px green line on top.
+            override fun render(member: CastMember, width: Int, height: Int, scale: Int): LingoImage {
+                scales += scale
+                return LingoImage(width * scale, height * scale, 32, IntArray(width * height * scale * scale) {
+                    if (it < width * scale) 0xFF00FF00.toInt() else 0
+                }).also { it.useAlpha = true }
+            }
+        }
+        val renderer = StageRenderer(rt, text, scale = 2)
+        val frame = renderer.render()
+        assertEquals(listOf(80, 40), listOf(frame.width, frame.height))
+        fun px(x: Int, y: Int) = frame.pixels[y * 80 + x]
+        // "half" at stage (0,0)-(8,4): its red right half covers stage x 4..7, frame x 8..15.
+        assertEquals(blue, px(7, 1))
+        assertEquals(red, px(8, 1))
+        assertEquals(red, px(15, 7))
+        assertEquals("shape at stage 30,0 is frame 60,0", 0xFF000000.toInt(), px(60, 0))
+        assertEquals(listOf(2), scales)
+        // The text line is one frame pixel (half a stage pixel) tall at stage y 10 → frame y 20.
+        assertEquals(0xFF00FF00.toInt(), px(62, 20))
+        assertEquals(blue, px(62, 21))
+    }
+
     @Test fun score_colours_colorize_text_white_to_back_and_black_to_fore() {
         val navy = 0xFF20284B.toInt()
         val colored = movie(textBack = LString("#20284b"))
