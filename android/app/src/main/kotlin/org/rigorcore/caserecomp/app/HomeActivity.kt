@@ -72,7 +72,7 @@ class HomeActivity : Activity() {
             setOnClickListener { openIssues() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         column.addView(TextView(this).apply {
-            text = "Proyecto independiente · Aviso legal · Privacidad · Términos"
+            text = "Licencia no comercial · Avisos legales · Privacidad"
             setTextColor(GOLD)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
@@ -108,10 +108,11 @@ class HomeActivity : Activity() {
 
     /** The concise non-affiliation notice is visible offline; full bilingual notices open externally. */
     private fun showLegalNotices() {
-        val labels = arrayOf("Aviso legal y marcas", "Política de privacidad", "Términos de uso",
-            "Licencias de terceros", "Estado de licencia del código", "Contacto: contact@rigorcore.com")
-        val docs = arrayOf("LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md",
-            "LICENSING_STATUS.md")
+        val labels = arrayOf("Licencia: PolyForm Noncommercial 1.0.0", "Aviso legal y marcas",
+            "Política de privacidad", "Términos de uso", "Licencias de terceros",
+            "Alcance y reserva de derechos comerciales", "Contacto: contact@rigorcore.com")
+        val docs = arrayOf("LICENSE", "LEGAL.md", "PRIVACY.md", "TERMS.md",
+            "THIRD_PARTY_NOTICES.md", "LICENSING_STATUS.md")
         android.app.AlertDialog.Builder(this)
             .setTitle("Case Recomp — información legal")
             .setItems(labels) { _, which ->

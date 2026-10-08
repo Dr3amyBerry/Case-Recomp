@@ -30,10 +30,11 @@ jobs:
       - name: Assemble site
         run: |
           mkdir site
-          cp web/index.html web/worker.js web/convert.py site/
+          cp web/index.html web/worker.js web/convert.py LICENSE site/
           python3 - <<'EOF'
           import pathlib, zipfile
           with zipfile.ZipFile("site/caserecomp.zip", "w", zipfile.ZIP_DEFLATED) as z:
+              z.write("LICENSE", "LICENSE")
               for p in sorted(pathlib.Path("caserecomp").glob("*.py")):
                   z.write(p, "caserecomp/" + p.name)
           EOF

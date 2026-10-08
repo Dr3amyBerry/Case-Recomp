@@ -16,7 +16,7 @@ class LegalPublicationTest(unittest.TestCase):
     def test_user_facing_web_and_readme_have_notices(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         web = (ROOT / "web/index.html").read_text(encoding="utf-8")
-        for path in ("LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md"):
+        for path in ("LICENSE", "LEGAL.md", "PRIVACY.md", "TERMS.md", "THIRD_PARTY_NOTICES.md"):
             self.assertIn(path, readme)
             self.assertIn(path, web)
         self.assertIn("legalTitle:", web)
@@ -28,6 +28,7 @@ class LegalPublicationTest(unittest.TestCase):
         self.assertIn("LEGAL.md", home)
         self.assertIn("PRIVACY.md", home)
         self.assertIn("TERMS.md", home)
+        self.assertIn("PolyForm Noncommercial 1.0.0", home)
         self.assertIn("mailto:contact@rigorcore.com", home)
 
     def test_legal_contact_is_published_consistently(self):
@@ -51,6 +52,17 @@ class LegalPublicationTest(unittest.TestCase):
         self.assertIn("INTEROPERABILITY_VENEZUELA.md",
                       (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertTrue((ROOT / "docs/INTEROPERABILITY_VENEZUELA.md").is_file())
+
+    def test_polyform_license_and_web_bundle_contain_notice(self):
+        license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        self.assertIn("PolyForm Noncommercial License 1.0.0", license_text)
+        self.assertIn("## Personal Uses", license_text)
+        self.assertIn("## Distribution License", license_text)
+        workflow = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+        self.assertIn('cp web/index.html web/worker.js web/convert.py LICENSE site/', workflow)
+        self.assertIn('z.write("LICENSE", "LICENSE")', workflow)
+        terms = (ROOT / "TERMS.md").read_text(encoding="utf-8")
+        self.assertIn("PolyForm Noncommercial", terms)
 
     def test_proprietary_packages_remain_gitignored(self):
         rules = (ROOT / ".gitignore").read_text(encoding="utf-8")

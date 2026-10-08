@@ -41,3 +41,7 @@ Los juegos, casts, música, sprites, Lingo y portadas **no son dependencias libr
 - Coverage.py (solo desarrollo): [Apache-2.0](https://github.com/coveragepy/coveragepy/blob/main/CITATION.cff).
 
 Las referencias enlazan a los titulares; **no se han importado textos jurídicos externos bajo el nombre de una licencia propia del motor**. Conservar copias de avisos exigibles de las *versiones efectivamente distribuidas* es tarea pendiente.
+
+## Licencia del código original de Case Recomp
+
+[PolyForm Noncommercial License 1.0.0](LICENSE) cubre únicamente las partes del proyecto cuyos respectivos titulares tienen derechos para licenciar. **No** sustituye las licencias MPL, MIT-CMU, GPL, AGPL u otras aplicables a herramientas, bibliotecas y dependencias externas. La descarga y uso gratuito de la APK no incluye derechos sobre recursos comerciales de videojuegos aportados por el usuario. Para el alcance y la reserva de explotación comercial, consulte [LICENSING_STATUS.md](LICENSING_STATUS.md).
