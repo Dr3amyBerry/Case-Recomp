@@ -125,3 +125,26 @@ The other games shown in the app (*Prime Suspects* and *Ravenhearst*) are **in d
 Developer documentation / Documentación para desarrolladores: [docs/DEVELOPER.md](docs/DEVELOPER.md).
 
 Contribuciones y protección de derechos / Contributions and rights: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Local files by game
+
+Keep each game and its derived files in its own git-ignored directory:
+
+```text
+private/
+  huntsville/
+    game/                      # original Huntsville installation
+    huntsville-decompiled/      # recovered Huntsville scripts and casts
+    huntsville-first-playable/  # scene captures and trials
+    huntsville-m3/              # VM bundles, packages and local sessions
+    case-recomp-phase6/         # navigation captures and evidence
+  mystery-pi-vegas/
+    game/                      # original The Vegas Heist installation
+  tools/                       # shared reverse engineering tools
+  signing/                     # local Android signing material
+```
+
+New decompilations, exports and captures belong under the corresponding game
+folder. Huntsville outputs are specific to Huntsville; they are not Mystery P.I.
+outputs. Historical local manifests and capture logs retain their recorded paths;
+`private/relocation-2026-10-08.json` maps the previous locations to the new ones.
