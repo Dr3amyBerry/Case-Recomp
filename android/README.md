@@ -62,3 +62,13 @@ Instrumentation is green on API 26, 33 and 36. QA covers Activity/runtime recrea
 ### Verified-flow source provenance
 
 For private content, `.crflow` activation now also requires the active package to contain a valid Phase 4B `trace-plan.json`. Android validates that plan on import/load and requires `proof.source_sha256` to equal its `source_sha256`. Packages without a trace plan remain valid for local media/scenario use but stay deny-all for original navigation.
+
+## Phase 10: separate private Director debug launcher (new integration path)
+
+**This is experimental, NOT proof of a playable Huntsville APK.** The original synthetic/verified-proofs shell is still the default. In the **debug** APK, long-press the existing shell and choose **Launch Director VM (private ZIP)**. Alternatively use the debug options menu where available. Select **Import private Director ZIP** and choose a local file previously created with `python -m caserecomp director-content` (for example the user's private `huntsville.director.zip`). This is **not** the older Phase 5 `.crcontent` ZIP; the formats are deliberately distinct.
+
+The app copies the selected ZIP into app-private storage with a compressed-size cap. Before activation it verifies ZIP manifest membership, source binding, sizes, per-entry SHA-256 and the whole stored file SHA-256. The original game and the extracted media/scripts are never packaged into the public APK or committed to GitHub.
+
+A separate `DirectorLauncherActivity` instantiates `DirectorRuntime`, `LingoVm`, `StageRenderer`, Android PNG/JPEG and text adapters, local-only `StandardXtras` registry substitute and the basic Android MediaPlayer output. Playback uses a capped frame scheduler, touch coordinates mapped from letterboxed display pixels to original Director stage pixels and a Keyboard button for the historical player-name entry. The launcher is not exported and refuses to run in a non-debuggable app. Release builds remain disabled.
+
+**Known gaps/risks:** the Director/Flash/Lingo implementation is a subset; audio completion/loop/timing, text fidelity, animation pace, historical Windows platform emulation, game save compatibility and long-running gameplay need private Windows-projector comparison and physical-device testing. On importing a privately generated ZIP, the first target is a *visible, interactive original menu* followed by the map and `loc7` three-object smoke. GitHub's synthetic CI cannot prove those transitions. Do not report original-game Android success without a captured private device session and parity report.

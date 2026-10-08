@@ -77,14 +77,25 @@ class MainActivity : Activity() {
         bitmapLoader = content?.let(::AppPrivateBitmapAssetLoader) ?: NoopBitmapAssetLoader
         gameView = GameShellView(this, runtime, content, bitmapLoader)
         gameView.setOnLongClickListener {
-            when {
-                loadedContent == null -> requestPrivateContentImport()
-                !flowProofLoaded -> requestVerifiedFlowImport()
-                else -> requestVerifiedSceneImport()
-            }
+            if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Case-Recomp debug")
+                    .setItems(arrayOf("Launch Director VM (private ZIP)", "Use existing shell import")) { _, choice ->
+                        if (choice == 0) startActivity(Intent(this, DirectorLauncherActivity::class.java))
+                        else requestShellImport()
+                    }.show()
+            } else requestShellImport()
             true
         }
         setContentView(gameView)
+    }
+
+    private fun requestShellImport() {
+        when {
+            loadedContent == null -> requestPrivateContentImport()
+            !flowProofLoaded -> requestVerifiedFlowImport()
+            else -> requestVerifiedSceneImport()
+        }
     }
 
     private fun requestPrivateContentImport() {

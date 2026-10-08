@@ -147,8 +147,10 @@ internal class AndroidDirectorSound(
         channels[channel]?.player?.setVolume(level, level)
     }
 
-    override fun isPlaying(channel: Int): Boolean? =
-        channel in pending || channels[channel]?.player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
+    override fun isPlaying(channel: Int): Boolean? {
+        if (channel in pending) return true
+        return channels[channel]?.player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
+    }
 
     fun pauseAll() {
         for (channel in channels.keys.toList()) stop(channel)

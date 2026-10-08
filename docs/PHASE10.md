@@ -35,3 +35,7 @@ Decompiled Lingo, the bytecode bundle, inventories and every game-derived file l
 ## Private-source audit and transition ownership
 
 See [PROJECT_AUDIT_2026-10-07.md](PROJECT_AUDIT_2026-10-07.md) for the original game Drive inventory, private Phase 6/9 and M3 folders, manifest cross-checks and honest Android playability gates. A local M3 log records a splash/menu/map/scene sequence plus three object finds but **no original-game Android success is established**. See [RETIREMENT_CANDIDATES.md](RETIREMENT_CANDIDATES.md): the older `GameRuntime` and proof import paths remain active in `MainActivity` and must not be removed without a working migration.
+
+## Debug APK Director integration
+
+An isolated `DirectorLauncherActivity` and `DirectorStageView` now supply the Android image/text/audio/storage/input adapters and a private, source-bound `director-content` ZIP import path. A debug long-press chooser from the existing shell exposes this without removing the legacy app or shipping original game content. Consult [android/README.md](../android/README.md) for use and limitations. This is an **integration candidate** awaiting the Windows/TECNO original-game smoke comparison, not an assertion that M5 or the first Android scene is playable.
