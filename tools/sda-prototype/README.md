@@ -365,3 +365,30 @@ A new synthetic test covers the modal boundary, persistence, confirmation, next
 location and global completion. The suite has 52 passing tests. Private hidden-Tk
 checks restored the notice, confirmed OK, selected slots and saved with points,
 clock and profile intact; no original EXE or global input was used.
+
+
+## Target-row retirement, fade and save state
+
+The PDA target rows now use component retirement flags rather than click flags
+for their caption index. During final fade-out they retain the last caption.
+`target_rows.py` follows 0042a600: subtract float32 0.34 per update, reach alpha
+zero after three updates, then remove/compact on the fourth. This is a per-frame
+step, not a duration-based fade. Initial staggered fade-in and precise native
+parent/update order remain pending.
+
+Rows retain their space until removal, then compact from y=121. Drawing clips to
+146×row-height and applies the stored alpha. The campaign's completed-set count
+and location notice now wait for row removal; the diagnostic next-batch control
+uses the same boundary. Source scoring remains unchanged. Native inherited alpha,
+font fallback when text is too wide and pixel blending still need comparison.
+
+Experimental snapshots store active row identities, alpha, phase and removal.
+A partial fade resumes exactly. Older saves without row state keep already
+retired rows removed; no fade is restarted for a previously completed boundary.
+Inconsistent row/object or row/completed-counter states are rejected.
+
+The 55-test suite includes row caption/clip/fade/compaction and partial restoration
+checks. A private real-resource run saved and resumed mid-fade, completed vault
+and entered slots with profile, 175500 points and elapsed clock intact. Private
+renders show a fading first row followed by its removal and upward compaction.
+The original EXE remains unused, so native timing/visual equivalence is unapproved.

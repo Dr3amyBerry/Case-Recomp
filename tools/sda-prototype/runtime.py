@@ -206,16 +206,23 @@ class Scene:
         self.score = Score()
         self.elapsed = 0.0
         self.since_found = 0.0
+        from target_rows import TargetRow
+        self.rows = {ids: TargetRow() for ids in self.active_sets}
+
+    @property
+    def batch_retired(self):
+        return bool(self.rows) and all(row.removed for row in self.rows.values())
 
     def next_batch(self, seed):
         if self.deck is None:
             raise ValueError("explicit diagnostic sets do not have a native selection deck")
-        if any(not (self.objects[item].motion and self.objects[item].motion.removed)
-               for item in self.targets):
+        if not self.batch_retired:
             raise ValueError("finish all active objects and their retirement animations first")
         selected = self.deck.next_batch(seed)
         self.active_sets = selected
         self.targets = tuple(identity for ids in selected for identity in ids)
+        from target_rows import TargetRow
+        self.rows = {ids: TargetRow() for ids in selected}
         return selected
 
     def remaining_captions(self):
@@ -240,16 +247,27 @@ class Scene:
         from fonts import FontCatalog
         if not hasattr(self, "fonts"):
             self.fonts = FontCatalog(self.resources, self.name)
-        y = 121  # 00428d70 initial row position, not the authored y=120.
+        from PIL import Image
+        y = 121  # 00428d70 and 00429050 both compact rows from here.
         for ids in self.active_sets:
+            row = self.rows[ids]
+            if row.removed:
+                continue
             definition = self.set_definitions[ids]
             height = int(definition.get("h", 20))
-            found = sum(self.objects[identity].found for identity in ids)
-            if found < len(ids):
-                font = self.fonts.get(definition["font"])
-                # 0042a040 overrides set width to 146; label center modes from 00429a30.
-                font.draw(stage, self.captions[ids][found], int(definition.get("x", 0)) + 72,
-                          y - 1 + height // 2, halign=1, valign=2)
+            retired = sum(bool(self.objects[identity].motion and self.objects[identity].motion.removed)
+                          for identity in ids)
+            # 0042a740 adds one unretired component during fade-out, preserving
+            # the last caption rather than looking up an absent completed label.
+            if retired == len(ids) and row.phase != 1:
+                y += height
+                continue
+            index = min(retired, len(ids) - 1)
+            im = Image.new("RGBA", (146, height), (0, 0, 0, 0))
+            self.fonts.get(definition["font"]).draw(im, self.captions[ids][index],
+                72, height // 2 - 1, halign=1, valign=2)
+            im.putalpha(im.getchannel("A").point(lambda value: int(value * row.alpha)))
+            stage.alpha_composite(im, (int(definition.get("x", 0)), y))
             y += height
 
     def advance(self, seconds):
@@ -259,6 +277,8 @@ class Scene:
         self.since_found += seconds
         for identity in self.found_order:
             self.objects[identity].motion.update(seconds)
+        for ids, row in self.rows.items():
+            row.update(all(self.objects[item].motion and self.objects[item].motion.removed for item in ids))
 
     def click(self, x, y):
         # Diagnostic canvas bounds; native graph/parent clipping is not wired yet.

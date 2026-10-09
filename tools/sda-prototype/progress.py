@@ -21,6 +21,7 @@ def resource_hash(resources):
 def snapshot(scene):
     return {"schema": SCHEMA, "resources_sha256": resource_hash(scene.resources),
             "scene": scene.name, "active_sets": scene.active_sets,
+            "rows": [{"set": ids, **asdict(row)} for ids, row in scene.rows.items()],
             "candidate_sets": scene.candidate_sets,
             "deck": {"order": list(scene.deck.order), "cursor": scene.deck.cursor} if scene.deck else None,
             "score": asdict(scene.score), "elapsed": scene.elapsed, "since_found": scene.since_found,
@@ -114,6 +115,30 @@ def restore(resources, state):
     if any(sprite.found and not sprite.motion.removed and identity not in scene.found_order
            for identity, sprite in scene.objects.items()):
         raise ValueError("active found motion is absent from the animation list")
+    from target_rows import TargetRow
+    if "rows" in state:
+        scene.rows = {}
+        for data in state["rows"]:
+            ids = tuple(data["set"])
+            if ids not in scene.active_sets or ids in scene.rows:
+                raise ValueError("invalid target row identity")
+            alpha = number(data["alpha"], low=0, high=1)
+            phase = number(data["phase"], integer=True, low=0, high=2)
+            removed = boolean(data["removed"])
+            retired = all(scene.objects[item].motion and scene.objects[item].motion.removed for item in ids)
+            if ((removed or phase != 0) and not retired or phase == 2 and alpha != 0
+                    or removed and (alpha != 0 or phase != 0)
+                    or not removed and phase == 0 and alpha != 1
+                    or phase == 1 and not 0 < alpha < 1):
+                raise ValueError("inconsistent target row state")
+            scene.rows[ids] = TargetRow(alpha, phase, removed)
+        if set(scene.rows) != set(scene.active_sets):
+            raise ValueError("missing target row state")
+    else:
+        # Legacy experimental saves had immediate row removal after retirement.
+        # Preserve their completed boundaries rather than restarting a new fade.
+        scene.rows = {ids: TargetRow(0.0, 0, True) if all(scene.objects[item].motion and scene.objects[item].motion.removed for item in ids)
+                      else TargetRow() for ids in scene.active_sets}
     return scene
 
 

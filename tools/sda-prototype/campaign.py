@@ -84,7 +84,7 @@ class Session:
         return max(0, self.level.objects - self.completed)
 
     def _scene_retired(self):
-        return bool(self.scene.active_sets) and all(ids in self.counted[self.current] for ids in self.scene.active_sets)
+        return bool(self.scene.active_sets) and self.scene.batch_retired
 
     def confirm_scene_complete(self, action=334):
         number(action, integer=True)
@@ -108,8 +108,7 @@ class Session:
         scene = self.scene
         scene.advance(seconds)
         for ids in scene.active_sets:
-            if ids not in self.counted[self.current] and all(
-                    scene.objects[item].motion and scene.objects[item].motion.removed for item in ids):
+            if ids not in self.counted[self.current] and scene.rows[ids].removed:
                 self.counted[self.current].add(ids)
                 self.completed += 1
         self.points = scene.score.points
@@ -162,6 +161,8 @@ class Session:
             if len(set(ids)) != len(ids) or any(group not in scene.target_sets or not all(
                     scene.objects[item].motion and scene.objects[item].motion.removed for item in group) for group in ids):
                 raise ValueError("invalid completed sets")
+            if any(group in scene.rows and not scene.rows[group].removed for group in ids):
+                raise ValueError("completed set still has an active row")
             value.counted[name] = set(ids)
         if value.completed != sum(len(ids) for ids in value.counted.values()):
             raise ValueError("completed count differs from scene events")

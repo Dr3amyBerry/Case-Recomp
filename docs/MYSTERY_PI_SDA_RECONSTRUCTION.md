@@ -721,3 +721,62 @@ El mapa con siete exports suma 144 raíces, 1.791 nodos y 6.084 aristas directas
 la nueva función explica dependencias antes ausentes. Persisten los límites de
 llamadas indirectas y prototipos inferidos. El objetivo sigue activo por el grafo,
 transiciones y contraste pendientes. Huntsville, Director y APK aprobadas intactos.
+
+
+### Dibujo, fade y compactación de filas de objetivos
+
+El constructor 004292d0 instala la vtable 005076bc. Sus slots 6/7 apuntan a
+0042a600 (update) y 0042a740 (draw); 004297c0 identifica el tipo 0x72.
+Las dos últimas entradas no estaban decompiladas en el inventario anterior y se
+recuperaron mediante discover en target-row-slice (600 funciones, ocho raíces).
+Se leyó la tabla como datos del PE; no se cargó ni ejecutó el juego.
+
+0042a740 cuenta componentes sin el flag de retirada +0xd4. Selecciona la etiqueta
+por número retirado; durante estado 1 (fade-out) añade uno a los no retirados,
+reteniendo el último caption. Así evita consultar una etiqueta inexistente al
+retirar el último componente. 0042a4f0 usa el flag de clic +0xb8 y resta uno para
+el texto de objeto encontrado: es otra ruta, no el caption normal del PDA.
+El renderer anterior usaba el contador de clics y ocultaba la fila demasiado pronto.
+
+0042a600 reduce alpha por el float32 0,3400000035762787 de 005076e8 en cada
+actualización, sin multiplicar por dt. Desde alpha 1 necesita tres llamadas para
+alcanzar cero/estado 2 y una cuarta para retirar la fila por 00429050. Ese método
+compacta las filas restantes desde y=121. 0042a740 no dibuja la etiqueta con todos
+los componentes retirados fuera del estado de fade. El orden exacto de pases de
+objetos/fila y los estados 3/4 de aparición inicial permanecen pendientes.
+
+`target_rows.py` modela ese fade-out. Scene conserva la fila mientras se retira
+el objeto, cambia captions según retirada, aplica alpha y recorta al rect 146×h.
+Sólo después de eliminar la fila recoloca las siguientes; mientras alpha es cero
+pero el estado 2 aún no se consumió, mantiene ese espacio. Campaign cuenta el
+set al retirar la fila, y el aviso de ubicación espera la última eliminación.
+El botón diagnóstico de siguiente tanda espera ese mismo límite. No se modifican
+las reglas de puntos ni se reinicia el reloj. El alpha de píxeles usa Pillow;
+fuentes de fallback por ancho, alpha heredado y escalado nativo requieren contraste.
+
+Los snapshots experimentales añaden rows con set, alpha, estado y removed.
+Guardar a medio fade y cargar conserva el recorrido, sin avanzar durante el cierre.
+Se valida identidad, integridad de la lista, rangos y consistencia con los objetos.
+Los saves anteriores sin rows se migran: filas de objetos ya retirados permanecen
+retiradas, conservando sus límites previos en lugar de reabrir un fade. Campaign
+rechaza un set contabilizado cuya fila activa todavía no se ha retirado.
+
+Pasaron 55 pruebas. Las tres nuevas comprueban cuatro updates de fade, caption
+por retirada, alpha/clip, espacio hasta compactación, snapshot de fade parcial,
+continuación idéntica y lectura de saves anteriores. Se repitieron esas tres tras
+ajustar la condición de no-dibujo fuera del fade; pasaron.
+
+Con recursos reales, row-fade-check.json inició Dream desde Startup, completó
+el primer set obj44, guardó/cargó a medio fade y comparó cuatro frames de estado
+idénticos. Luego completó diez sets de vault, confirmó el aviso y entró a slots
+con 175500 puntos, 5,959995746 segundos y perfil conservados. Se generaron las
+vistas privadas rows-before-found, rows-found-before-retirement, rows-fade-out y
+rows-after-compaction; se inspeccionaron las dos últimas. La fila Cuchilla pierde
+alpha y Cien dólares ocupa después su posición, sin dejar el hueco anterior.
+No se abrió una ventana ni el EXE. Esto verifica el modelo experimental, no la
+cadencia de frames del original ni equivalencia visual aprobada.
+
+El mapa de ocho exports comprende 149 raíces, 1.797 nodos y 6.116 aristas directas.
+Siguen pendientes propagación de eventos/alpha/clipping, reconstrucción nativa
+al reentrar, diálogos SDA, transiciones, bonus/avance y comparación diferencial.
+El objetivo continúa activo. Huntsville, Director y APK aprobadas intactos.

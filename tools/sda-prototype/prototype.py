@@ -94,8 +94,7 @@ def main():
         canvas.itemconfigure(image_id, image=photo)
         remaining = scene.remaining_captions()
         status.set(f"Points: {scene.score.points} | Targets: " + ", ".join(remaining))
-        ready = scene.deck is not None and all(scene.objects[item].motion and scene.objects[item].motion.removed
-                                               for item in scene.targets)
+        ready = scene.deck is not None and scene.batch_retired
         next_button.configure(state=tk.NORMAL if ready else tk.DISABLED)
         if args.save and now - last_save >= 5:
             persist()
