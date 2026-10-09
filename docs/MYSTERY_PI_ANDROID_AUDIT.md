@@ -302,3 +302,22 @@ Continuación exacta:
 - `private_first_riddle_hotspots_order_and_recorded_scroll_endpoints` y `private_campaign_inputs_reach_level_twenty_five_finale_entry_without_forced_state` en `SdaPrivateLevelJourneyUnitTest.kt`: extender hacia desenlace real sin escribir estados ni certificarlos mediante la clase heredada.
 
 Estado: progresión JVM hasta resultado 25 y entrada heredada del desenlace verificada; campañas posteriores al 3 no acreditadas por pantalla Android, desenlace completo no jugable auténticamente. Objetivo global abierto. Huntsville, Director, APK aprobada, partidas y cambios ajenos conservados.
+
+
+## Primera adivinanza: bandeja y bindings preparados, Android pendiente
+
+`SdaRiddleInteraction` conecta el núcleo de colocación con mezcla, cuatro casillas, viewport y entradas por coordenadas. Referencia `0044c3a0`: mezcla cada índice contra todo el array mediante RNG escalado × número total, sin rejection ni draws de ángulo. Se recuperaron **533 instrucciones** de esa función del proyecto Ghidra existente en lectura, con registro de éxito, sin importar/ejecutar EXE ni alterar funciones. Fixture independiente CRT para seis IDs/semilla 8: orden [2,3,0,1,4,5], RNG final 2831887398. Checkpoint restaura orden, RNG final, viewport y selección sin generar otra mezcla, incluso con semilla 999.
+
+Geometría original de itemlistarea: x10/y116/w131/h273 y cuatro casillas de altura entera 68. El píxel sobrante y388 no pertenece a una casilla. `0044ddd0` selecciona por rectángulo completo de casilla, sin exigir alfa; esto difiere de Jigsaw. `0044eb00` centra imágenes transformadas, limita viewport a tamaño-4 y habilita flechas por límites. Retirar/devuelve al índice anterior, pero no incrementa viewport al volver una pieza al final como hace Jigsaw. Se rechaza desplazar mientras hay pieza sostenida. El componente trabaja en límites de animación completada: aún no representa los estados/timers de entrada, devolución/fade y desplazamiento de `0044ce70`.
+
+`SdaRiddleResources.load(content, resource, controllerId, stringsResource)` obtiene IDs desde el perfil/llamador y lee el schema de primera adivinanza: 25 piezas/imágenes, ocho destinos/captions, 17 señuelos, tray, origen/fondo, destinos/fade/alpha/screenscrollup y límite default 1500 s de `00468000`. Comprueba las imágenes referenciadas mediante lectura y hash del paquete; no genera reemplazos. Devuelve URIs para el decoder/renderer existente; no dibuja ni publica esas imágenes. El probe privado compara los bindings con lectura independiente del XML, recorre casillas paginadas de la mezcla real, rechaza un señuelo, reanuda cada pieza seleccionada y acepta ocho destinos con los endpoints de scroll del recurso. Quedan 17 señuelos sin retirar.
+
+RED→GREEN de dos tests propios y carga de recursos; cierre engine **165**, app **23**, cero fallos/errores/omitidas; APK debug compilada y diff limpio. Pasan nuevamente la ruta JVM 25 niveles y el probe privado de ocho objetivos. No se ejecutó una nueva prueba Android: `SdaMasterRiddleGame`, campaña y vista de desenlace no fueron integrados todavía. CI Android/Python de `8e8aaa1` success. No constituye desenlace jugable ni fidelidad visual/temporal completa. Huntsville/Director/APK aprobada/cambios ajenos intactos.
+
+Continuación concreta:
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaRiddleResources.kt::load`: bindings disponibles para crear controlador de primera fase; imágenes se decodifican mediante SdaContent, no con sustitutos.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaRiddleInteraction.kt::pickPixel/dropScreen/scroll/imageRect/state`: entradas y restauración disponibles; conectar reloj/animaciones y transformación original de imágenes.
+- Referencia privada `finale-instructions/0044ce70.capstone.txt` y `full-decompile/00451f60.c`, `00452080.c`: temporización/estados y cambio entre imagen original y reducida. No portar tiempos arbitrarios.
+- `SdaBonus.kt::SdaMasterRiddleGame`, `SdaCampaign.kt::confirmLevelComplete/restore/finishBonusInput`, `SdaGameView.kt::drawFinale/onTouchEvent`: siguen pendientes de sustituir el desenlace simulado por estos componentes y el resto de fases auténticas.
+
+Objetivo global y Task 3 abiertos. La progresión JVM hasta resultado 25 sigue siendo parcial; no se acredita campaña Android completa ni desenlace original.

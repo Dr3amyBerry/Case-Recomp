@@ -110,6 +110,10 @@ class SdaPrivateLevelJourneyUnitTest {
             File("local-output/vegas_full.zip")).firstOrNull { it.isFile }
         assumeTrue("local private Vegas package is required",file!=null)
         SdaContent.open(file!!,SdaImageDecoder { null }).use { content ->
+            val recovered=SdaRiddleResources.load(content,"ENVS.MSE","firstriddle")
+            assertEquals(25,recovered.pieces.size)
+            assertEquals(SdaRiddleTrayDefinition(10,116,131,273),recovered.tray)
+            assertEquals(1500f,recovered.timeLimit)
             val nodes=SdaXml.parse(content.read("ENVS.MSE")!!).getElementsByTagName("*")
             val elements=(0 until nodes.length).map { nodes.item(it) as org.w3c.dom.Element }
             val control=elements.single { it.getAttribute("id")=="firstriddle" }
@@ -131,23 +135,35 @@ class SdaPrivateLevelJourneyUnitTest {
             val background=children.single { it.getAttribute("id")==control.getAttribute("backgroundimage") }
             val x=background.getAttribute("x").toInt()
             var y=background.getAttribute("y").toInt()
-            var board=SdaRiddleBoard(definitions,control.getAttribute("itemstobeplaced").toInt())
+            assertEquals(definitions,recovered.pieces)
+            assertEquals(25,recovered.imageUris.size);assertEquals(8,recovered.captions.size)
+            var interaction=SdaRiddleInteraction(recovered.pieces,recovered.required,8,recovered.tray)
+            var board=interaction.board
+            fun pickVisible(id: String) {
+                while(interaction.cells().none { it.id==id }) {
+                    val direction=if(board.available.indexOf(id)<interaction.firstVisible) -1 else 1
+                    assertTrue(interaction.scroll(direction))
+                }
+                val cell=interaction.cells().first { it.id==id }
+                assertTrue(interaction.pickPixel(cell.x,cell.y))
+            }
             val decoy=definitions.first { !it.hasTarget }
-            assertTrue(board.select(decoy.id));assertFalse(board.dropScreen(144,0,x,y))
+            pickVisible(decoy.id);assertFalse(interaction.dropScreen(144,0,x,y))
             assertEquals(0,board.currentOrder)
             for(piece in definitions.filter { it.hasTarget }.sortedBy { it.placeOrder }) {
-                assertTrue(board.select(piece.id))
-                val saved=MiniJson.canonical(board.state())
+                pickVisible(piece.id)
+                val saved=MiniJson.canonical(interaction.state())
                 @Suppress("UNCHECKED_CAST") val state=MiniJson.parse(saved) as Map<String,Any?>
-                board=SdaRiddleBoard(definitions,8,checkpoint=state)
-                assertEquals(saved,MiniJson.canonical(board.state()))
+                interaction=SdaRiddleInteraction(definitions,8,999,recovered.tray,state)
+                board=interaction.board
+                assertEquals(saved,MiniJson.canonical(interaction.state()))
                 val px=x+piece.hotspotX;val py=y+piece.hotspotY
                 assertTrue(px in 144 until 800 && py in 0 until 600)
-                assertTrue(board.dropScreen(px,py,x,y))
+                assertTrue(interaction.dropScreen(px,py,x,y))
                 y+=targets.getValue(piece.id).getAttribute("screenscrollup").toInt()
             }
             assertTrue(board.isSolved);assertEquals(0,y);assertEquals(17,board.available.size)
-            println("PRIVATE FIRST RIDDLE KERNEL: 25 original bindings, 8 targets and 17 decoys; captions/hotspots/placeorders; background scroll endpoints -713 to 0; held resume. No animation, tray, Android or campaign-finale claim")
+            println("PRIVATE FIRST RIDDLE KERNEL: 25 original bindings, 8 targets and 17 decoys; captions/hotspots/placeorders; background scroll endpoints -713 to 0; held resume. Native shuffled tray/cell inputs and paging; no animation, Android or campaign-finale claim")
         }
     }
 
