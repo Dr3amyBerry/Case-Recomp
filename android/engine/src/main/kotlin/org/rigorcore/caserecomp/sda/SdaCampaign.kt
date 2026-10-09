@@ -96,6 +96,7 @@ class SdaCampaign(
     val levels: List<SdaLevel>,
     var seed: Long = 0L,
     var levelIndex: Int = 0,
+    val firstRiddle: SdaRiddleBinding? = null,
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
@@ -211,7 +212,7 @@ class SdaCampaign(
             } else if (sc.batchRetired) {
                 phase = SdaCampaignPhase.SCENE_COMPLETE
             }
-        } else if (phase in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) {
+        } else if (phase == SdaCampaignPhase.BONUS) {
             val clockEvents = clock.advance(seconds)
             if (SdaClockEvent.Timeout in clockEvents) {
                 phase = SdaCampaignPhase.TIMEOUT
@@ -241,6 +242,8 @@ class SdaCampaign(
         if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
+        if (bg is SdaFirstRiddleGame) return !clockwise && bg.clickPixel(x,y)
+        if (bg is SdaMasterRiddleGame) return false
         val beforeLines = placementScore(bg)
         val moved = when {
             bg is SdaTileRotGame -> bg.rotatePixel(x, y, clockwise)
@@ -272,45 +275,17 @@ class SdaCampaign(
         points += placementScore(bg) - before
         if (bg.isSolved) {
             points += bg.points
-            when (phase) {
-                SdaCampaignPhase.BONUS -> phase = SdaCampaignPhase.LEVEL_COMPLETE
-                SdaCampaignPhase.FINALE_1 -> {
-                    phase = SdaCampaignPhase.FINALE_2
-                    bonusGame = SdaMasterRiddleGame(stage = 2, seed = seed)
-                }
-                SdaCampaignPhase.FINALE_2 -> {
-                    phase = SdaCampaignPhase.FINALE_3
-                    bonusGame = SdaMasterRiddleGame(stage = 3, seed = seed)
-                }
-                SdaCampaignPhase.FINALE_3 -> {
-                    phase = SdaCampaignPhase.CAMPAIGN_COMPLETE
-                    bonusGame = null
-                }
-                else -> {}
-            }
+            if (phase == SdaCampaignPhase.BONUS) phase = SdaCampaignPhase.LEVEL_COMPLETE
         }
         return moved
     }
 
     fun solveBonus() {
+        // Only ordinary bonus skipping is supported. Finale completion must use its real inputs.
+        if (phase != SdaCampaignPhase.BONUS) return
         val bg = bonusGame ?: return
         bg.solve()
-        when (phase) {
-            SdaCampaignPhase.BONUS -> phase = SdaCampaignPhase.LEVEL_COMPLETE
-            SdaCampaignPhase.FINALE_1 -> {
-                phase = SdaCampaignPhase.FINALE_2
-                bonusGame = SdaMasterRiddleGame(stage = 2, seed = seed)
-            }
-            SdaCampaignPhase.FINALE_2 -> {
-                phase = SdaCampaignPhase.FINALE_3
-                bonusGame = SdaMasterRiddleGame(stage = 3, seed = seed)
-            }
-            SdaCampaignPhase.FINALE_3 -> {
-                phase = SdaCampaignPhase.CAMPAIGN_COMPLETE
-                bonusGame = null
-            }
-            else -> {}
-        }
+        phase = SdaCampaignPhase.LEVEL_COMPLETE
     }
 
     /** 00418600 uses the remaining minute/second components, excluding whole hours. */
@@ -335,8 +310,13 @@ class SdaCampaign(
         )
     }
 
-    fun confirmLevelComplete() {
+    fun confirmLevelComplete(content: SdaContent? = null) {
         require(phase == SdaCampaignPhase.LEVEL_COMPLETE) { "cannot confirm level when not level complete" }
+        // Load before crediting result: a missing/unsupported finale leaves this checkpoint intact.
+        val finaleGame = if (levelIndex == levels.lastIndex) {
+            val binding = firstRiddle ?: throw IllegalArgumentException("no supported finale binding")
+            SdaFirstRiddleGame.load(requireNotNull(content) { "finale content is required" },binding,seed)
+        } else null
         val speedBonus = speedBonus()
         points += speedBonus
         totalElapsed += clock.elapsed
@@ -345,7 +325,7 @@ class SdaCampaign(
             // Reached final level: transition to Master Riddle Finale
             phase = SdaCampaignPhase.FINALE_1
             currentSceneName = null
-            bonusGame = SdaMasterRiddleGame(stage = 1, seed = seed)
+            bonusGame = finaleGame
         } else {
             levelIndex++
             clock = SdaClock(limit = currentLevel.time)
@@ -422,7 +402,10 @@ class SdaCampaign(
         val restoredBonus = state.bonusGameState?.let {
             if (finale || (restoredPhase == SdaCampaignPhase.TIMEOUT && it["kind"] == "master_riddle")) {
                 require(state.levelIndex == levels.lastIndex) { "finale before last level" }
-                SdaBonusLoader.restoreLegacyFinale(it, state.seed)
+                if (it["kind"] == "first_riddle") {
+                    require(restoredPhase == SdaCampaignPhase.FINALE_1) { "first riddle in wrong phase" }
+                    SdaFirstRiddleGame.load(content,requireNotNull(firstRiddle) { "unsupported finale binding" },state.seed,it)
+                } else SdaBonusLoader.restoreLegacyFinale(it, state.seed)
             } else {
                 require(restoredPhase in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.LEVEL_COMPLETE,
                     SdaCampaignPhase.TIMEOUT)) { "unexpected bonus checkpoint" }
@@ -433,7 +416,8 @@ class SdaCampaign(
         if (restoredPhase == SdaCampaignPhase.LEVEL_COMPLETE && level.bonus.isNotEmpty())
             require(restoredBonus?.isSolved == true) { "unfinished level bonus" }
         if (finale && restoredPhase != SdaCampaignPhase.CAMPAIGN_COMPLETE)
-            require(restoredBonus is SdaMasterRiddleGame) { "missing legacy finale checkpoint" }
+            require(restoredBonus is SdaMasterRiddleGame ||
+                (restoredPhase == SdaCampaignPhase.FINALE_1 && restoredBonus is SdaFirstRiddleGame)) { "missing supported finale checkpoint" }
         if (restoredPhase == SdaCampaignPhase.CAMPAIGN_COMPLETE)
             require(restoredBonus == null) { "unexpected finished finale bonus" }
 

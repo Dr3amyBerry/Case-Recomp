@@ -52,7 +52,7 @@ class SdaPrivateLevelJourneyUnitTest {
             } }
         }).use { content ->
             val levels=SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
-            val camp=SdaCampaign(levels,seed=8)
+            val camp=SdaCampaign(levels,seed=8,firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"))
             for(level in levels) {
                 assertEquals(level.clue,camp.currentLevel.clue)
                 finishObjectives(camp,content)
@@ -94,14 +94,38 @@ class SdaPrivateLevelJourneyUnitTest {
                 camp.restore(SdaCampaignState.fromJson(result),content)
                 assertEquals(result,camp.snapshot().toJson())
                 println("PRIVATE LEVEL ${level.clue}: objectives=${camp.completedObjects}, bonus=${camp.bonusGame?.kind}, points=${camp.points}, elapsed=${camp.clock.elapsed}")
-                camp.confirmLevelComplete()
+                camp.confirmLevelComplete(content)
                 val next=camp.snapshot().toJson()
                 camp.restore(SdaCampaignState.fromJson(next),content)
                 assertEquals(next,camp.snapshot().toJson())
             }
             assertEquals(SdaCampaignPhase.FINALE_1,camp.phase)
             assertEquals(25,camp.currentLevel.clue)
-            // Entry only. Do not exercise the simulated MasterRiddle steps or claim campaign completion.
+            // Private Android handoff earned through the 25-level input journey above, never fabricated.
+            File(packageFile.parentFile,"sda-earned-first-riddle.json").writeText(camp.snapshot().toJson(),Charsets.UTF_8)
+            var riddle=camp.bonusGame as SdaFirstRiddleGame
+            val pointsBefore=camp.points
+            for(piece in riddle.definition.pieces.filter { it.hasTarget }.sortedBy { it.placeOrder }) {
+                while(riddle.interaction.cells().none { it.id==piece.id }) {
+                    val key=if(riddle.interaction.board.available.indexOf(piece.id)<riddle.interaction.firstVisible) "up" else "down"
+                    val arrow=riddle.arrowRect(key)!!
+                    assertTrue(camp.clickBonus(arrow.x+1,arrow.y+1))
+                }
+                val cell=riddle.interaction.cells().first { it.id==piece.id }
+                assertTrue(camp.clickBonus(cell.x+1,cell.y+1))
+                val held=camp.snapshot().toJson()
+                camp.restore(SdaCampaignState.fromJson(held),content)
+                assertEquals(held,camp.snapshot().toJson())
+                riddle=camp.bonusGame as SdaFirstRiddleGame
+                assertTrue(camp.clickBonus(riddle.definition.backgroundX+piece.hotspotX+1,riddle.backgroundY+piece.hotspotY+1))
+            }
+            assertTrue(riddle.isSolved);assertEquals(17,riddle.interaction.board.available.size)
+            assertEquals(0,riddle.backgroundY);assertEquals(pointsBefore,camp.points)
+            val finished=camp.snapshot().toJson()
+            camp.restore(SdaCampaignState.fromJson(finished),content)
+            camp.solveBonus()
+            assertEquals(finished,camp.snapshot().toJson())
+            assertEquals(SdaCampaignPhase.FINALE_1,camp.phase) // Later native phases not implemented yet.
         }
     }
 

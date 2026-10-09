@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import org.rigorcore.caserecomp.sda.SdaCampaign
+import org.rigorcore.caserecomp.sda.SdaRiddleBinding
 import org.rigorcore.caserecomp.sda.SdaCampaignPhase
 import org.rigorcore.caserecomp.sda.SdaCampaignState
 import org.rigorcore.caserecomp.sda.SdaClock
@@ -127,7 +128,8 @@ class SdaLauncherActivity : Activity() {
             if (levelsRaw != null && !intent.hasExtra(EXTRA_SCENE)) {
                 // Full campaign mode
                 val levels = SdaLevels.parse(levelsRaw)
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL)
+                val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding)
                 campaign = camp
 
                 // Restore campaign checkpoint if saved
@@ -238,7 +240,7 @@ class SdaLauncherActivity : Activity() {
         view.onNextLevelListener = {
             val camp = campaign
             if (camp != null) {
-                camp.confirmLevelComplete()
+                camp.confirmLevelComplete(sdaContent)
                 repository.clearCheckpoint()
                 if (camp.phase == SdaCampaignPhase.MAP) {
                     Toast.makeText(this, "Nivel ${camp.levelIndex + 1}: ${camp.currentLevel.title}", Toast.LENGTH_SHORT).show()

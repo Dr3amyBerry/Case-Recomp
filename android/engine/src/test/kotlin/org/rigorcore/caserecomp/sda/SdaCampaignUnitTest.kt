@@ -259,6 +259,19 @@ class SdaCampaignUnitTest {
         assertEquals(SdaCampaignPhase.MAP, camp.phase)
     }
 
+    @Test fun missing_finale_binding_preserves_last_level_result_before_crediting() = withContent { content ->
+        val camp=SdaCampaign(levels().take(1),seed=8)
+        finishScene(camp,content,"one");camp.confirmSceneComplete();finishScene(camp,content,"two")
+        camp.startBonus(content)
+        val game=camp.bonusGame as SdaTileRotGame
+        for(i in game.tileRotations.indices) repeat(game.tileRotations[i]) {
+            assertTrue(camp.clickBonus(172+i%game.cols*612/game.cols+1,95+i/game.cols*408/game.rows+1))
+        }
+        val before=camp.snapshot().toJson()
+        assertThrows(IllegalArgumentException::class.java) { camp.confirmLevelComplete(content) }
+        assertEquals(before,camp.snapshot().toJson())
+    }
+
     @Test fun invalid_bonus_checkpoint_is_rejected_without_mutating_session() = withContent { content ->
         val camp = SdaCampaign(levels(), seed = 8)
         reachBonus(camp, content)

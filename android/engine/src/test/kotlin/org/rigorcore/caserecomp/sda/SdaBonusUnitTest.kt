@@ -186,28 +186,12 @@ class SdaBonusUnitTest {
     }
 
     @Test
-    fun master_riddle_game_stages_progression() {
+    fun legacy_simulated_finale_is_read_only_and_cannot_complete_by_click_or_skip() {
         val riddle = SdaMasterRiddleGame(stage = 1)
+        val before = riddle.state()
+        repeat(50) { assertFalse(riddle.clickPixel(0, 0)) }
+        assertThrows(UnsupportedOperationException::class.java) { riddle.solve() }
+        assertEquals(before, riddle.state())
         assertFalse(riddle.isSolved)
-        assertEquals(1, riddle.stage)
-
-        // Stage 1 requirements
-        repeat(SdaMasterRiddleGame.STAGE_1_ITEMS.size) {
-            riddle.clickPixel(0, 0)
-        }
-        assertEquals(2, riddle.stage)
-
-        // Stage 2 requirements
-        repeat(SdaMasterRiddleGame.STAGE_2_ITEMS.size) {
-            riddle.clickPixel(0, 0)
-        }
-        assertEquals(3, riddle.stage)
-
-        // Stage 3 requirements
-        repeat(SdaMasterRiddleGame.STAGE_3_ITEMS.size) {
-            riddle.clickPixel(0, 0)
-        }
-        assertEquals(4, riddle.stage)
-        assertTrue(riddle.isSolved)
     }
 }

@@ -332,7 +332,7 @@ class SdaWordSearchGame(
 }
 
 /**
- * Finale Master Riddle minigame (Levels 25 finale: 3 progressive stages).
+ * Read-only legacy simulated finale checkpoint. Never used for new gameplay.
  */
 class SdaMasterRiddleGame(
     var stage: Int = 1,
@@ -361,26 +361,9 @@ class SdaMasterRiddleGame(
     override val isSolved: Boolean
         get() = stage > 3
 
-    override fun clickPixel(x: Int, y: Int): Boolean {
-        if (isSolved) return false
-        val reqs = currentStageRequirements()
-        val nextUnfinished = reqs.firstOrNull { it !in completedSteps }
-        if (nextUnfinished != null) {
-            completedSteps.add(nextUnfinished)
-            if (reqs.all { it in completedSteps }) {
-                stage++
-                completedSteps.clear()
-            }
-            return true
-        }
-        return false
-    }
-
-    override fun solve() {
-        stage = 4
-        completedSteps.clear()
-        points = 0
-    }
+    // Read-only compatibility for old simulated checkpoints; not authentic gameplay.
+    override fun clickPixel(x: Int, y: Int): Boolean = false
+    override fun solve(): Unit = throw UnsupportedOperationException("legacy simulated finale is read-only")
 
     override fun state(): Map<String, Any?> = mapOf(
         "kind" to kind,

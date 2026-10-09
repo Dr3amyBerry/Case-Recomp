@@ -10,6 +10,8 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 import org.rigorcore.caserecomp.sda.SdaCampaign
+import org.rigorcore.caserecomp.sda.SdaFirstRiddleGame
+import org.rigorcore.caserecomp.sda.SdaCaptionRuns
 import org.rigorcore.caserecomp.sda.SdaCampaignPhase
 import org.rigorcore.caserecomp.sda.SdaClickResult
 import org.rigorcore.caserecomp.sda.SdaClock
@@ -395,36 +397,48 @@ class SdaGameView(
     }
 
     private fun drawFinale(canvas: Canvas, camp: SdaCampaign) {
-        canvas.drawRect(0f, 0f, 800f, 600f, bgPaint)
-        val stageNum = when (camp.phase) {
-            SdaCampaignPhase.FINALE_1 -> 1
-            SdaCampaignPhase.FINALE_2 -> 2
-            else -> 3
+        canvas.drawRect(0f,0f,800f,600f,bgPaint)
+        val game=camp.bonusGame as? SdaFirstRiddleGame
+        if(game==null) {
+            canvas.drawText("Desenlace heredado: controlador no compatible",40f,50f,textPaint)
+            return
         }
-        canvas.drawText("DESENLACE FINAL — FASE $stageNum DE 3", 40f, 50f, titlePaint)
-        canvas.drawText("El atraco maestro en la bóveda principal de Las Vegas", 40f, 80f, subPaint)
-
-        val box = Rect(100, 110, 700, 480)
-        canvas.drawRect(box, cardPaint)
-        canvas.drawRect(box, cardBorderPaint)
-
-        when (stageNum) {
-            1 -> {
-                canvas.drawText("FASE 1: Identificación del sospechoso y llaves maestras", 130f, 160f, hudPaint)
-                canvas.drawText("Toca los mecanismos para validar las evidencias recogidas.", 130f, 200f, textPaint)
-            }
-            2 -> {
-                canvas.drawText("FASE 2: Desactivación de sistemas de seguridad de la bóveda", 130f, 160f, hudPaint)
-                canvas.drawText("Desactiva los relés y la alimentación auxiliar.", 130f, 200f, textPaint)
-            }
-            3 -> {
-                canvas.drawText("FASE 3: Apertura de la cerradura electromecánica", 130f, 160f, hudPaint)
-                canvas.drawText("Introduce la combinación y acciona el mecanismo principal.", 130f, 200f, textPaint)
+        val definition=game.definition
+        canvas.save()
+        canvas.clipRect(144,0,800,600)
+        canvas.drawBitmap(jigsawBitmap(game.background),definition.backgroundX.toFloat(),game.backgroundY.toFloat(),null)
+        for(id in game.interaction.board.placed) {
+            val destination=definition.destinations.getValue(id)
+            canvas.drawBitmap(jigsawBitmap(game.images.getValue(id)),definition.backgroundX+destination.x,
+                game.backgroundY+destination.y,Paint().apply { alpha=(destination.finalAlpha*255).toInt() })
+        }
+        canvas.restore()
+        for(cell in game.interaction.cells()) {
+            val source=game.images.getValue(cell.id)
+            val fit=minOf(cell.width.toFloat()/source.width,cell.height.toFloat()/source.height)
+            val width=maxOf(1,(source.width*fit).toInt());val height=maxOf(1,(source.height*fit).toInt())
+            val rect=game.interaction.imageRect(cell.id,width,height)
+            canvas.drawBitmap(jigsawBitmap(source),null,Rect(rect.x,rect.y,rect.x+width,rect.y+height),null)
+        }
+        for(key in listOf("up","down")) {
+            val arrow=definition.arrows[key] ?: continue
+            val uri=if(game.arrowEnabled(key)) arrow.normalUri else arrow.disabledUri
+            canvas.drawBitmap(jigsawBitmap(game.arrowImages.getValue(uri)),arrow.x.toFloat(),arrow.y.toFloat(),null)
+        }
+        game.caption?.let { caption ->
+            val layout=checkNotNull(definition.captionLayout)
+            game.captionPaper?.let { canvas.drawBitmap(jigsawBitmap(it),layout.paperX.toFloat(),layout.paperY.toFloat(),null) }
+            // Original segment offsets and center alignment; Android font metrics remain provisional.
+            for(run in SdaCaptionRuns.parse(caption,20)) {
+                canvas.drawText(run.text,layout.x+layout.width/2f-textPaint.measureText(run.text)/2f,
+                    layout.y+run.verticalAdvance-textPaint.ascent(),textPaint)
             }
         }
-
-        canvas.drawRect(520f, 520f, 700f, 565f, buttonPaint)
-        canvas.drawText("COMPLETAR PASO", 535f, 548f, buttonTextPaint)
+        game.interaction.board.selected?.let { id ->
+            val bitmap=jigsawBitmap(game.images.getValue(id))
+            canvas.drawBitmap(bitmap,(game.pointerX!!-bitmap.width/2).toFloat(),(game.pointerY!!-bitmap.height/2).toFloat(),null)
+        }
+        if(game.isSolved) canvas.drawText("Primera fase completada; siguiente fase pendiente",160f,570f,textPaint)
     }
 
     private fun drawCampaignComplete(canvas: Canvas, camp: SdaCampaign) {
@@ -495,6 +509,18 @@ class SdaGameView(
                 invalidate()
                 return true
             }
+        }
+        val riddleCamp=campaign
+        val riddle=riddleCamp?.bonusGame as? SdaFirstRiddleGame
+        if(riddleCamp?.phase==SdaCampaignPhase.FINALE_1 && riddle!=null) {
+            val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
+            when(event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> if(event.buttonState and MotionEvent.BUTTON_SECONDARY==0) {
+                    riddleCamp.clickBonus(x,y);onBonusInputListener?.invoke()
+                }
+                MotionEvent.ACTION_MOVE,MotionEvent.ACTION_HOVER_MOVE -> if(riddle.movePixel(x,y)) onBonusInputListener?.invoke()
+            }
+            invalidate();return true
         }
         val jigsawCamp = campaign
         val jigsaw = jigsawCamp?.bonusGame as? SdaJigsawGame
@@ -582,19 +608,7 @@ class SdaGameView(
                             return true
                         }
                     }
-                    SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3 -> {
-                        // Solve button (520..700, 520..565)
-                        if (logicalX in 520..700 && logicalY in 520..565) {
-                            camp.solveBonus()
-                            onBonusInputListener?.invoke()
-                            invalidate()
-                            return true
-                        }
-                        camp.clickBonus(logicalX, logicalY, clockwise = event.buttonState and MotionEvent.BUTTON_SECONDARY != 0)
-                        onBonusInputListener?.invoke()
-                        invalidate()
-                        return true
-                    }
+                    SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3 -> return true
                     SdaCampaignPhase.CAMPAIGN_COMPLETE -> {
                         if (logicalX in 260..540 && logicalY in 450..505) {
                             onCampaignCompletedListener?.invoke()

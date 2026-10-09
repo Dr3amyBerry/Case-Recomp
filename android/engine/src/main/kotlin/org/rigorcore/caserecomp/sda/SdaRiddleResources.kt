@@ -3,9 +3,11 @@ package org.rigorcore.caserecomp.sda
 import org.w3c.dom.Element
 
 data class SdaRiddleDestination(val x: Float,val y: Float,val scrollUp: Int,val fadeTime: Float,val finalAlpha: Float)
+data class SdaRiddleCaptionLayout(val paperUri:String,val paperX:Int,val paperY:Int,val x:Int,val y:Int,val width:Int,val height:Int)
 data class SdaRiddleDefinition(val pieces: List<SdaRiddlePiece>,val required: Int,val tray: SdaRiddleTrayDefinition,
     val imageUris: Map<String,String>,val captions: Map<String,String>,val destinations: Map<String,SdaRiddleDestination>,
-    val backgroundUri: String,val backgroundX: Int,val backgroundY: Int,val timeLimit: Float)
+    val backgroundUri: String,val backgroundX: Int,val backgroundY: Int,val timeLimit: Float,
+    val arrows: Map<String,SdaRiddleArrow> = emptyMap(),val captionLayout:SdaRiddleCaptionLayout?=null)
 
 /** Resource binding for the audited first-riddle schema. IDs/resource paths belong to the caller's profile. */
 object SdaRiddleResources {
@@ -66,9 +68,23 @@ object SdaRiddleResources {
         require(tray.shown==4 && tray.width in 1..4096 && tray.height in 4..4096 &&
             tray.x in -32768..32768 && tray.y in -32768..32768) { "unsupported riddle tray" }
         val background=node(controller.getAttribute("backgroundimage"))
+        val arrows=mapOf("up" to "arrowup","down" to "arrowdown").mapValues { (_,attribute) ->
+            val button=node(controller.getAttribute(attribute))
+            require(type(button)=="allbutton") { "unsupported riddle arrow" }
+            fun texture(attribute:String): String {
+                val image=button.cloneNode(false) as Element
+                image.setAttribute("tex",button.getAttribute(attribute));return uri(image)
+            }
+            SdaRiddleArrow(int(button,"x"),int(button,"y"),texture("texnormal"),texture("texdisabled"))
+        }
+        val paper=node(controller.getAttribute("paper"));val label=node(controller.getAttribute("riddlelabel"))
+        require(type(paper)=="image" && type(label)=="label")
+        val captionLayout=SdaRiddleCaptionLayout(uri(paper),int(paper,"x"),int(paper,"y"),int(label,"x"),
+            int(label,"y"),int(label,"w"),int(label,"h"))
+        require(captionLayout.width in 1..4096 && captionLayout.height in 1..4096)
         val time=if(controller.hasAttribute("timelimit")) float(controller,"timelimit") else 1500f // 00468000 default.
         require(time>0f)
         return SdaRiddleDefinition(pieces,required,tray,images,captions,destinations,uri(background),
-            int(background,"x"),int(background,"y"),time)
+            int(background,"x"),int(background,"y"),time,arrows,captionLayout)
     }
 }
