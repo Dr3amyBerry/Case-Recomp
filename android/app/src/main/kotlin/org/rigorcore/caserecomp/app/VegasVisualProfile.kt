@@ -8,6 +8,7 @@ class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
  private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=Color.WHITE;textSize=12f }
+ private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
  private val selected=Paint().apply { color=Color.YELLOW;style=Paint.Style.STROKE;strokeWidth=2f }
  override val returnMapRect get()=ui.rect(doc.component("mapbutton"))
  override val solveRect get()=ui.rect(doc.component("solvebutton"))
@@ -34,16 +35,16 @@ class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
   ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
  }
  override fun drawMap(canvas:Canvas,campaign:SdaCampaign) {
-  ui.image(canvas,doc.component("map_backgroundstart"));base(canvas,campaign,campaign.clock)
+  ui.image(canvas,doc.component("map_backgroundstart"),photographic=true);base(canvas,campaign,campaign.clock)
   ui.label(canvas,doc.component("mapunderlay").children.single { it.type=="label" && it.attributes["id"]=="mapscreencaption" },doc.resolve(campaign.currentLevel.title))
   for((node,pos) in cards(campaign)) {
    val (x,y)=pos;val a=node.attributes
-   canvas.drawBitmap(ui.bitmap(a.getValue("texscene")),x+13f,y+11f,null)
+   canvas.drawBitmap(ui.bitmap(a.getValue("texscene")),x+13f,y+11f,photos)
    val frame=ui.bitmap(a.getValue("texnormal"))
    val src=Rect(0,0,minOf(node.number("w"),frame.width),minOf(node.number("h"),frame.height))
    canvas.drawBitmap(frame,src,Rect(x,y,x+src.width(),y+src.height()),null)
    ui.label(canvas,node,doc.caption(node),x+19,y+115,node.number("w")-19,node.number("h")-115)
-   ui.label(canvas,node.copy(attributes=a+mapOf("halign" to "center")),(campaign.scenes[a.getValue("name")]?.remainingCaptions()?.size ?: 10).toString(),x+160,y+97,22,20)
+   ui.label(canvas,node.copy(attributes=a+mapOf("halign" to "center","font" to a.getValue("fontitems"))),(campaign.scenes[a.getValue("name")]?.remainingCaptions()?.size ?: 10).toString(),x+160,y+97,22,20)
   }
   doc.component("maptext").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
   val clue=doc.component("cluelabel");ui.label(canvas,clue,doc.caption(clue)+" "+campaign.currentLevel.clue)
@@ -53,8 +54,11 @@ class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?) {
   base(canvas,campaign,campaign?.clock ?: clock)
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
-  // Android text remains provisional; retain every objective instead of truncating captions.
-  scene.remainingCaptions().forEachIndexed { i,caption -> canvas.drawText(caption,10f,140f+i*18f,text) }
+  // Original atlas, but objective row font/geometry still require native-state comparison.
+  scene.remainingCaptions().forEachIndexed { i,caption ->
+   val template=doc.component("itemstofind")
+   ui.label(canvas,template,caption,x=10,y=130+i*18,width=132,height=20)
+  }
   ui.button(canvas,doc.component("mapbutton"))
  }
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {
@@ -72,7 +76,7 @@ class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
    val x=ox+i%cols*w;val y=oy+i/cols*h
    canvas.save();canvas.clipRect(x,y,x+w,y+h)
    canvas.rotate((rotation?.tileRotations?.get(i) ?: 0)*90f,x+w/2f,y+h/2f)
-   canvas.drawBitmap(image,Rect(source%cols*w,source/cols*h,source%cols*w+w,source/cols*h+h),Rect(x,y,x+w,y+h),null)
+   canvas.drawBitmap(image,Rect(source%cols*w,source/cols*h,source%cols*w+w,source/cols*h+h),Rect(x,y,x+w,y+h),photos)
    canvas.restore()
    if(swap?.selectedIndex==i) canvas.drawRect(x.toFloat(),y.toFloat(),(x+w).toFloat(),(y+h).toFloat(),selected)
   }

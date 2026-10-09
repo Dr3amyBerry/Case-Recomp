@@ -5,29 +5,51 @@ import org.rigorcore.caserecomp.sda.*
 /** Android drawing services over generic XUI bindings; no title IDs or campaign rules. */
 class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaContent) {
  private val cache=mutableMapOf<String,Bitmap>()
+ private val photographs=Paint(Paint.FILTER_BITMAP_FLAG)
+ private val fonts=mutableMapOf<String,Pair<SdaAtlasFont,Bitmap>>()
+ private fun font(name:String):Pair<SdaAtlasFont,Bitmap> = fonts.getOrPut(name) {
+  val node=document.nodes("font").single { it.attributes["id"]==name };val a=node.attributes
+  val atlas=bitmap(a.getValue("tex"))
+  val source=object:SdaPixelSource {
+   override val width=atlas.width;override val height=atlas.height
+   override fun getArgb(px:Int,py:Int)=atlas.getPixel(px,py)
+   override fun getAlpha(px:Int,py:Int)=getArgb(px,py) ushr 24
+  }
+  val kerns=document.nodes("kern").filter { it.attributes["font"]==name }.map {
+   SdaGlyphKern(it.attributes.getValue("char1").toByteArray(Charsets.UTF_8).first().toInt() and 255,it.attributes.getValue("char2").toByteArray(Charsets.UTF_8).first().toInt() and 255,it.attributes.getValue("spacing").toFloat())
+  }
+  SdaAtlasFont(source,a["characterset"].orEmpty(),a["spacing"]?.toFloat() ?: 1f,a["spacewidth"]?.toInt() ?: source.height/2,a["baseline"]?.toInt() ?: 0,kerns) to atlas
+ }
+ val bitmapBytes:Long get()=cache.values.sumOf { it.allocationByteCount.toLong() }
  private val paint=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=Color.WHITE;textSize=12f }
  fun bitmap(texture:String):Bitmap=cache.getOrPut(texture) {
   val source=content.decodeImage(document.texture(texture))
   source.nativeImage as? Bitmap ?: Bitmap.createBitmap(IntArray(source.width*source.height) { i -> source.getArgb(i%source.width,i/source.width) },source.width,source.height,Bitmap.Config.ARGB_8888)
  }
- fun image(canvas:Canvas,node:SdaUiNode,x:Int=node.number("x"),y:Int=node.number("y")) {
+ fun image(canvas:Canvas,node:SdaUiNode,x:Int=node.number("x"),y:Int=node.number("y"),photographic:Boolean=false) {
   val texture=node.attributes["tex"] ?: return
   require(texture.isNotEmpty()) { "empty UI texture" }
   val bitmap=bitmap(texture)
   val w=node.number("w",bitmap.width);val h=node.number("h",bitmap.height)
   if(w<=0 || h<=0) return
   val source=Rect(0,0,minOf(w,bitmap.width),minOf(h,bitmap.height))
-  canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),null)
+  canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),if(photographic) photographs else null)
  }
  fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h")) {
   if(width<=0 || height<=0) return
   canvas.save();canvas.clipRect(x,y,x+width,y+height)
-  val runs=SdaCaptionRuns.parse(text,maxOf(1,(paint.descent()-paint.ascent()).toInt()))
-  val total=runs.lastOrNull()?.verticalAdvance?.toFloat() ?: 0f
-  val baseline=when(node.attributes["valign"]) { "top" -> y-paint.ascent();"bottom" -> y+height-total-paint.descent();else -> y+height/2f-(paint.ascent()+paint.descent())/2f-total/2f }
-  for(run in runs) {
-   val xx=when(node.attributes["halign"]) { "center" -> x+(width-paint.measureText(run.text))/2;"right" -> x+width-paint.measureText(run.text);else -> x.toFloat() }
-   canvas.drawText(run.text,xx,baseline+run.verticalAdvance,paint)
+  val name=node.attributes["font"] ?: node.attributes["fontidle"]
+  if(name!=null) {
+   val (metrics,atlas)=font(name)
+   val ha=when(node.attributes["halign"]) { "center" -> 1;"right" -> 2;else -> 0 }
+   val va=when(node.attributes["valign"]) { "top" -> 3;"bottom" -> 0;"baseline" -> 1;else -> 2 }
+   val xx=x+when(ha) { 1 -> width/2-1;2 -> width-1;else -> 0 }
+   val yy=y+when(va) { 2 -> height/2-1;0 -> height-1;else -> 0 }
+   for(g in metrics.layout(text,xx,yy,ha,va)) canvas.drawBitmap(atlas,
+    Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),null)
+  } else {
+   // Generic diagnostic labels without a declared atlas only.
+   canvas.drawText(text,x.toFloat(),y+height/2f-(paint.ascent()+paint.descent())/2f,paint)
   }
   canvas.restore()
  }

@@ -286,3 +286,8 @@ de build local es la ruta al archivo privado de firma. La referencia aprobada
 ### Vegas: primer bloque visual Android (2026-10-09)
 
 XUI se lee con `SdaUiDocument`; los servicios Android de dibujo están en `SdaResourceCanvas`. IDs y layouts de Vegas pertenecen a `VegasVisualProfile`, activado exclusivamente para `vegas_heist`. Huntsville/Director permanecen intactos. La [comparación visual](MYSTERY_PI_ANDROID_VISUAL_COMPARISON.md) documenta la APK, seis capturas privadas WSA, pruebas y límites; este bloque no cierra el objetivo global.
+
+
+### Atlas SDA y escalado (2026-10-09, bloque parcial)
+
+SdaAtlasFont/SdaImageBudget son capacidades genéricas: charset UTF-16, métricas y kerning originales, alfa y presupuesto de píxeles sin IDs de Vegas. SdaResourceCanvas enlaza fonts/textures de XUI y mantiene una única caché de bitmaps. VegasVisualProfile selecciona atlas/bindings y filtros de fotos frente a UI; SdaGameView filtra fotografías/piezas sin cambiar hit-testing ni modificar los originales. No hay upscaling de texturas. Director/Huntsville permanecen intactos. Validación de fidelidad completa y controles/animaciones pendientes: docs/MYSTERY_PI_ANDROID_VISUAL_COMPARISON.md.

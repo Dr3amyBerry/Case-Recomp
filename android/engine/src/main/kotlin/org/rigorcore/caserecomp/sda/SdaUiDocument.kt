@@ -19,6 +19,7 @@ class SdaUiDocument(raw:ByteArray,private val strings:Map<String,String>) {
   fun flatten(n:SdaUiNode):List<SdaUiNode> = listOf(n)+n.children.flatMap(::flatten)
   all=flatten(node(SdaXml.parse(raw).documentElement))
  }
+ fun nodes(type:String):List<SdaUiNode> = all.filter { it.type==type }
  fun component(id:String):SdaUiNode=all.singleOrNull { it.attributes["id"]==id && it.type!="texture" }
   ?: throw IllegalArgumentException("missing or ambiguous UI component: $id")
  fun texture(id:String):String {

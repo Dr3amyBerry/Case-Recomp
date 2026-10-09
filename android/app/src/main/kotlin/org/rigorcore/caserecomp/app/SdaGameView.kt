@@ -37,6 +37,7 @@ class SdaGameView(
     var visuals: SdaVisualProfile? = null,
 ) : View(context) {
 
+    private val photoPaint=Paint(Paint.FILTER_BITMAP_FLAG)
     private val bgPaint = Paint().apply { color = 0xFF0D1117.toInt() }
     private val sidebarPaint = Paint().apply { color = 0xFF161B22.toInt() }
     private val dividerPaint = Paint().apply { color = 0xFF30363D.toInt(); strokeWidth = 2f }
@@ -138,7 +139,7 @@ class SdaGameView(
     private fun drawScene(canvas: Canvas, camp: SdaCampaign?) {
         // Draw background bitmap or placeholder canvas
         if (backgroundBitmap != null) {
-            canvas.drawBitmap(backgroundBitmap!!, 0f, 0f, null)
+            canvas.drawBitmap(backgroundBitmap!!, 0f, 0f, photoPaint)
         } else {
             val panelPaint = Paint().apply { color = 0xFF10151E.toInt() }
             canvas.drawRect(0f, 0f, 800f, 600f, panelPaint)
@@ -150,7 +151,7 @@ class SdaGameView(
             if (!sprite.found && !sprite.hidden) {
                 val bmp = spriteBitmaps[sprite.identity] ?: (sprite.image.nativeImage as? Bitmap)
                 if (bmp != null) {
-                    canvas.drawBitmap(bmp, sprite.x.toFloat(), sprite.y.toFloat(), null)
+                    canvas.drawBitmap(bmp, sprite.x.toFloat(), sprite.y.toFloat(), photoPaint)
                 } else if (sprite.identity.isNotEmpty()) {
                     canvas.drawRect(
                         sprite.x.toFloat(), sprite.y.toFloat(),
@@ -169,7 +170,7 @@ class SdaGameView(
                 val bmp = spriteBitmaps[identity] ?: (sprite.image.nativeImage as? Bitmap)
                 val dstRect = Rect(motion.x, motion.y, motion.x + motion.drawWidth, motion.y + motion.drawHeight)
                 if (bmp != null) {
-                    canvas.drawBitmap(bmp, null, dstRect, null)
+                    canvas.drawBitmap(bmp, null, dstRect, photoPaint)
                 } else {
                     canvas.drawRect(dstRect, animPlaceholderPaint)
                 }
@@ -333,11 +334,11 @@ class SdaGameView(
             }
             val board = bonus.interaction.board
             bonus.referenceImage?.let {
-                canvas.drawBitmap(jigsawBitmap(it), bonus.originX.toFloat(), bonus.originY.toFloat(), Paint().apply { alpha = 102 })
+                canvas.drawBitmap(jigsawBitmap(it), bonus.originX.toFloat(), bonus.originY.toFloat(), Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 102 })
             }
             for (id in board.placed) {
                 val piece = board.pieces.getValue(id)
-                canvas.drawBitmap(jigsawBitmap(bonus.pieceImages.getValue(id)),piece.x.toFloat(),piece.y.toFloat(),null)
+                canvas.drawBitmap(jigsawBitmap(bonus.pieceImages.getValue(id)),piece.x.toFloat(),piece.y.toFloat(),photoPaint)
             }
             for (rect in bonus.trayRectangles()) canvas.drawBitmap(jigsawBitmap(bonus.image(rect.id,true)),rect.x.toFloat(),rect.y.toFloat(),null)
             for (rect in listOfNotNull(bonus.arrowUp, bonus.arrowDown)) {
@@ -348,7 +349,7 @@ class SdaGameView(
             }
             board.selected?.let { id ->
                 val left = board.heldLeft; val top = board.heldTop
-                if(left != null && top != null) canvas.drawBitmap(jigsawBitmap(bonus.image(id,false)),left.toFloat(),top.toFloat(),null)
+                if(left != null && top != null) canvas.drawBitmap(jigsawBitmap(bonus.image(id,false)),left.toFloat(),top.toFloat(),photoPaint)
             }
             canvas.drawRect(10f,450f,140f,490f,buttonPaint)
             canvas.drawText("GIRAR PIEZA",15f,475f,buttonTextPaint)

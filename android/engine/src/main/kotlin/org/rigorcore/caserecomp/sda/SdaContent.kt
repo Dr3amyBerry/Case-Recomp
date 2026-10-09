@@ -57,8 +57,7 @@ class SdaContent private constructor(
     fun decodeImage(path: String): SdaPixelSource {
         val bytes = read(path) ?: throw IllegalArgumentException("image resource missing: $path")
         val image = decoder.decode(bytes) ?: throw IllegalArgumentException("unable to decode image: $path")
-        require(image.width in 1..4096 && image.height in 1..4096 &&
-            image.width.toLong() * image.height <= 16777216) { "image dimensions exceed budget" }
+        SdaImageBudget.check(image.width,image.height)
         return image
     }
 
@@ -191,4 +190,13 @@ class SdaContent private constructor(
             return md.digest(bytes).joinToString("") { "%02x".format(it) }
         }
     }
+}
+
+/** Long, shallow font atlases are valid; preserve the total decoded pixel budget. */
+internal object SdaImageBudget {
+ fun check(width:Int,height:Int) {
+  require(width in 1..16384 && height in 1..16384 && width.toLong()*height<=16777216) {
+   "image dimensions exceed budget"
+  }
+ }
 }
