@@ -40,6 +40,53 @@ class SdaPrivateLevelJourneyUnitTest {
     }
 
 
+    @Test fun private_jigsaw_piece_kernel_rotates_places_and_resumes_all_masks() {
+        val packageFile = listOf(File("../../local-output/vegas_full.zip"),
+            File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
+            .firstOrNull { it.isFile }
+        assumeTrue("local private Vegas package is required", packageFile != null)
+        SdaContent.open(packageFile!!, SdaImageDecoder { bytes ->
+            ImageIO.read(ByteArrayInputStream(bytes))?.let { image ->
+                SdaBufferPixelSource(image.width, image.height, ByteArray(image.width * image.height) { -1 })
+            }
+        }).use { content ->
+            val nodes = SdaXml.parse(content.read("JIGSAW01.JSW")!!).getElementsByTagName("*")
+            val elements = (0 until nodes.length).map { nodes.item(it) as org.w3c.dom.Element }
+            val textures = elements.filter { it.localName == "texture" || it.tagName == "texture" }
+                .associate { it.getAttribute("id") to it.getAttribute("uri") }
+            val infos = elements.filter { (it.localName ?: it.tagName.substringAfter(':')) == "jswimageinfo" }.associateBy { it.getAttribute("id") }
+            val definitions = elements.filter { (it.localName ?: it.tagName.substringAfter(':')) == "jswgamepiece" }.map { piece ->
+                val info = infos.getValue(piece.getAttribute("imageinfo"))
+                val mask = content.decodeImage(textures.getValue(info.getAttribute("alpha")))
+                SdaJigsawPiece(piece.getAttribute("id"), piece.getAttribute("x").toInt(),
+                    piece.getAttribute("y").toInt(), mask.width, mask.height)
+            }
+            assertEquals(24, definitions.size)
+            var board = SdaJigsawBoard(definitions, 8)
+            var resumed = false
+            for (id in board.trayOrder) {
+                val piece = board.pieces.getValue(id)
+                assertTrue(board.select(id))
+                while (board.quarterTurns.getValue(id) != 0) assertTrue(board.rotateSelected())
+                board.moveHeld(piece.x, piece.y)
+                if (!resumed && board.placed.isNotEmpty()) {
+                    val saved = MiniJson.canonical(board.state())
+                    @Suppress("UNCHECKED_CAST")
+                    val state = MiniJson.parse(saved) as Map<String, Any?>
+                    board = SdaJigsawBoard(definitions, 999, state)
+                    assertEquals(saved, MiniJson.canonical(board.state()))
+                    resumed = true
+                }
+                assertTrue(board.drop(piece.x, piece.y))
+                assertFalse(board.select(id))
+            }
+            assertTrue(resumed)
+            assertTrue(board.isSolved)
+            assertEquals(6000, board.placementPoints)
+            println("PRIVATE JIGSAW KERNEL: 24 real mask dimensions, recorded targets, rotations and held placements, exact partial resume; no tray/pixel/Android/campaign claim")
+        }
+    }
+
     @Test fun private_wordsearch_resources_generate_and_accept_only_recorded_paths() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))

@@ -477,8 +477,11 @@ class JigsawGame(BonusGame):
     def place(self, piece_id, target_x, target_y):
         """Place a piece onto the board with coordinate tolerance validation.
 
-        Boundary tolerance check derived from native FUN_004382d0.c slot hit-test:
-        piece center/boundary must align within 20px tolerance of authentic target slot.
+        Legacy approximation, not native parity: the 20px rule below is contradicted
+        by stored 004382d0/00435f60 instructions. Native placement requires zero
+        rotation and the piece center inside an inset rectangle, not target distance.
+        Replace this path together with real tray/rotation state; do not use it as
+        an independent reference for the Kotlin recovered placement kernel.
         """
         if piece_id not in self.pieces or piece_id in self.placed:
             return False
