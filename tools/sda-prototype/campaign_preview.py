@@ -174,7 +174,10 @@ def main():
             previous = session.phase
             session.advance(now - last)
             last = now
-            session.click(event.x, event.y)
+            if session.phase == "bonus":
+                session.bonus_click(event.x, event.y)
+            else:
+                session.click(event.x, event.y)
             if session.phase != previous:
                 rebuild()
             persist()
@@ -214,6 +217,9 @@ def main():
                 action = map_view.consume_activation()
                 if action:
                     enter(action["scene"])
+            elif session.phase == "bonus" and session.bonus_game is not None:
+                photo = ImageTk.PhotoImage(pda_view.render(session.bonus_game.render(), session))
+                canvas.itemconfigure(image_id, image=photo)
             elif session.scene is not None:
                 stage = pda_view.render(session.scene.render(False), session)
                 session.scene.draw_target_list(stage)

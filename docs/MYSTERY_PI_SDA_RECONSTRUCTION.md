@@ -854,3 +854,11 @@ las definiciones XUI (`TILEROTGAME01.TRG`, `TILEGAME_01.TGL`, `WORDSEARCH01.WSG`
    - Al completar los 90 objetos y el minijuego final, `confirm_level_complete()` detecta `level_index == 24` y transiciona a `campaign_complete`, con rango `P.I. Maestro` (`ID_RANK15`), emulando `finaleendtotaldialog` / `gamefinish` (estado 4 en `00405080.c`).
    - Todo el estado final se persiste y restaura verificablemente mediante JSON con hash de integridad.
 
+4. **Auditoría e interactividad jugable real:**
+   - **Eliminación de fallbacks silenciosos:** `load_bonus_game` y `start_bonus` rechazan recursos inválidos o no soportados con `ValueError` explícito, sin sustituciones genéricas.
+   - **Sopa de letras auténtica:** palabras leídas directamente de `WORDSEARCH.TXT` (`@ID_testAM1` .. `@ID_testAM7`); validación de líneas rectas en 8 direcciones y rechazo de trayectorias no alineadas o palabras no coincidentes.
+   - **Rompecabezas con coordenadas reales:** las 24 piezas de `JIGSAW01.JSW` validan proximidad a sus coordenadas destino `(x, y)` reales con tolerancia de 25 píxeles; colocaciones fuera de posición son rechazadas.
+   - **Rotación y permuta con coordenadas reales:** `click_pixel` mapea clics dentro del marco del tablero (172, 95/96) a celdas individuales y rechaza clics fuera del área interactiva.
+   - **Recorrido jugable real del Nivel 1 (`test_level1_playable_progression_natural_solve_and_transition`):** busca objetivos en escenas, transiciona a bonus `tilerotgame01.trg`, rota todas las piezas mediante `bonus_click` sin auto-resolución forzada, calcula bonificación por velocidad y avanza con éxito al mapa del Nivel 2 con 1800 s de reloj y las escenas correspondientes.
+
+

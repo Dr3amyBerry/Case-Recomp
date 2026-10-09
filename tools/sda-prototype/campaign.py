@@ -38,6 +38,7 @@ class Level:
     scenes: tuple
     title: str
     bonus: str
+    bonusimage: str = ""
 
 
 def read_levels(resources, name="LEVELS_1.XUI"):
@@ -51,7 +52,7 @@ def read_levels(resources, name="LEVELS_1.XUI"):
         if not scenes or len(set(scenes)) != len(scenes) or any(not s or not s.replace("_", "").isalnum() for s in scenes):
             raise ValueError("invalid level scene list")
         level = Level(int(a["clue"]), float(a["time"]), int(a["objects"]), scenes,
-                      a["levelname"], a.get("bonus", ""))
+                      a["levelname"], a.get("bonus", ""), a.get("bonusimage", ""))
         if level.objects < 1 or level.time <= 0:
             raise ValueError("invalid campaign level")
         levels.append(level)
@@ -129,22 +130,25 @@ class Session:
         self.current = None
 
     def advance(self, seconds):
-        if self.phase != "scene":
-            return
-        self.events.extend(self.clock.advance(seconds))
-        scene = self.scene
-        scene.advance(seconds)
-        for ids in scene.active_sets:
-            if ids not in self.counted[self.current] and scene.rows[ids].removed:
-                self.counted[self.current].add(ids)
-                self.completed += 1
-        self.points = scene.score.points
-        if self.remaining == 0:
-            self.phase = "objects_complete"
-        elif "timeout" in self.events:
-            self.phase = "timeout"
-        elif self._scene_retired():
-            self.phase = "scene_complete"
+        if self.phase == "scene":
+            self.events.extend(self.clock.advance(seconds))
+            scene = self.scene
+            scene.advance(seconds)
+            for ids in scene.active_sets:
+                if ids not in self.counted[self.current] and scene.rows[ids].removed:
+                    self.counted[self.current].add(ids)
+                    self.completed += 1
+            self.points = scene.score.points
+            if self.remaining == 0:
+                self.phase = "objects_complete"
+            elif "timeout" in self.events:
+                self.phase = "timeout"
+            elif self._scene_retired():
+                self.phase = "scene_complete"
+        elif self.phase == "bonus":
+            self.events.extend(self.clock.advance(seconds))
+            if "timeout" in self.events:
+                self.phase = "timeout"
 
     def click(self, x, y):
         if self.phase != "scene":
@@ -157,18 +161,27 @@ class Session:
         if self.phase != "objects_complete":
             raise ValueError("cannot start bonus before completing objects")
         if self.scene:
-            self.points = self.scene.score.points
+            self.points = max(self.points, self.scene.score.points)
         self.current = None
         if self.level.bonus:
-            try:
-                self.bonus_game = load_bonus_game(self.resources, self.level.bonus, self.seed)
-            except Exception:
-                self.bonus_game = TileRotGame(self.level.bonus, 4, 6, self.seed)
+            self.bonus_game = load_bonus_game(self.resources, self.level.bonus, self.seed, self.level.bonusimage)
             self.phase = "bonus"
         else:
             self.phase = "level_complete"
 
+    def bonus_click(self, x, y):
+        """Interact with active bonus game via canvas pixel coordinates."""
+        if self.phase != "bonus" or self.bonus_game is None:
+            return {"kind": "inactive"}
+        moved = self.bonus_game.click_pixel(x, y)
+        if self.bonus_game.is_solved():
+            self.points += self.bonus_game.points
+            self.phase = "level_complete"
+            return {"kind": "solved", "bonus": self.bonus_game.kind, "points": self.bonus_game.points}
+        return {"kind": "moved" if moved else "miss"}
+
     def solve_bonus(self):
+        """Native action matching 'Resolver puzle' dialog button."""
         if self.phase != "bonus" or self.bonus_game is None:
             raise ValueError("not in an active bonus round")
         self.bonus_game.solve()
