@@ -332,53 +332,6 @@ class SdaWordSearchGame(
 }
 
 /**
- * Jigsaw puzzle minigame (.jsw).
- */
-class SdaJigsawGame(
-    override val resourceName: String,
-    val totalPieces: Int = 24,
-    val seed: Long = 0L,
-    val bonusImage: String = "",
-    val placedPieces: MutableSet<Int> = mutableSetOf(),
-) : SdaBonusGame {
-    override val kind: String = "jigsaw"
-    override val rows: Int = 4
-    override val cols: Int = 6
-    override var points: Int = SDA_BONUS_REWARD
-
-    override val isSolved: Boolean
-        get() = placedPieces.size >= totalPieces
-
-    override fun clickPixel(x: Int, y: Int): Boolean {
-        if (isSolved) return false
-        for (i in 0 until totalPieces) {
-            if (i !in placedPieces) {
-                placedPieces.add(i)
-                return true
-            }
-        }
-        return false
-    }
-
-    override fun solve() {
-        for (i in 0 until totalPieces) placedPieces.add(i)
-        points = 0
-    }
-
-    override fun state(): Map<String, Any?> = mapOf(
-        "kind" to kind,
-        "resourceName" to resourceName,
-        "rows" to rows,
-        "cols" to cols,
-        "totalPieces" to totalPieces,
-        "seed" to seed,
-        "bonusImage" to bonusImage,
-        "points" to points,
-        "placedPieces" to placedPieces.map { it.toLong() },
-    )
-}
-
-/**
  * Finale Master Riddle minigame (Levels 25 finale: 3 progressive stages).
  */
 class SdaMasterRiddleGame(
@@ -501,7 +454,7 @@ object SdaBonusLoader {
             return SdaWordSearchGame(bonusName, dimension(doc, "rows"), dimension(doc, "columns"), seed, words,
                 bonusImage, originX, originY, normal.width, normal.height, images, checkpoint)
         } else if (nameUpper.endsWith(".JSW")) {
-            return SdaJigsawGame(bonusName, 24, seed, bonusImage)
+            return SdaJigsawResources.load(sdaContent, bonusName, seed, bonusImage, checkpoint)
         }
         throw IllegalArgumentException("unsupported bonus format: $bonusName")
     }
@@ -562,9 +515,6 @@ object SdaBonusLoader {
             }
             is SdaJigsawGame -> {
                 require(integer(state["totalPieces"]) == game.totalPieces.toLong()) { "jigsaw definition mismatch" }
-                val pieces = integers("placedPieces")
-                require(pieces.distinct().size == pieces.size && pieces.all { it in 0 until game.totalPieces }) { "invalid placed pieces" }
-                game.placedPieces.addAll(pieces)
             }
         }
         game.points = points.toInt()

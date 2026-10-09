@@ -151,11 +151,38 @@ class SdaBonusUnitTest {
 
     @Test
     fun jigsaw_game_placing_pieces() {
-        val game = SdaJigsawGame("test.jsw", totalPieces = 4)
+        val pieces = (0..3).map { SdaJigsawPiece("own$it", 200 + 30 * it, 100, 21, 21) }
+        val images = pieces.associate { it.id to SdaArgbPixelSource(21, 21, IntArray(441) { -1 }) }
+        val game = SdaJigsawGame("test.jsw", pieces, images, SdaJigsawTrayDefinition(10,88,130,269,4,31), seed = 8)
+        repeat(4) { assertFalse(game.clickPixel(0, 0)) }
         assertFalse(game.isSolved)
-
-        repeat(4) { game.clickPixel(0, 0) }
+        for (id in game.interaction.board.trayOrder) {
+            val rect = game.trayRectangles().first { it.id == id }
+            assertTrue(game.clickPixel(rect.x + 1, rect.y + 1))
+            while (game.interaction.board.quarterTurns.getValue(id) != 0) assertTrue(game.rotateHeld())
+            val piece = game.interaction.board.pieces.getValue(id)
+            assertTrue(game.clickPixel(piece.x + piece.width / 2, piece.y + piece.height / 2))
+        }
         assertTrue(game.isSolved)
+        assertEquals(1000, game.placementPoints)
+    }
+
+    @Test fun jigsaw_skip_checkpoint_preserves_zero_reward_without_manufacturing_placements() {
+        val pieces = listOf(SdaJigsawPiece("own",200,100,21,21))
+        val images = mapOf("own" to SdaArgbPixelSource(21,21,IntArray(441) { -1 }))
+        val geometry = SdaJigsawTrayDefinition(10,88,130,269,4,31)
+        val game = SdaJigsawGame("own.jsw",pieces,images,geometry,8)
+        game.solve()
+        assertTrue(game.isSolved)
+        assertTrue(game.interaction.board.placed.isEmpty())
+        @Suppress("UNCHECKED_CAST")
+        val saved = org.rigorcore.caserecomp.MiniJson.parse(org.rigorcore.caserecomp.MiniJson.canonical(game.state())) as Map<String,Any?>
+        val restored = SdaJigsawGame("own.jsw",pieces,images,geometry,999,checkpoint=saved)
+        assertEquals(0,restored.points)
+        assertEquals(org.rigorcore.caserecomp.MiniJson.canonical(saved),org.rigorcore.caserecomp.MiniJson.canonical(restored.state() + ("seed" to 8L)))
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaJigsawGame("own.jsw",pieces,images,geometry,8,checkpoint=mapOf("placedPieces" to listOf(0)))
+        }
     }
 
     @Test

@@ -114,6 +114,7 @@ class SdaLauncherActivity : Activity() {
                             if (px !in 0 until width || py !in 0 until height) return 0
                             return (bmp.getPixel(px, py) ushr 24) and 0xFF
                         }
+                        override fun getArgb(px: Int, py: Int): Int = if (px in 0 until width && py in 0 until height) bmp.getPixel(px, py) else 0
                         override val nativeImage: Any get() = bmp
                     }
                 } else null

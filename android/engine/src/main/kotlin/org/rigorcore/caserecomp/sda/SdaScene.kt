@@ -7,6 +7,8 @@ interface SdaPixelSource {
     val width: Int
     val height: Int
     fun getAlpha(px: Int, py: Int): Int
+    /** Required only by raster composition; alpha-only sources must fail explicitly. */
+    fun getArgb(px: Int, py: Int): Int = throw UnsupportedOperationException("RGB pixels unavailable")
     val nativeImage: Any? get() = null
 }
 

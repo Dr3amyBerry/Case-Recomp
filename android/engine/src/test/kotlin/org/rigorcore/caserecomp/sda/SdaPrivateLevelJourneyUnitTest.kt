@@ -200,6 +200,7 @@ class SdaPrivateLevelJourneyUnitTest {
                     override val width = image.width
                     override val height = image.height
                     override fun getAlpha(px: Int, py: Int): Int = image.getRGB(px, py).ushr(24) and 255
+                    override fun getArgb(px: Int, py: Int): Int = image.getRGB(px, py)
                 }
             }
         }).use { content ->
@@ -296,11 +297,46 @@ class SdaPrivateLevelJourneyUnitTest {
             val third = resumed.snapshot().toJson()
             resumed.restore(SdaCampaignState.fromJson(third), content)
             assertEquals(third, resumed.snapshot().toJson())
+            finishObjectives(resumed, content)
+            assertEquals(SdaCampaignPhase.OBJECTS_COMPLETE, resumed.phase)
+            resumed.startBonus(content)
+            var jigsaw = resumed.bonusGame as SdaJigsawGame
+            assertEquals(24, jigsaw.totalPieces)
+            assertFalse(resumed.clickBonus(500, 300))
+            val beforeJigsaw = resumed.points
+            var heldResume = false
+            for (id in jigsaw.interaction.board.trayOrder) {
+                val rect = jigsaw.trayRectangles().first { it.id == id }
+                val pixels = jigsaw.image(id, true)
+                val input = (0 until pixels.width * pixels.height).first { pixels.getAlpha(it % pixels.width,it / pixels.width) > 0 }
+                assertTrue(resumed.clickBonus(rect.x + input % pixels.width, rect.y + input / pixels.width))
+                while (jigsaw.interaction.board.quarterTurns.getValue(id) != 0) assertTrue(resumed.clickBonus(0,0,true))
+                if (!heldResume && jigsaw.placementPoints > 0) {
+                    val partial = resumed.snapshot().toJson()
+                    resumed.restore(SdaCampaignState.fromJson(partial), content)
+                    assertEquals(partial,resumed.snapshot().toJson())
+                    jigsaw = resumed.bonusGame as SdaJigsawGame
+                    heldResume = true
+                }
+                val piece = jigsaw.interaction.board.pieces.getValue(id)
+                assertTrue(resumed.clickBonus(piece.x + piece.width / 2, piece.y + piece.height / 2))
+            }
+            assertTrue(heldResume)
+            assertTrue(jigsaw.isSolved)
+            assertEquals(6000,jigsaw.placementPoints)
+            assertEquals(beforeJigsaw + 6000 + jigsaw.points,resumed.points)
+            assertEquals(SdaCampaignPhase.LEVEL_COMPLETE,resumed.phase)
+            val jigsawResult = resumed.snapshot().toJson()
+            resumed.restore(SdaCampaignState.fromJson(jigsawResult),content)
+            assertEquals(jigsawResult,resumed.snapshot().toJson())
+            resumed.confirmLevelComplete()
+            assertEquals(4,resumed.currentLevel.clue)
+            assertEquals(SdaCampaignPhase.MAP,resumed.phase)
             assertEquals(25, levels.last().clue)
             assertEquals(90, levels.last().objects)
             assertEquals(3120f, levels.last().time)
             assertEquals(9, levels.last().scenes.size)
-            println("PRIVATE JOURNEY: levels 1 and 2 alpha objectives -> rotation and wordsearch inputs -> partial/result resume -> level 3; points=${resumed.points}, totalElapsed=${resumed.totalElapsed}")
+            println("PRIVATE JOURNEY: levels 1, 2, 3 alpha objectives -> rotation, wordsearch and masked jigsaw inputs -> held/result resume -> level 4; points=${resumed.points}, totalElapsed=${resumed.totalElapsed}")
             // No forced counters/phases or generic solve. Not proof of Android, native RNG/scoring or finale.
         }
     }

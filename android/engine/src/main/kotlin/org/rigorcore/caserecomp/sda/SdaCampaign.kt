@@ -242,7 +242,11 @@ class SdaCampaign(
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
         val beforeLines = placementScore(bg)
-        val moved = if (bg is SdaTileRotGame) bg.rotatePixel(x, y, clockwise) else bg.clickPixel(x, y)
+        val moved = when {
+            bg is SdaTileRotGame -> bg.rotatePixel(x, y, clockwise)
+            bg is SdaJigsawGame && clockwise -> bg.rotateHeld()
+            else -> bg.clickPixel(x, y)
+        }
         return finishBonusInput(bg, beforeLines, moved)
     }
 
@@ -261,6 +265,7 @@ class SdaCampaign(
         is SdaTileRotGame -> bg.linePoints
         is SdaTileSwapGame -> bg.placementPoints
         is SdaWordSearchGame -> bg.placementPoints
+        is SdaJigsawGame -> bg.placementPoints
         else -> 0
     }
     private fun finishBonusInput(bg: SdaBonusGame, before: Int, moved: Boolean): Boolean {

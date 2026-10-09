@@ -17,6 +17,9 @@ import org.rigorcore.caserecomp.sda.SdaScene
 import org.rigorcore.caserecomp.sda.SdaTileRotGame
 import org.rigorcore.caserecomp.sda.SdaTileSwapGame
 import org.rigorcore.caserecomp.sda.SdaWordSearchGame
+import org.rigorcore.caserecomp.sda.SdaJigsawGame
+import org.rigorcore.caserecomp.sda.SdaArgbPixelSource
+import org.rigorcore.caserecomp.sda.SdaPixelSource
 
 /**
  * Android View that renders SDA Scenes, Investigation Map, Bonus Minigames, and Campaign Finale.
@@ -79,6 +82,16 @@ class SdaGameView(
     private var wordPointerId: Int? = null
     private val wordLetterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLACK; textSize = 24f; textAlign = Paint.Align.CENTER
+    }
+    private var jigsawRasterOwner: SdaJigsawGame? = null
+    private val jigsawBitmaps = java.util.IdentityHashMap<SdaPixelSource, Bitmap>()
+    private fun jigsawBitmap(source: SdaPixelSource): Bitmap {
+        (source.nativeImage as? Bitmap)?.let { return it }
+        return jigsawBitmaps.getOrPut(source) {
+            val pixels = if (source is SdaArgbPixelSource) source.copyPixels() else
+                IntArray(source.width * source.height) { source.getArgb(it % source.width, it / source.width) }
+            Bitmap.createBitmap(pixels, source.width, source.height, Bitmap.Config.ARGB_8888)
+        }
     }
     private var scale = 1.0f
     private var offsetX = 0.0f
@@ -302,6 +315,32 @@ class SdaGameView(
                     canvas.drawText("#$tileVal", rx + tw / 2 - 12, ry + th / 2 + 6, textPaint)
                 }
             }
+        } else if (bonus is SdaJigsawGame) {
+            if (jigsawRasterOwner !== bonus) {
+                jigsawBitmaps.values.forEach { it.recycle() }; jigsawBitmaps.clear(); jigsawRasterOwner = bonus
+            }
+            val board = bonus.interaction.board
+            bonus.referenceImage?.let {
+                canvas.drawBitmap(jigsawBitmap(it), bonus.originX.toFloat(), bonus.originY.toFloat(), Paint().apply { alpha = 102 })
+            }
+            for (id in board.placed) {
+                val piece = board.pieces.getValue(id)
+                canvas.drawBitmap(jigsawBitmap(bonus.pieceImages.getValue(id)),piece.x.toFloat(),piece.y.toFloat(),null)
+            }
+            for (rect in bonus.trayRectangles()) canvas.drawBitmap(jigsawBitmap(bonus.image(rect.id,true)),rect.x.toFloat(),rect.y.toFloat(),null)
+            for (rect in listOfNotNull(bonus.arrowUp, bonus.arrowDown)) {
+                val disabled = if (rect == bonus.arrowUp) bonus.interaction.tray.firstVisible == 0 else
+                    bonus.interaction.tray.firstVisible >= maxOf(0,bonus.interaction.tray.order.size-bonus.interaction.tray.visibleCount)
+                val image = bonus.arrowImages[rect.id + if(disabled) "_disabled" else ""]
+                if(image != null) canvas.drawBitmap(jigsawBitmap(image),rect.x.toFloat(),rect.y.toFloat(),null)
+            }
+            board.selected?.let { id ->
+                val left = board.heldLeft; val top = board.heldTop
+                if(left != null && top != null) canvas.drawBitmap(jigsawBitmap(bonus.image(id,false)),left.toFloat(),top.toFloat(),null)
+            }
+            canvas.drawRect(10f,450f,140f,490f,buttonPaint)
+            canvas.drawText("GIRAR PIEZA",15f,475f,buttonTextPaint)
+            canvas.drawText("${board.placed.size}/${bonus.totalPieces}",15f,520f,textPaint)
         } else if (bonus is SdaWordSearchGame) {
             val retired = bonus.foundWords.flatMap { bonus.board.placements.getValue(it) }.toSet()
             val selected = bonus.selectedCells
@@ -455,6 +494,22 @@ class SdaGameView(
                 }
                 invalidate()
                 return true
+            }
+        }
+        val jigsawCamp = campaign
+        val jigsaw = jigsawCamp?.bonusGame as? SdaJigsawGame
+        if (jigsawCamp?.phase == SdaCampaignPhase.BONUS && jigsaw != null) {
+            val x = ((event.x-offsetX)/scale).toInt(); val y = ((event.y-offsetY)/scale).toInt()
+            when (event.actionMasked) {
+                MotionEvent.ACTION_UP -> return true // Native tap picks; the next primary tap drops.
+                MotionEvent.ACTION_MOVE, MotionEvent.ACTION_HOVER_MOVE -> {
+                    if(jigsaw.movePixel(x,y)) onBonusInputListener?.invoke()
+                    invalidate(); return true
+                }
+                MotionEvent.ACTION_DOWN -> if (x in 10 until 140 && y in 450 until 490) {
+                    jigsawCamp.clickBonus(x,y,clockwise=true)
+                    onBonusInputListener?.invoke(); invalidate(); return true
+                }
             }
         }
         if (event.action == MotionEvent.ACTION_DOWN) {
