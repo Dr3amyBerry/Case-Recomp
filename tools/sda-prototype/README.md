@@ -417,3 +417,22 @@ The real-resource run passed with eleven completed sets, 183000 points and
 This supplements the 55 existing synthetic tests with a complete UI route; it does
 not approve native frame timing, profile dialogs, graph transitions or save-file
 compatibility. Those parts of the SDA reconstruction remain pending.
+
+## Bonus games and multi-level campaign progression
+
+`bonus.py` implements the four recovered minigame families parsed from original XUI:
+- Tile rotation (`.trg`): 4x6 rotation grid.
+- Tile swap (`.tgl`): 6x6 swap grid.
+- Word search (`.wsg`): 8x12 word search letter matrix.
+- Jigsaw (`.jsw`): 24 puzzle pieces.
+
+Solving any bonus game awards 25,000 points (`ID_YESWIN`).
+`campaign.py` connects objects complete -> bonus round -> level summary/speed bonus ->
+advance to next level with preserved points, clock and profile. Reaching and completing
+Level 25 triggers `campaign_complete` ("P.I. Maestro").
+Run unit tests with:
+
+```powershell
+python -m unittest discover tools/sda-prototype
+```
+

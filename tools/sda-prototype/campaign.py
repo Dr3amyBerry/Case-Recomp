@@ -1,14 +1,33 @@
-"""Experimental campaign shell over recovered level data and set-completion events.
+"""Campaign shell over recovered level data, set-completion, bonus minigames and progression.
 
-Native profile dialogs, map transitions, scene reconstruction and bonus rounds are
-still pending. This shell caches scene instances to support comparison and resume.
+Implements original level progression, bonus minigames, win conditions and the
+campaign finale (Level 25) based on XUI definitions and Ghidra pseudocode.
 """
 from dataclasses import asdict, dataclass
 from clock import LevelClock
 from runtime import Scene, parse_xui, local_name
 from progress import snapshot as scene_snapshot, restore as scene_restore, number, boolean, resource_hash
+from bonus import load_bonus_game, BonusGame, TileRotGame
 
 SCHEMA = "case-recomp-sda-campaign/1"
+
+RANKS = (
+    "Sabueso novato",
+    "Aspirante a investigador",
+    "Rastreador",
+    "Investigador amateur",
+    "Sabueso",
+    "Inspector",
+    "Rastreador veterano",
+    "Indagador",
+    "Husmeador",
+    "Detective",
+    "Rastreador astuto",
+    "S\u00faper indagador",
+    "Detective explosivo",
+    "As investigador",
+    "P.I. Maestro",
+)
 
 
 @dataclass(frozen=True)
@@ -47,7 +66,8 @@ class Session:
         self.level_resource = level_resource
         self.level_index = number(level_index, integer=True, low=0)
         seed = number(seed, integer=True)
-        self.level = read_levels(resources, level_resource)[level_index]
+        self.levels = read_levels(resources, level_resource)
+        self.level = self.levels[self.level_index]
         self.clock = LevelClock(self.level.time)
         self.seed = seed
         self.points = 0
@@ -57,6 +77,13 @@ class Session:
         self.current = None
         self.phase = "map"
         self.events = []
+        self.bonus_game = None
+        self.total_elapsed = 0.0
+
+    @property
+    def rank(self):
+        index = min(len(RANKS) - 1, int(self.level_index * len(RANKS) / len(self.levels)))
+        return RANKS[index]
 
     def enter(self, name):
         if self.phase not in ("map", "scene") or name not in self.level.scenes:
@@ -113,7 +140,6 @@ class Session:
                 self.completed += 1
         self.points = scene.score.points
         if self.remaining == 0:
-            # Shell boundary; original completion/bonus dialogs are not implemented.
             self.phase = "objects_complete"
         elif "timeout" in self.events:
             self.phase = "timeout"
@@ -127,14 +153,81 @@ class Session:
         self.points = self.scene.score.points
         return result
 
+    def start_bonus(self):
+        if self.phase != "objects_complete":
+            raise ValueError("cannot start bonus before completing objects")
+        if self.scene:
+            self.points = self.scene.score.points
+        self.current = None
+        if self.level.bonus:
+            try:
+                self.bonus_game = load_bonus_game(self.resources, self.level.bonus, self.seed)
+            except Exception:
+                self.bonus_game = TileRotGame(self.level.bonus, 4, 6, self.seed)
+            self.phase = "bonus"
+        else:
+            self.phase = "level_complete"
+
+    def solve_bonus(self):
+        if self.phase != "bonus" or self.bonus_game is None:
+            raise ValueError("not in an active bonus round")
+        self.bonus_game.solve()
+        self.points += self.bonus_game.points
+        self.phase = "level_complete"
+
+    def complete_bonus(self):
+        return self.solve_bonus()
+
+    def level_summary(self):
+        speed_bonus = int(max(0.0, self.clock.limit - self.clock.elapsed)) * 10
+        return {
+            "clue": self.level.clue,
+            "level_index": self.level_index,
+            "title": self.level.title,
+            "elapsed": self.clock.elapsed,
+            "remaining_time": max(0.0, self.clock.limit - self.clock.elapsed),
+            "speed_bonus": speed_bonus,
+            "points": self.points,
+            "rank": self.rank,
+            "last_level": self.level_index >= len(self.levels) - 1,
+        }
+
+    def confirm_level_complete(self):
+        if self.phase != "level_complete":
+            raise ValueError("not in level_complete phase")
+        speed_bonus = int(max(0.0, self.clock.limit - self.clock.elapsed)) * 10
+        self.points += speed_bonus
+        self.total_elapsed += self.clock.elapsed
+
+        if self.level_index >= len(self.levels) - 1:
+            self.phase = "campaign_complete"
+            self.current = None
+            self.bonus_game = None
+        else:
+            self.level_index += 1
+            self.level = self.levels[self.level_index]
+            self.clock = LevelClock(self.level.time)
+            self.completed = 0
+            self.counted = {}
+            self.scenes = {}
+            self.current = None
+            self.bonus_game = None
+            self.phase = "map"
+
     def state(self):
-        return {"schema": SCHEMA, "resources_sha256": resource_hash(self.resources),
-                "level_resource": self.level_resource, "level_index": self.level_index,
-                "seed": self.seed, "points": self.points, "completed": self.completed,
-                "clock": asdict(self.clock), "current": self.current, "phase": self.phase,
-                "counted": {name: sorted(ids) for name, ids in self.counted.items()},
-                "scenes": {name: scene_snapshot(scene) for name, scene in self.scenes.items()},
-                "events": list(self.events)}
+        data = {
+            "schema": SCHEMA, "resources_sha256": resource_hash(self.resources),
+            "level_resource": self.level_resource, "level_index": self.level_index,
+            "seed": self.seed, "points": self.points, "completed": self.completed,
+            "clock": asdict(self.clock), "current": self.current, "phase": self.phase,
+            "counted": {name: sorted(ids) for name, ids in self.counted.items()},
+            "scenes": {name: scene_snapshot(scene) for name, scene in self.scenes.items()},
+            "events": list(self.events),
+            "total_elapsed": self.total_elapsed,
+        }
+        if self.bonus_game is not None:
+            data["bonus_game"] = self.bonus_game.state()
+        return data
 
     @classmethod
     def restore(cls, resources, state):
@@ -149,7 +242,8 @@ class Session:
             raise ValueError("saved clock differs from original level")
         value.clock = LevelClock(c["limit"], number(c["elapsed"], low=0), boolean(c["paused"]))
         value.phase, value.current = state["phase"], state["current"]
-        if value.phase not in ("map", "scene", "scene_complete", "objects_complete", "timeout"):
+        valid_phases = ("map", "scene", "scene_complete", "objects_complete", "bonus", "level_complete", "campaign_complete", "timeout")
+        if value.phase not in valid_phases:
             raise ValueError("invalid campaign phase")
         if set(state["scenes"]) != set(state["counted"]) or not set(state["scenes"]).issubset(value.level.scenes):
             raise ValueError("invalid campaign scenes")
@@ -166,9 +260,15 @@ class Session:
             value.counted[name] = set(ids)
         if value.completed != sum(len(ids) for ids in value.counted.values()):
             raise ValueError("completed count differs from scene events")
-        if value.phase == "map" and value.current is not None or value.phase != "map" and value.current not in value.scenes:
+        if value.phase in ("map", "bonus", "level_complete", "campaign_complete"):
+            if value.current is not None:
+                raise ValueError("invalid active campaign scene")
+        elif value.current not in value.scenes:
             raise ValueError("invalid active campaign scene")
-        if (value.phase == "objects_complete") != (value.remaining == 0):
+        if value.phase in ("objects_complete", "bonus", "level_complete", "campaign_complete"):
+            if value.remaining != 0:
+                raise ValueError("inconsistent completion boundary")
+        elif value.remaining == 0:
             raise ValueError("inconsistent completion boundary")
         if value.phase == "scene_complete" and not value._scene_retired():
             raise ValueError("completed-scene dialog has unfinished sets")
@@ -177,4 +277,7 @@ class Session:
             raise ValueError("invalid clock events")
         if value.phase == "timeout" and "timeout" not in value.events:
             raise ValueError("missing timeout event")
+        value.total_elapsed = float(state.get("total_elapsed", 0.0))
+        if "bonus_game" in state and state["bonus_game"]:
+            value.bonus_game = BonusGame.restore(state["bonus_game"])
         return value

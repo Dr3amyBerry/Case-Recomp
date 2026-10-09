@@ -827,3 +827,30 @@ cierra eventos/calls indirectos y el shell todavía usa controles modales propio
 instancias cacheadas y transiciones simplificadas. La reconstrucción nativa y su
 contraste permanecen abiertos: no se declara el objetivo global completo ni se
 presenta la prueba como un motor SDA compatible. Huntsville y APK aprobadas intactos.
+
+
+## Minijuegos de bonus, progresión de niveles y colofón final
+
+Se identificaron las 4 familias de minijuegos y la ruta de progresión entre niveles
+a partir del pseudocódigo (`0040a720.c`, `00405080.c`, `00416810.c`, `004191e0.c`),
+las definiciones XUI (`TILEROTGAME01.TRG`, `TILEGAME_01.TGL`, `WORDSEARCH01.WSG`, `JIGSAW01.JSW`, `LEVELS_1.XUI`, `LEVELS_2.XUI`, `ENVS.MSE`) y `STRINGS.TXT`:
+
+1. **Familias de minijuegos (`bonus.py`):**
+   - **Rotación de fichas (`.trg` / `tilerotgameobjects`):** cuadrícula de 4 filas × 6 columnas; cada celda rota en múltiplos de 90° hasta orientación 0.
+   - **Intercambio de fichas (`.tgl` / `tilegameobjects`):** cuadrícula de 6 filas × 6 columnas; selección y permutación de piezas hasta ordenación completa.
+   - **Sopa de letras (`.wsg` / `wordsearchgametiles`):** matriz de 8 filas × 12 columnas; búsqueda y bloqueo de términos.
+   - **Puzle de piezas (`.jsw` / `jswgamepuzzle`):** 24 piezas de mosaico colocadas en sus huecos correspondientes.
+   - **Recompensa original:** 25.000 puntos (`ID_YESWIN = "25000"`, `ID_BTN_SOLVEPUZZLE = "RESOLVER PUZLE"`).
+
+2. **Flujo de finalización y transición de nivel (`campaign.py`):**
+   - Al encontrar todos los objetos del nivel (`remaining == 0`), el estado pasa a `objects_complete`.
+   - `start_bonus()` instancia el minijuego indicado en `level.bonus` y entra en fase `bonus`.
+   - `solve_bonus()` completa el minijuego, suma los 25.000 puntos y transiciona a `level_complete`.
+   - `level_summary()` calcula bonificación de velocidad (`speed_bonus = int(remaining_seconds) * 10`), tiempo transcurrido y rango de investigación (de `Sabueso novato` hasta `P.I. Maestro`).
+   - `confirm_level_complete()` añade la bonificación, incrementa `total_elapsed`, avanza a `level_index + 1`, restablece el temporizador al tiempo del nuevo nivel (`level.time`), limpia contadores de escena y regresa al mapa del nuevo nivel con los puntos y el perfil intactos.
+
+3. **Último nivel y colofón (`Level 25`):**
+   - El nivel final de la campaña principal es el Nivel 25 (`clue="25"`, 90 objetos, 3120 s, 9 escenas, bonus `tilerotgame01.trg`).
+   - Al completar los 90 objetos y el minijuego final, `confirm_level_complete()` detecta `level_index == 24` y transiciona a `campaign_complete`, con rango `P.I. Maestro` (`ID_RANK15`), emulando `finaleendtotaldialog` / `gamefinish` (estado 4 en `00405080.c`).
+   - Todo el estado final se persiste y restaura verificablemente mediante JSON con hash de integridad.
+

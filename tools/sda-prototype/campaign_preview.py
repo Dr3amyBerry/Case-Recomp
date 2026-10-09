@@ -79,10 +79,23 @@ def main():
             tk.Button(controls, text=resolve_caption(completed_ok.attrib["caption"], strings),
                       command=confirm_complete).pack(side=tk.LEFT)
         elif session.phase == "scene":
-            tk.Label(controls, text="Usa el botón del PDA para volver al mapa").pack(side=tk.LEFT)
+            tk.Label(controls, text="Usa el bot\u00f3n del PDA para volver al mapa").pack(side=tk.LEFT)
+        elif session.phase == "objects_complete":
+            tk.Label(controls, text=f"Objetivos del nivel {session.level.clue} completados").pack(side=tk.LEFT)
+            tk.Button(controls, text="Jugar bonus", command=start_bonus).pack(side=tk.LEFT)
+        elif session.phase == "bonus":
+            bonus_info = f"Bonus: {session.bonus_game.kind} ({session.level.bonus})" if session.bonus_game else "Bonus"
+            tk.Label(controls, text=bonus_info).pack(side=tk.LEFT)
+            tk.Button(controls, text="Resolver puzle (25.000 pts)", command=solve_bonus).pack(side=tk.LEFT)
+        elif session.phase == "level_complete":
+            summary = session.level_summary()
+            tk.Label(controls, text=f"Pista #{summary['clue']} encontrada | Bonif. tiempo: {summary['speed_bonus']}").pack(side=tk.LEFT)
+            btn_text = "Completar caso (Colof\u00f3n)" if summary["last_level"] else f"Siguiente nivel ({summary['clue'] + 1})"
+            tk.Button(controls, text=btn_text, command=confirm_level_complete).pack(side=tk.LEFT)
+        elif session.phase == "campaign_complete":
+            tk.Label(controls, text=f"\u00a1ENHORABUENA! CASO RESUELTO | Rango: {session.rank} | Puntos: {session.points}").pack(side=tk.LEFT)
         else:
-            tk.Label(controls, text="Objetivos completados; bonus pendiente" if session.phase == "objects_complete"
-                     else "Tiempo agotado").pack(side=tk.LEFT)
+            tk.Label(controls, text="Tiempo agotado").pack(side=tk.LEFT)
         if session:
             tk.Button(controls, text="Guardar progreso", command=persist).pack(side=tk.LEFT)
 
@@ -117,6 +130,24 @@ def main():
 
     def confirm_complete():
         session.confirm_scene_complete(int(completed_ok.attrib["value"]))
+        rebuild()
+        persist()
+
+    def start_bonus():
+        session.start_bonus()
+        rebuild()
+        persist()
+
+    def solve_bonus():
+        session.solve_bonus()
+        rebuild()
+        persist()
+
+    def confirm_level_complete():
+        nonlocal map_view
+        session.confirm_level_complete()
+        if session.phase == "map":
+            map_view = MapView(resources, session.level)
         rebuild()
         persist()
 
@@ -187,6 +218,9 @@ def main():
                 stage = pda_view.render(session.scene.render(False), session)
                 session.scene.draw_target_list(stage)
                 photo = ImageTk.PhotoImage(stage)
+                canvas.itemconfigure(image_id, image=photo)
+            else:
+                photo = ImageTk.PhotoImage(pda_view.render(map_view.render(session), session))
                 canvas.itemconfigure(image_id, image=photo)
             action = pda_view.consume_activation()
             if action == 301 and session.phase == "scene":
