@@ -127,6 +127,13 @@ class SdaPrivateVisualInstrumentationTest {
        assertTrue("stable map background differs at $x,$y: $channels",channels.all { kotlin.math.abs(it)<=26 })
       }
      }
+     if(name=="scene") {
+      val levelInk=(10 until 142).sumOf { x -> (42 until 64).count { y ->
+       val p=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
+       android.graphics.Color.red(p)>160 && android.graphics.Color.green(p)>160 && android.graphics.Color.blue(p)>160
+      } }
+      assertTrue("original PDA level header missing: $levelInk",levelInk>100)
+     }
      if(name=="wordsearch") {
       val game=campaign.bonusGame as SdaWordSearchGame
       val ink=(0 until game.cellWidth*game.cellHeight).count { point ->

@@ -56,6 +56,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val score=doc.component("score")
   ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
  }
+ private fun levelLabel(canvas:Canvas,campaign:SdaCampaign) {
+  // 004433d0 slot 0 formats the original caption as "%s: %d".
+  val label=doc.component("cluelabel")
+  ui.label(canvas,label,doc.caption(label)+": "+campaign.currentLevel.clue)
+ }
  override fun drawMap(canvas:Canvas,campaign:SdaCampaign) {
   // Native 0043f580 completes the map crossfade onto goldbackground; render that stable state.
   val background=doc.component("mapunderlay").attributes.getValue("goldbackground")
@@ -71,12 +76,13 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    ui.label(canvas,node.copy(attributes=a+mapOf("halign" to "center","font" to a.getValue("fontitems"))),(campaign.scenes[a.getValue("name")]?.remainingCaptions()?.size ?: 10).toString(),x+160,y+97,22,20)
   }
   doc.component("maptext").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
-  val clue=doc.component("cluelabel");ui.label(canvas,clue,doc.caption(clue)+" "+campaign.currentLevel.clue)
+  levelLabel(canvas,campaign)
   val total=doc.component("totalitems");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
  }
  override fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String?=cards(campaign).firstOrNull { (n,p) -> Rect(p.first,p.second,p.first+n.number("w"),p.second+n.number("h")).contains(x,y) }?.first?.attributes?.get("name")
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?) {
   base(canvas,campaign,campaign?.clock ?: clock)
+  campaign?.let { levelLabel(canvas,it) }
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
