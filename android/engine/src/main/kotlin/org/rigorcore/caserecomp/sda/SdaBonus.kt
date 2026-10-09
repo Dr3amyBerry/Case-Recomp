@@ -2,8 +2,6 @@ package org.rigorcore.caserecomp.sda
 
 import org.w3c.dom.Element
 import org.w3c.dom.Node
-import java.io.ByteArrayInputStream
-import javax.xml.parsers.DocumentBuilderFactory
 
 const val SDA_BONUS_REWARD = 25000
 
@@ -344,76 +342,57 @@ object SdaBonusLoader {
         bonusImage: String = ""
     ): SdaBonusGame {
         val nameUpper = bonusName.uppercase()
+        require(nameUpper.endsWith(".TRG") || nameUpper.endsWith(".TGL") ||
+            nameUpper.endsWith(".WSG") || nameUpper.endsWith(".JSW")) { "unsupported bonus format: $bonusName" }
         val raw = sdaContent.read(bonusName)
+            ?: throw IllegalArgumentException("bonus resource missing: $bonusName")
+        val doc = parseBonusXml(raw)
 
         if (nameUpper.endsWith(".TRG")) {
-            var rows = 4
-            var cols = 6
-            if (raw != null) {
-                val doc = parseBonusXml(raw)
-                rows = doc["rows"]?.toIntOrNull() ?: 4
-                cols = doc["columns"]?.toIntOrNull() ?: 6
-            }
+            val rows = dimension(doc, "rows")
+            val cols = dimension(doc, "columns")
+            require(rows.toLong() * cols <= 1024) { "bonus board exceeds budget" }
             return SdaTileRotGame(bonusName, rows, cols, seed, bonusImage)
         } else if (nameUpper.endsWith(".TGL")) {
-            var rows = 6
-            var cols = 6
-            if (raw != null) {
-                val doc = parseBonusXml(raw)
-                rows = doc["rows"]?.toIntOrNull() ?: 6
-                cols = doc["columns"]?.toIntOrNull() ?: 6
-            }
+            val rows = dimension(doc, "rows")
+            val cols = dimension(doc, "columns")
+            require(rows.toLong() * cols <= 1024) { "bonus board exceeds budget" }
             return SdaTileSwapGame(bonusName, rows, cols, seed, bonusImage)
         } else if (nameUpper.endsWith(".WSG")) {
-            val words = mutableListOf("VEGAS", "CASINO", "ROULETTE", "JACKPOT", "SECURITY", "DETECTIVE")
-            if (raw != null) {
-                val wordsRaw = sdaContent.read("WORDSEARCH.TXT")
-                if (wordsRaw != null) {
-                    val text = String(wordsRaw, Charsets.UTF_8)
-                    for (line in text.lines()) {
-                        if ("=" in line) {
-                            val listPart = line.substringAfter('=').replace("\"", "").replace("'", "")
-                            val parsed = listPart.split(',').map { it.trim().uppercase() }.filter { it.isNotEmpty() }
-                            if (parsed.isNotEmpty()) {
-                                words.clear()
-                                words.addAll(parsed)
-                                break
-                            }
-                        }
-                    }
-                }
-            }
-            return SdaWordSearchGame(bonusName, 8, 12, seed, words, bonusImage)
+            val wordsRaw = sdaContent.read("WORDSEARCH.TXT")
+                ?: throw IllegalArgumentException("wordsearch table missing")
+            val reference = doc["text"] ?: throw IllegalArgumentException("wordsearch list reference missing")
+            val list = SdaStrings.resolve(reference, SdaStrings.parse(wordsRaw))
+            require(!list.startsWith("@")) { "unknown wordsearch list: $reference" }
+            val words = list.split(',').map { it.trim().uppercase() }
+            require(words.isNotEmpty() && words.none { it.isEmpty() }) { "empty wordsearch list" }
+            return SdaWordSearchGame(bonusName, dimension(doc, "rows"), dimension(doc, "columns"), seed, words, bonusImage)
         } else if (nameUpper.endsWith(".JSW")) {
             return SdaJigsawGame(bonusName, 24, seed, bonusImage)
-        } else if (nameUpper.contains("RIDDLE") || nameUpper.endsWith(".MSE")) {
-            return SdaMasterRiddleGame(1, seed)
         }
+        throw IllegalArgumentException("unsupported bonus format: $bonusName")
+    }
 
-        // Default fallback to TileRotGame
-        return SdaTileRotGame(bonusName, 4, 6, seed, bonusImage)
+    private fun dimension(attrs: Map<String, String>, name: String): Int {
+        val value = attrs[name]?.toIntOrNull()
+        require(value != null && value in 1..1024) { "invalid bonus $name" }
+        return value
     }
 
     private fun parseBonusXml(raw: ByteArray): Map<String, String> {
         val attrs = mutableMapOf<String, String>()
-        try {
-            val text = String(raw, Charsets.UTF_8).removePrefix("\uFEFF")
-            val factory = DocumentBuilderFactory.newInstance()
-            val doc = factory.newDocumentBuilder().parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
-            fun walk(node: Node) {
-                if (node.nodeType == Node.ELEMENT_NODE) {
-                    val elem = node as Element
-                    for (i in 0 until elem.attributes.length) {
-                        val item = elem.attributes.item(i)
-                        attrs[item.nodeName.lowercase()] = item.nodeValue
-                    }
-                }
-                for (i in 0 until node.childNodes.length) {
-                    walk(node.childNodes.item(i))
+        val doc = SdaXml.parse(raw)
+        fun walk(node: Node) {
+            if (node.nodeType == Node.ELEMENT_NODE) {
+                val elem = node as Element
+                for (i in 0 until elem.attributes.length) {
+                    val item = elem.attributes.item(i)
+                    attrs[item.nodeName.lowercase()] = item.nodeValue
                 }
             }
-            walk(doc.documentElement)
-        } catch (_: Exception) {}
+            for (i in 0 until node.childNodes.length) walk(node.childNodes.item(i))
+        }
+        walk(doc.documentElement)
         return attrs
     }
 }

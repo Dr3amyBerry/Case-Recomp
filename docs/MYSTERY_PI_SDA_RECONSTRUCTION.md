@@ -1,5 +1,7 @@
 # Mystery P.I. — reconstrucción estática de SDA
 
+> **Auditoría 2026-10-09:** las afirmaciones previas de bonus/desenlace auténticos y campaña completa no están verificadas; existen mecanismos simulados en Kotlin y supuestos en Python. Véase [estado comprobado y pendientes](MYSTERY_PI_ANDROID_AUDIT.md).
+
 Fecha de actualización: 2026-10-09. Estado: recorrido experimental de inicio,
 primera tanda, avance a otra ubicación y reanudación verificado por la interfaz.
 Reconstrucción del grafo nativo y comparación con el original pendientes.

@@ -148,6 +148,7 @@ class SdaCampaign(
         get() = currentSceneName?.let { scenes[it] }
 
     fun enterScene(name: String, content: SdaContent): SdaScene {
+        require(phase == SdaCampaignPhase.MAP || phase == SdaCampaignPhase.SCENE) { "scene is unavailable in $phase" }
         val normalized = name.lowercase().removePrefix("scene_").substringBeforeLast('.')
         require(normalized in currentLevel.scenes) { "scene '$name' not in current level scenes" }
 
@@ -174,6 +175,7 @@ class SdaCampaign(
     }
 
     fun toInvestigationMap() {
+        require(phase == SdaCampaignPhase.SCENE || phase == SdaCampaignPhase.SCENE_COMPLETE) { "not in a scene" }
         currentScene?.let { sc ->
             points = sc.score.points
         }
@@ -197,7 +199,7 @@ class SdaCampaign(
             for (ids in sc.activeSets) {
                 if (ids !in sceneCounted && sc.rows[ids]?.removed == true) {
                     sceneCounted.add(ids)
-                    completedObjects += ids.size
+                    completedObjects += 1 // One completed objective row, including compound sets.
                 }
             }
             points = sc.score.points
@@ -227,16 +229,17 @@ class SdaCampaign(
 
     fun startBonus(content: SdaContent) {
         require(phase == SdaCampaignPhase.OBJECTS_COMPLETE) { "cannot start bonus before completing objects" }
+        // Resolve first: an invalid resource must leave the completion checkpoint intact.
+        val loaded = if (currentLevel.bonus.isNotEmpty())
+            SdaBonusLoader.load(content, currentLevel.bonus, seed, currentLevel.bonusImage) else null
         currentSceneName = null
-        if (currentLevel.bonus.isNotEmpty()) {
-            bonusGame = SdaBonusLoader.load(content, currentLevel.bonus, seed, currentLevel.bonusImage)
-            phase = SdaCampaignPhase.BONUS
-        } else {
-            phase = SdaCampaignPhase.LEVEL_COMPLETE
-        }
+        bonusGame = loaded
+        phase = if (loaded != null) SdaCampaignPhase.BONUS else SdaCampaignPhase.LEVEL_COMPLETE
     }
 
     fun clickBonus(x: Int, y: Int): Boolean {
+        if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
+                SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
         val moved = bg.clickPixel(x, y)
         if (bg.isSolved) {

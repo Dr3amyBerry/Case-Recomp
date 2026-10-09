@@ -2,8 +2,6 @@ package org.rigorcore.caserecomp.sda
 
 import org.w3c.dom.Element
 import org.w3c.dom.Node
-import java.io.ByteArrayInputStream
-import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Generic representation of an SDA campaign level parsed from level XUI (e.g. LEVELS_1.XUI).
@@ -21,15 +19,7 @@ data class SdaLevel(
 
 object SdaLevels {
     fun parse(raw: ByteArray): List<SdaLevel> {
-        require(raw.isNotEmpty()) { "level definition cannot be empty" }
-        val text = String(raw, Charsets.UTF_8).removePrefix("\uFEFF")
-
-        val factory = DocumentBuilderFactory.newInstance().apply {
-            isNamespaceAware = false
-            isExpandEntityReferences = false
-        }
-        val builder = factory.newDocumentBuilder()
-        val doc = builder.parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
+        val doc = SdaXml.parse(raw)
         val root = doc.documentElement
 
         val levels = mutableListOf<SdaLevel>()
@@ -39,18 +29,19 @@ object SdaLevels {
                 val elem = node as Element
                 val tag = elem.localName ?: elem.tagName.substringAfter(':')
                 if (tag.equals("level", ignoreCase = true)) {
-                    val clue = elem.getAttribute("clue").trim().toIntOrNull() ?: 1
-                    val time = elem.getAttribute("time").trim().toFloatOrNull() ?: 1320f
-                    val objects = elem.getAttribute("objects").trim().toIntOrNull() ?: 10
+                    val clue = elem.getAttribute("clue").trim().toIntOrNull() ?: throw IllegalArgumentException("missing or invalid level clue")
+                    val time = elem.getAttribute("time").trim().toFloatOrNull() ?: throw IllegalArgumentException("missing or invalid level time")
+                    val objects = elem.getAttribute("objects").trim().toIntOrNull() ?: throw IllegalArgumentException("missing or invalid level objects")
                     val scenesRaw = elem.getAttribute("scenes").trim()
-                    val scenes = scenesRaw.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+                    val scenes = scenesRaw.split(',').map { it.trim().lowercase() }
                     val title = elem.getAttribute("levelname").trim()
                     val bonus = elem.getAttribute("bonus").trim()
                     val bonusImage = elem.getAttribute("bonusimage").trim()
 
-                    if (scenes.isNotEmpty() && objects > 0 && time > 0) {
-                        levels.add(SdaLevel(clue, time, objects, scenes, title, bonus, bonusImage))
-                    }
+                    require(clue > 0 && objects > 0 && time.isFinite() && time > 0) { "invalid level parameters" }
+                    require(scenes.isNotEmpty() && scenes.distinct().size == scenes.size &&
+                        scenes.all { it.matches(Regex("[a-z0-9_]+")) }) { "invalid level scene list" }
+                    levels.add(SdaLevel(clue, time, objects, scenes, title, bonus, bonusImage))
                 }
             }
             val children = node.childNodes

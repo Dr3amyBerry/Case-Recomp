@@ -2,8 +2,6 @@ package org.rigorcore.caserecomp.sda
 
 import org.w3c.dom.Element
 import org.w3c.dom.Node
-import java.io.ByteArrayInputStream
-import javax.xml.parsers.DocumentBuilderFactory
 
 data class SdaXuiTexture(val id: String, val uri: String)
 
@@ -38,8 +36,6 @@ data class SdaXuiDocument(
  * - Verifies that every eyespyset references defined eyespyimages with no duplicates.
  */
 object SdaXui {
-    private const val MAX_SIZE = 4_000_000
-
     private fun parseCoord(element: Element, attr: String): Int {
         if (!element.hasAttribute(attr)) return 0
         val raw = element.getAttribute(attr).trim()
@@ -48,32 +44,7 @@ object SdaXui {
     }
 
     fun parse(raw: ByteArray): SdaXuiDocument {
-        if (raw.size > MAX_SIZE) throw IllegalArgumentException("unsupported XUI size")
-        val rawLatin1 = String(raw, Charsets.ISO_8859_1).uppercase()
-        if ("<!DOCTYPE" in rawLatin1 || "<!ENTITY" in rawLatin1) {
-            throw IllegalArgumentException("unsupported XUI declaration")
-        }
-
-        var text = String(raw, Charsets.UTF_8).removePrefix("\uFEFF")
-        if ("mpi:" in text && "xmlns:mpi" !in text) {
-            text = text.replaceFirst("<xui>", "<xui xmlns:mpi=\"urn:spintop\">")
-        }
-
-        val factory = DocumentBuilderFactory.newInstance()
-        factory.isNamespaceAware = true
-        factory.isExpandEntityReferences = false
-        try {
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false)
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-            factory.setFeature(javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING, true)
-        } catch (_: Exception) {
-            // Supported features depend on XML parser implementation
-        }
-
-        val builder = factory.newDocumentBuilder()
-        val doc = builder.parse(ByteArrayInputStream(text.toByteArray(Charsets.UTF_8)))
+        val doc = SdaXml.parse(raw)
         val root = doc.documentElement
 
         val textures = mutableMapOf<String, SdaXuiTexture>()

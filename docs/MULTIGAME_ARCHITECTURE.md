@@ -1,5 +1,7 @@
 # Arquitectura multijuego de Case-Recomp
 
+> **Auditoría 2026-10-09:** las afirmaciones previas de bonus/desenlace auténticos y campaña completa no están verificadas; existen mecanismos simulados en Kotlin y supuestos en Python. Véase [estado comprobado y pendientes](MYSTERY_PI_ANDROID_AUDIT.md).
+
 Fecha: 2026-10-08. Propuesta de evoluci?n fundada en [auditor?a Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditor?a Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **Especificaci?n, todav?a no implementaci?n.** La investigaci?n previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar m?dulos.
 
 ## 1. Decisiones arquitectónicas obligatorias y aprobadas (Requisitos permanentes)
