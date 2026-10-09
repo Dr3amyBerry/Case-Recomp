@@ -16,6 +16,7 @@ import org.rigorcore.caserecomp.sda.SdaClock
 import org.rigorcore.caserecomp.sda.SdaScene
 import org.rigorcore.caserecomp.sda.SdaTileRotGame
 import org.rigorcore.caserecomp.sda.SdaTileSwapGame
+import org.rigorcore.caserecomp.sda.SdaWordSearchGame
 
 /**
  * Android View that renders SDA Scenes, Investigation Map, Bonus Minigames, and Campaign Finale.
@@ -74,6 +75,11 @@ class SdaGameView(
     var onNextLevelListener: (() -> Unit)? = null
     var onCampaignCompletedListener: (() -> Unit)? = null
 
+    var onBonusInputListener: (() -> Unit)? = null
+    private var wordPointerId: Int? = null
+    private val wordLetterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK; textSize = 24f; textAlign = Paint.Align.CENTER
+    }
     private var scale = 1.0f
     private var offsetX = 0.0f
     private var offsetY = 0.0f
@@ -296,6 +302,27 @@ class SdaGameView(
                     canvas.drawText("#$tileVal", rx + tw / 2 - 12, ry + th / 2 + 6, textPaint)
                 }
             }
+        } else if (bonus is SdaWordSearchGame) {
+            val retired = bonus.foundWords.flatMap { bonus.board.placements.getValue(it) }.toSet()
+            val selected = bonus.selectedCells
+            for (cell in 0 until bonus.rows * bonus.cols) {
+                val col = cell % bonus.cols; val row = cell / bonus.cols
+                val left = bonus.originX + col * bonus.cellWidth
+                val top = bonus.originY + row * bonus.cellHeight
+                val rect = Rect(left, top, left + bonus.cellWidth, top + bonus.cellHeight)
+                val state = if (cell in retired) "locked" else if (cell in selected) "selected" else "normal"
+                val bitmap = bonus.tileImages[state]?.nativeImage as? Bitmap
+                if (bitmap != null) canvas.drawBitmap(bitmap, null, rect, null)
+                else canvas.drawRect(rect, cardPaint)
+                canvas.drawText(bonus.board.displayGrid[row][col].toString(),
+                    left + bonus.cellWidth / 2f, top + bonus.cellHeight / 2f -
+                    (wordLetterPaint.ascent() + wordLetterPaint.descent()) / 2f, wordLetterPaint)
+            }
+            for ((index, word) in bonus.words.withIndex()) {
+                textPaint.isStrikeThruText = word in bonus.foundWords
+                canvas.drawText(word, 12f, 140f + index * 27f, textPaint)
+            }
+            textPaint.isStrikeThruText = false
         } else {
             // Generic bonus display
             canvas.drawRect(172f, 95f, 784f, 503f, cardPaint)
@@ -389,6 +416,47 @@ class SdaGameView(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        val wordCamp = campaign
+        if (wordPointerId != null && wordCamp?.phase != SdaCampaignPhase.BONUS) {
+            wordCamp?.cancelBonusSelection(); wordPointerId = null
+        }
+        if (wordCamp?.phase == SdaCampaignPhase.BONUS && wordCamp.bonusGame is SdaWordSearchGame) {
+            val x = ((event.x - offsetX) / scale).toInt()
+            val y = ((event.y - offsetY) / scale).toInt()
+            val solveButton = x in 580..770 && y in 530..575
+            if (event.actionMasked == MotionEvent.ACTION_DOWN && !solveButton) {
+                if (event.buttonState and MotionEvent.BUTTON_SECONDARY != 0) return true
+                wordPointerId = event.getPointerId(0)
+                wordCamp.beginBonusSelection(x, y)
+                onBonusInputListener?.invoke()
+                invalidate()
+                return true
+            }
+            if (wordPointerId != null) {
+                val index = event.findPointerIndex(wordPointerId!!)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_MOVE -> if (index >= 0) wordCamp.moveBonusSelection(
+                        ((event.getX(index) - offsetX) / scale).toInt(), ((event.getY(index) - offsetY) / scale).toInt())
+                    MotionEvent.ACTION_UP -> {
+                        if (index >= 0) wordCamp.endBonusSelection(
+                            ((event.getX(index) - offsetX) / scale).toInt(), ((event.getY(index) - offsetY) / scale).toInt())
+                        else wordCamp.cancelBonusSelection()
+                        wordPointerId = null
+                        onBonusInputListener?.invoke()
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        wordCamp.cancelBonusSelection(); wordPointerId = null
+                        onBonusInputListener?.invoke()
+                    }
+                    MotionEvent.ACTION_POINTER_UP -> if (event.getPointerId(event.actionIndex) == wordPointerId) {
+                        wordCamp.cancelBonusSelection(); wordPointerId = null
+                        onBonusInputListener?.invoke()
+                    }
+                }
+                invalidate()
+                return true
+            }
+        }
         if (event.action == MotionEvent.ACTION_DOWN) {
             val logicalX = ((event.x - offsetX) / scale).toInt()
             val logicalY = ((event.y - offsetY) / scale).toInt()
@@ -442,10 +510,12 @@ class SdaGameView(
                         // Solve button (580..770, 530..575)
                         if (logicalX in 580..770 && logicalY in 530..575) {
                             camp.solveBonus()
+                            onBonusInputListener?.invoke()
                             invalidate()
                             return true
                         }
                         camp.clickBonus(logicalX, logicalY, clockwise = event.buttonState and MotionEvent.BUTTON_SECONDARY != 0)
+                        onBonusInputListener?.invoke()
                         invalidate()
                         return true
                     }
@@ -461,10 +531,12 @@ class SdaGameView(
                         // Solve button (520..700, 520..565)
                         if (logicalX in 520..700 && logicalY in 520..565) {
                             camp.solveBonus()
+                            onBonusInputListener?.invoke()
                             invalidate()
                             return true
                         }
                         camp.clickBonus(logicalX, logicalY, clockwise = event.buttonState and MotionEvent.BUTTON_SECONDARY != 0)
+                        onBonusInputListener?.invoke()
                         invalidate()
                         return true
                     }

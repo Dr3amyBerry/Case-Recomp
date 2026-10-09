@@ -137,7 +137,9 @@ class SdaLauncherActivity : Activity() {
                         camp.restore(savedState, sdaContent)
                         Log.i(TAG, "Restored campaign checkpoint at level ${camp.levelIndex + 1}, phase ${camp.phase}")
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to restore campaign checkpoint", e)
+                        Log.w(TAG, "Failed to restore campaign checkpoint; preserving stored save", e)
+                        campaign = null
+                        throw IllegalArgumentException("No se puede restaurar esta partida SDA; se conserva el archivo guardado", e)
                     }
                 }
 
@@ -206,6 +208,7 @@ class SdaLauncherActivity : Activity() {
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
+        view.onBonusInputListener = { autoSave() }
         view.onSceneSelectedListener = { sceneName ->
             val camp = campaign
             if (camp != null) {

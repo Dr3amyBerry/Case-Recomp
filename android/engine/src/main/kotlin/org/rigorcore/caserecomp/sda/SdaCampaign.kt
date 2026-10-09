@@ -241,14 +241,30 @@ class SdaCampaign(
         if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
-        fun placementScore() = when (bg) {
-            is SdaTileRotGame -> bg.linePoints
-            is SdaTileSwapGame -> bg.placementPoints
-            else -> 0
-        }
-        val beforeLines = placementScore()
+        val beforeLines = placementScore(bg)
         val moved = if (bg is SdaTileRotGame) bg.rotatePixel(x, y, clockwise) else bg.clickPixel(x, y)
-        points += placementScore() - beforeLines
+        return finishBonusInput(bg, beforeLines, moved)
+    }
+
+    fun beginBonusSelection(x: Int, y: Int): Boolean =
+        if (phase == SdaCampaignPhase.BONUS) (bonusGame as? SdaWordSearchGame)?.beginPixel(x, y) ?: false else false
+    fun moveBonusSelection(x: Int, y: Int): Boolean =
+        if (phase == SdaCampaignPhase.BONUS) (bonusGame as? SdaWordSearchGame)?.movePixel(x, y) ?: false else false
+    fun cancelBonusSelection() { (bonusGame as? SdaWordSearchGame)?.cancelSelection() }
+    fun endBonusSelection(x: Int, y: Int): Boolean {
+        if (phase != SdaCampaignPhase.BONUS) return false
+        val game = bonusGame as? SdaWordSearchGame ?: return false
+        val before = game.placementPoints
+        return finishBonusInput(game, before, game.endPixel(x, y))
+    }
+    private fun placementScore(bg: SdaBonusGame): Int = when (bg) {
+        is SdaTileRotGame -> bg.linePoints
+        is SdaTileSwapGame -> bg.placementPoints
+        is SdaWordSearchGame -> bg.placementPoints
+        else -> 0
+    }
+    private fun finishBonusInput(bg: SdaBonusGame, before: Int, moved: Boolean): Boolean {
+        points += placementScore(bg) - before
         if (bg.isSolved) {
             points += bg.points
             when (phase) {

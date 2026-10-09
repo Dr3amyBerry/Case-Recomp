@@ -54,6 +54,14 @@ class SdaContent private constructor(
         return data
     }
 
+    fun decodeImage(path: String): SdaPixelSource {
+        val bytes = read(path) ?: throw IllegalArgumentException("image resource missing: $path")
+        val image = decoder.decode(bytes) ?: throw IllegalArgumentException("unable to decode image: $path")
+        require(image.width in 1..4096 && image.height in 1..4096 &&
+            image.width.toLong() * image.height <= 16777216) { "image dimensions exceed budget" }
+        return image
+    }
+
     fun coverPng(): ByteArray? = coverPath?.let(::read)
 
     fun loadStrings(sceneName: String): Map<String, String> {

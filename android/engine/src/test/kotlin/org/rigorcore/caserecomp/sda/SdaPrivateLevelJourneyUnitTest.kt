@@ -10,17 +10,52 @@ import javax.imageio.ImageIO
 
 /** Optional private-resource JVM journey. Never replaces missing media with synthetic data. */
 class SdaPrivateLevelJourneyUnitTest {
+    private fun finishObjectives(camp: SdaCampaign, content: SdaContent) {
+            for (name in camp.currentLevel.scenes) {
+                val scene = camp.enterScene(name, content)
+                for (group in scene.activeSets.take(camp.remainingObjects)) {
+                    for (id in group) {
+                        val sprite = scene.objects.getValue(id)
+                        if (sprite.found) continue
+                        var point: Pair<Int, Int>? = null
+                        search@ for (y in 0 until sprite.image.height) {
+                            for (x in 0 until sprite.image.width) {
+                                val px = sprite.x + x; val py = sprite.y + y
+                                if (px !in 174 until 800 || py !in 0 until 600) continue
+                                if (scene.targets.firstOrNull { scene.objects.getValue(it).hit(px, py) } == id) {
+                                    point = px to py; break@search
+                                }
+                            }
+                        }
+                        assertNotNull("no exposed alpha input for $id", point)
+                        val result = camp.clickScene(point!!.first, point.second)
+                        assertTrue(result is SdaClickResult.Found)
+                        assertEquals(id, (result as SdaClickResult.Found).id)
+                    }
+                    repeat(100) { camp.advance(.04f) }
+                }
+                if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE) camp.confirmSceneComplete()
+                if (camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) break
+            }
+    }
+
+
     @Test fun private_wordsearch_resources_generate_and_accept_only_recorded_paths() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
             .firstOrNull { it.isFile }
         assumeTrue("local private Vegas package is required", packageFile != null)
-        SdaContent.open(packageFile!!, SdaImageDecoder { null }).use { content ->
+        SdaContent.open(packageFile!!, SdaImageDecoder { bytes ->
+            ImageIO.read(ByteArrayInputStream(bytes))?.let { image ->
+                SdaBufferPixelSource(image.width, image.height, ByteArray(image.width * image.height) { -1 })
+            }
+        }).use { content ->
             val table = SdaStrings.parse(content.read("WORDSEARCH.TXT")!!)
             val resources = SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
-                .map { it.bonus }.filter { it.endsWith(".WSG", ignoreCase = true) }.distinct()
+                .filter { it.bonus.endsWith(".WSG", ignoreCase = true) }.distinctBy { it.bonus }
             assertEquals(7, resources.size)
-            for (resource in resources) {
+            for (level in resources) {
+                val resource = level.bonus
                 val nodes = SdaXml.parse(content.read(resource)!!).getElementsByTagName("*")
                 val attrs = mutableMapOf<String, String>()
                 for (i in 0 until nodes.length) {
@@ -43,8 +78,25 @@ class SdaPrivateLevelJourneyUnitTest {
                 }
                 assertTrue(board.isSolved)
                 assertEquals(board.words.size * 250, board.basePoints)
+                var game = SdaBonusLoader.load(content, resource, 8, level.bonusImage) as SdaWordSearchGame
+                assertEquals(board.grid, game.board.grid)
+                for ((word, path) in game.board.placements) {
+                    fun x(cell: Int) = game.originX + cell % game.cols * game.cellWidth + 1
+                    fun y(cell: Int) = game.originY + cell / game.cols * game.cellHeight + 1
+                    assertTrue(game.beginPixel(x(path.first()), y(path.first())))
+                    game.movePixel(x(path.last()), y(path.last()))
+                    val saved = MiniJson.canonical(game.state())
+                    @Suppress("UNCHECKED_CAST")
+                    val checkpoint = MiniJson.parse(saved) as Map<String, Any?>
+                    game = SdaBonusLoader.restore(content, checkpoint, resource, 8, level.bonusImage) as SdaWordSearchGame
+                    assertEquals(saved, MiniJson.canonical(game.state()))
+                    assertTrue(game.endPixel(x(path.last()), y(path.last())))
+                    assertTrue(word in game.foundWords)
+                }
+                assertTrue(game.isSolved)
+                assertEquals(game.words.size * 250, game.placementPoints)
             }
-            println("PRIVATE KERNEL: seven wordsearch resources generated and solved through recorded endpoints; not Android/campaign/native-locale parity")
+            println("PRIVATE KERNEL: seven wordsearch resources generated, loaded, solved through pixel endpoints and restored mid-selection; not Android/native-locale parity")
         }
     }
 
@@ -90,7 +142,7 @@ class SdaPrivateLevelJourneyUnitTest {
         }
     }
 
-    @Test fun private_first_level_solves_rotation_resumes_and_advances_to_level_two() {
+    @Test fun private_first_two_levels_solve_bonuses_resume_and_advance_to_level_three() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
             .firstOrNull { it.isFile }
@@ -108,32 +160,7 @@ class SdaPrivateLevelJourneyUnitTest {
             assertEquals(25, levels.size)
             val camp = SdaCampaign(levels, seed = 8)
             assertEquals(18, camp.currentLevel.objects)
-            for (name in camp.currentLevel.scenes) {
-                val scene = camp.enterScene(name, content)
-                for (group in scene.activeSets.take(camp.remainingObjects)) {
-                    for (id in group) {
-                        val sprite = scene.objects.getValue(id)
-                        if (sprite.found) continue
-                        var point: Pair<Int, Int>? = null
-                        search@ for (y in 0 until sprite.image.height) {
-                            for (x in 0 until sprite.image.width) {
-                                val px = sprite.x + x; val py = sprite.y + y
-                                if (px !in 174 until 800 || py !in 0 until 600) continue
-                                if (scene.targets.firstOrNull { scene.objects.getValue(it).hit(px, py) } == id) {
-                                    point = px to py; break@search
-                                }
-                            }
-                        }
-                        assertNotNull("no exposed alpha input for $id", point)
-                        val result = camp.clickScene(point!!.first, point.second)
-                        assertTrue(result is SdaClickResult.Found)
-                        assertEquals(id, (result as SdaClickResult.Found).id)
-                    }
-                    repeat(100) { camp.advance(.04f) }
-                }
-                if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE) camp.confirmSceneComplete()
-                if (camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) break
-            }
+            finishObjectives(camp, content)
             assertEquals(18, camp.completedObjects)
             assertEquals(SdaCampaignPhase.OBJECTS_COMPLETE, camp.phase)
             assertTrue(camp.points > 0)
@@ -172,11 +199,61 @@ class SdaPrivateLevelJourneyUnitTest {
             val next = resumed.snapshot().toJson()
             resumed.restore(SdaCampaignState.fromJson(next), content)
             assertEquals(next, resumed.snapshot().toJson())
+            finishObjectives(resumed, content)
+            assertEquals(resumed.currentLevel.objects, resumed.completedObjects)
+            assertEquals(SdaCampaignPhase.OBJECTS_COMPLETE, resumed.phase)
+            resumed.startBonus(content)
+            var wordGame = resumed.bonusGame as SdaWordSearchGame
+            assertEquals(172, wordGame.originX); assertEquals(96, wordGame.originY)
+            assertEquals(51, wordGame.cellWidth); assertEquals(51, wordGame.cellHeight)
+            assertFalse(resumed.beginBonusSelection(0, 0))
+            var partialSaved = false
+            val wordsBefore = resumed.points
+            for (word in wordGame.words) {
+                val path = wordGame.board.placements.getValue(word)
+                fun x(cell: Int) = wordGame.originX + cell % wordGame.cols * wordGame.cellWidth + 1
+                fun y(cell: Int) = wordGame.originY + cell / wordGame.cols * wordGame.cellHeight + 1
+                assertTrue(resumed.beginBonusSelection(x(path.last()), y(path.last())))
+                assertTrue(resumed.moveBonusSelection(x(path.first()), y(path.first())))
+                if (!partialSaved && wordGame.foundWords.isNotEmpty()) {
+                    val partial = resumed.snapshot().toJson()
+                    resumed.restore(SdaCampaignState.fromJson(partial), content)
+                    assertEquals(partial, resumed.snapshot().toJson())
+                    val badBoard = resumed.bonusGame!!.state().toMutableMap()
+                    @Suppress("UNCHECKED_CAST")
+                    val board = badBoard["wordBoard"] as Map<String, Any?>
+                    badBoard["wordBoard"] = board + ("grid" to listOf("BAD"))
+                    assertThrows(IllegalArgumentException::class.java) {
+                        resumed.restore(resumed.snapshot().copy(bonusGameState = badBoard), content)
+                    }
+                    assertEquals(partial, resumed.snapshot().toJson())
+                    wordGame = resumed.bonusGame as SdaWordSearchGame
+                    partialSaved = true
+                }
+                assertTrue(resumed.endBonusSelection(x(path.first()), y(path.first())))
+                assertFalse(resumed.endBonusSelection(x(path.first()), y(path.first())))
+                resumed.advance(.25f)
+            }
+            assertTrue(partialSaved)
+            assertTrue(wordGame.isSolved)
+            assertEquals(wordGame.words.size * 250, wordGame.placementPoints)
+            assertEquals(wordsBefore + wordGame.placementPoints + wordGame.points, resumed.points)
+            assertEquals(SdaCampaignPhase.LEVEL_COMPLETE, resumed.phase)
+            val wordResult = resumed.snapshot().toJson()
+            resumed.restore(SdaCampaignState.fromJson(wordResult), content)
+            assertEquals(wordResult, resumed.snapshot().toJson())
+            resumed.confirmLevelComplete()
+            assertEquals(2, resumed.levelIndex)
+            assertEquals(3, resumed.currentLevel.clue)
+            assertEquals(SdaCampaignPhase.MAP, resumed.phase)
+            val third = resumed.snapshot().toJson()
+            resumed.restore(SdaCampaignState.fromJson(third), content)
+            assertEquals(third, resumed.snapshot().toJson())
             assertEquals(25, levels.last().clue)
             assertEquals(90, levels.last().objects)
             assertEquals(3120f, levels.last().time)
             assertEquals(9, levels.last().scenes.size)
-            println("PRIVATE JOURNEY: level 1 alpha objectives -> rotation inputs -> partial resume -> result resume -> level 2; points=${resumed.points}, totalElapsed=${resumed.totalElapsed}")
+            println("PRIVATE JOURNEY: levels 1 and 2 alpha objectives -> rotation and wordsearch inputs -> partial/result resume -> level 3; points=${resumed.points}, totalElapsed=${resumed.totalElapsed}")
             // No forced counters/phases or generic solve. Not proof of Android, native RNG/scoring or finale.
         }
     }

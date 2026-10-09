@@ -237,43 +237,98 @@ class SdaWordSearchGame(
     override val rows: Int = 8,
     override val cols: Int = 12,
     val seed: Long = 0L,
-    val words: List<String>,
+    words: List<String>,
     val bonusImage: String = "",
-    val foundWords: MutableSet<String> = mutableSetOf(),
+    val originX: Int = 0, val originY: Int = 0,
+    val cellWidth: Int = 1, val cellHeight: Int = 1,
+    val tileImages: Map<String, SdaPixelSource> = emptyMap(),
+    checkpoint: Map<String, Any?>? = null,
 ) : SdaBonusGame {
-    override val kind: String = "wordsearch"
-    override var points: Int = SDA_BONUS_REWARD
+    override val kind = "wordsearch"
+    override var points = SDA_BONUS_REWARD
+    private val pool = words.toList()
+    val board: SdaWordSearchBoard
+    val words: List<String> get() = board.words
+    val foundWords: Set<String> get() = board.foundWords
+    var selectedEnd: Int? = null
+        private set
+    var placementPoints = 0
+        private set
+    override val isSolved: Boolean get() = board.isSolved
 
-    override val isSolved: Boolean
-        get() = foundWords.containsAll(words)
-
-    override fun clickPixel(x: Int, y: Int): Boolean {
-        if (isSolved) return false
-        // Word search selection click
-        val unFound = words.firstOrNull { it !in foundWords }
-        if (unFound != null) {
-            foundWords.add(unFound)
-            return true
+    init {
+        require(cellWidth in 1..1024 && cellHeight in 1..1024 &&
+            originX in -32768..32768 && originY in -32768..32768) { "invalid wordsearch geometry" }
+        @Suppress("UNCHECKED_CAST")
+        val savedBoard = checkpoint?.let {
+            fun matches(key: String, expected: Int): Boolean {
+                val value = it[key]
+                return (value is Int || value is Long) && (value as Number).toLong() == expected.toLong()
+            }
+            require(it["pool"] == pool && matches("originX", originX) && matches("originY", originY) &&
+                matches("cellWidth", cellWidth) && matches("cellHeight", cellHeight)) { "wordsearch definition mismatch" }
+            it["wordBoard"] as? Map<String, Any?>
+                ?: throw IllegalArgumentException("legacy simulated wordsearch checkpoint has no board")
         }
-        return false
+        board = SdaWordSearchBoard(rows, cols, pool, seed, savedBoard)
+        if (checkpoint != null) {
+            fun integer(raw: Any?): Int {
+                require(raw is Int || raw is Long) { "wordsearch integer required" }
+                val value = (raw as Number).toLong()
+                require(value in 0..Int.MAX_VALUE.toLong()) { "invalid wordsearch integer" }
+                return value.toInt()
+            }
+            placementPoints = integer(checkpoint["placementPoints"])
+            require(placementPoints % 250 == 0 && placementPoints <= board.basePoints) { "invalid wordsearch score" }
+            selectedEnd = checkpoint["selectedEnd"]?.let { integer(it).also { cell ->
+                require(board.selectedStart != null && cell in 0 until rows * cols) { "invalid wordsearch end" }
+            } }
+            points = integer(checkpoint["points"])
+            require(points == SDA_BONUS_REWARD || (points == 0 && isSolved)) { "invalid wordsearch reward" }
+            require(points == 0 || placementPoints == board.basePoints) { "inconsistent wordsearch score" }
+        }
     }
-
-    override fun solve() {
-        foundWords.addAll(words)
-        points = 0
+    private fun cell(x: Int, y: Int): Int {
+        val dx = x.toLong() - originX; val dy = y.toLong() - originY
+        if (dx !in 0 until cols.toLong() * cellWidth || dy !in 0 until rows.toLong() * cellHeight) return -1
+        return (dy / cellHeight * cols + dx / cellWidth).toInt()
     }
-
+    fun beginPixel(x: Int, y: Int): Boolean {
+        if (isSolved) return false
+        val selected = cell(x, y)
+        selectedEnd = selected.takeIf { it >= 0 }
+        return board.begin(selected)
+    }
+    fun movePixel(x: Int, y: Int): Boolean {
+        if (board.selectedStart == null) return false
+        selectedEnd = cell(x, y).takeIf { it >= 0 }
+        return selectedEnd != null
+    }
+    fun endPixel(x: Int, y: Int): Boolean {
+        selectedEnd = null
+        val found = board.end(cell(x, y))
+        if (found) placementPoints += 250
+        return found
+    }
+    val selectedCells: Set<Int> get() {
+        val start = board.selectedStart ?: return emptySet()
+        val end = selectedEnd ?: return emptySet()
+        val dx = end % cols - start % cols; val dy = end / cols - start / cols
+        if (dx != 0 && dy != 0 && kotlin.math.abs(dx) != kotlin.math.abs(dy)) return emptySet()
+        val count = maxOf(kotlin.math.abs(dx), kotlin.math.abs(dy))
+        val sx = dx.compareTo(0); val sy = dy.compareTo(0)
+        return (0..count).map { start + it * (sy * cols + sx) }.toSet()
+    }
+    fun cancelSelection() { board.cancel(); selectedEnd = null }
+    override fun clickPixel(x: Int, y: Int): Boolean =
+        if (board.selectedStart == null) beginPixel(x, y) else endPixel(x, y)
+    override fun solve() { board.skip(); selectedEnd = null; points = 0 }
     override fun state(): Map<String, Any?> = mapOf(
-        "kind" to kind,
-        "resourceName" to resourceName,
-        "rows" to rows,
-        "cols" to cols,
-        "seed" to seed,
-        "bonusImage" to bonusImage,
-        "points" to points,
-        "words" to words,
-        "foundWords" to foundWords.toList(),
-    )
+        "kind" to kind, "resourceName" to resourceName, "rows" to rows, "cols" to cols,
+        "seed" to seed, "bonusImage" to bonusImage, "points" to points, "pool" to pool,
+        "words" to words, "originX" to originX, "originY" to originY,
+        "cellWidth" to cellWidth, "cellHeight" to cellHeight, "wordBoard" to board.state(),
+        "selectedEnd" to selectedEnd, "placementPoints" to placementPoints)
 }
 
 /**
@@ -391,7 +446,8 @@ object SdaBonusLoader {
         sdaContent: SdaContent,
         bonusName: String,
         seed: Long = 0L,
-        bonusImage: String = ""
+        bonusImage: String = "",
+        checkpoint: Map<String, Any?>? = null
     ): SdaBonusGame {
         val nameUpper = bonusName.uppercase()
         require(nameUpper.endsWith(".TRG") || nameUpper.endsWith(".TGL") ||
@@ -416,9 +472,34 @@ object SdaBonusLoader {
             val reference = doc["text"] ?: throw IllegalArgumentException("wordsearch list reference missing")
             val list = SdaStrings.resolve(reference, SdaStrings.parse(wordsRaw))
             require(!list.startsWith("@")) { "unknown wordsearch list: $reference" }
-            val words = list.split(',').map { it.trim().uppercase() }
+            val words = list.split(',')
             require(words.isNotEmpty() && words.none { it.isEmpty() }) { "empty wordsearch list" }
-            return SdaWordSearchGame(bonusName, dimension(doc, "rows"), dimension(doc, "columns"), seed, words, bonusImage)
+            val definition = SdaXml.parse(raw)
+            val nodes = definition.getElementsByTagName("*")
+            val textures = mutableMapOf<String, String>()
+            var tiles: Element? = null
+            for (i in 0 until nodes.length) {
+                val node = nodes.item(i) as Element
+                if ((node.localName ?: node.tagName.substringAfter(':')) == "texture")
+                    textures[node.getAttribute("id")] = node.getAttribute("uri")
+                if ((node.localName ?: node.tagName.substringAfter(':')) == "wordsearchgametiles") tiles = node
+            }
+            val control = tiles ?: throw IllegalArgumentException("missing wordsearch control")
+            val images = listOf("normal", "selected", "locked").associateWith { state ->
+                val uri = textures[control.getAttribute(state)] ?: throw IllegalArgumentException("missing wordsearch texture")
+                sdaContent.decodeImage(uri)
+            }
+            val normal = images.getValue("normal")
+            require(images.values.all { it.width == normal.width && it.height == normal.height }) { "wordsearch texture dimensions differ" }
+            val env = SdaXml.parse(sdaContent.read("ENVS.MSE") ?: throw IllegalArgumentException("missing bonus environment"))
+            val envNodes = env.getElementsByTagName("*")
+            val background = (0 until envNodes.length).map { envNodes.item(it) as Element }
+                .singleOrNull { it.getAttribute("id") == "wordsearch_$bonusImage" }
+                ?: throw IllegalArgumentException("missing wordsearch background")
+            val originX = background.getAttribute("x").toIntOrNull() ?: throw IllegalArgumentException("invalid wordsearch origin")
+            val originY = background.getAttribute("y").toIntOrNull() ?: throw IllegalArgumentException("invalid wordsearch origin")
+            return SdaWordSearchGame(bonusName, dimension(doc, "rows"), dimension(doc, "columns"), seed, words,
+                bonusImage, originX, originY, normal.width, normal.height, images, checkpoint)
         } else if (nameUpper.endsWith(".JSW")) {
             return SdaJigsawGame(bonusName, 24, seed, bonusImage)
         }
@@ -429,7 +510,7 @@ object SdaBonusLoader {
     fun restore(content: SdaContent, state: Map<String, Any?>, resource: String,
                 seed: Long, bonusImage: String): SdaBonusGame {
         require(state["resourceName"] == resource && integer(state["seed"]) == seed) { "bonus identity mismatch" }
-        val game = load(content, resource, seed, bonusImage)
+        val game = load(content, resource, seed, bonusImage, checkpoint = state)
         require(state["kind"] == game.kind && integer(state["rows"]) == game.rows.toLong() &&
             integer(state["cols"]) == game.cols.toLong()) { "bonus definition mismatch" }
         require((state["bonusImage"] ?: "") == bonusImage) { "bonus image mismatch" }
@@ -478,9 +559,6 @@ object SdaBonusLoader {
             }
             is SdaWordSearchGame -> {
                 require(state["words"] == game.words) { "wordsearch list mismatch" }
-                val words = state["foundWords"] as? List<*> ?: throw IllegalArgumentException("missing found words")
-                require(words.all { it is String && it in game.words } && words.distinct().size == words.size) { "invalid found words" }
-                game.foundWords.addAll(words.map { it as String })
             }
             is SdaJigsawGame -> {
                 require(integer(state["totalPieces"]) == game.totalPieces.toLong()) { "jigsaw definition mismatch" }

@@ -3,6 +3,8 @@ package org.rigorcore.caserecomp.sda
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
+import org.rigorcore.caserecomp.MiniJson
 import org.junit.Test
 
 class SdaBonusUnitTest {
@@ -119,19 +121,32 @@ class SdaBonusUnitTest {
     }
 
     @Test
-    fun word_search_game_finding_words() {
-        val words = listOf("CLUE", "VAULT", "CASINO")
-        val game = SdaWordSearchGame("test.wsg", words = words)
-        assertFalse(game.isSolved)
-
-        // Simulate clicking to find words
-        assertTrue(game.clickPixel(0, 0))
-        assertTrue(game.foundWords.contains("CLUE"))
-        assertFalse(game.isSolved)
-
-        game.clickPixel(0, 0)
-        game.clickPixel(0, 0)
-        assertTrue(game.isSolved)
+    fun word_search_requires_drag_endpoints_and_resumes_exact_board() {
+        val game = SdaWordSearchGame("test.wsg", words = listOf("Clue", "Vault", "Casino"), seed = 8)
+        assertFalse(game.clickPixel(-1, -1))
+        assertTrue(game.foundWords.isEmpty())
+        val path = game.board.placements.values.first()
+        fun x(cell: Int) = cell % game.cols
+        fun y(cell: Int) = cell / game.cols
+        assertTrue(game.beginPixel(x(path.first()), y(path.first())))
+        assertFalse(game.endPixel(x(path.first()), y(path.first())))
+        assertTrue(game.foundWords.isEmpty())
+        assertTrue(game.beginPixel(x(path.first()), y(path.first())))
+        game.movePixel(x(path.last()), y(path.last()))
+        val saved = game.state()
+        @Suppress("UNCHECKED_CAST")
+        val parsed = MiniJson.parse(MiniJson.canonical(saved)) as Map<String, Any?>
+        val restored = SdaWordSearchGame("test.wsg", words = listOf("Clue", "Vault", "Casino"),
+            seed = 8, checkpoint = parsed)
+        assertEquals(MiniJson.canonical(saved), MiniJson.canonical(restored.state()))
+        assertTrue(restored.endPixel(x(path.last()), y(path.last())))
+        assertEquals(250, restored.placementPoints)
+        assertFalse(restored.endPixel(x(path.last()), y(path.last())))
+        assertEquals(250, restored.placementPoints)
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaWordSearchGame("test.wsg", words = listOf("Clue", "Vault", "Casino"), seed = 8,
+                checkpoint = saved + ("wordBoard" to ((saved["wordBoard"] as Map<*, *>) + ("grid" to listOf("BAD")))))
+        }
     }
 
     @Test

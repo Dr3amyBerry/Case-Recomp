@@ -21,6 +21,23 @@ class SdaWordSearchBoardUnitTest {
         assertEquals(750, game.basePoints)
     }
 
+    @Test fun checkpoint_restores_recorded_board_without_regenerating_from_seed() {
+        val pool = listOf("Clue", "Vault", "Casino")
+        val original = SdaWordSearchBoard(8, 12, pool, 8)
+        val cells = original.placements.values.first()
+        original.begin(cells.first())
+        val restored = SdaWordSearchBoard(8, 12, pool, 999, original.state())
+        assertEquals(original.state(), restored.state())
+        assertTrue(restored.end(cells.last()))
+        assertEquals(250, restored.basePoints)
+        assertTrue(restored.begin(0))
+        restored.cancel()
+        assertFalse(restored.end(cells.last()))
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaWordSearchBoard(8, 12, pool, 8, original.state() + ("selectedStart" to 0xffffffffL))
+        }
+    }
+
     @Test fun generated_board_is_deterministic_and_contains_its_recorded_paths() {
         val pool = listOf("Clue", "Vault", "Casino", "Token", "Hotel", "Money",
             "Lock", "Wheel", "Card", "Slot", "Coin", "Ring")
