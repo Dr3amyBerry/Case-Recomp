@@ -118,10 +118,27 @@ class SdaPrivateVisualInstrumentationTest {
       assertTrue("retired row still visible: $ink",ink.first()<5)
       assertTrue("remaining row disappeared: $ink",ink.drop(1).all { it>20 })
      }
+     if(name=="wordsearch") {
+      val game=campaign.bonusGame as SdaWordSearchGame
+      val ink=(0 until game.cellWidth*game.cellHeight).count { point ->
+       val x=(viewport.first+(game.originX+point%game.cellWidth+.5f)*viewport.third).toInt()
+       val y=(viewport.second+(game.originY+point/game.cellWidth+.5f)*viewport.third).toInt()
+       val argb=screenshot.getPixel(x,y)
+       android.graphics.Color.red(argb)>200 && android.graphics.Color.green(argb)>200 && android.graphics.Color.blue(argb)>200
+      }
+      assertTrue("original white atlas letter missing: $ink",ink>20)
+     }
      assertTrue(screenshot.width>0 && screenshot.height>0)
      File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-$name.png").outputStream().use { stream ->
       assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG,100,stream))
      }
+     screenshot.recycle()
+    }
+    fun captureState(name:String) {
+     scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
+     SystemClock.sleep(500)
+     val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-$name.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG,100,it) }
      screenshot.recycle()
     }
     display("map")
@@ -160,11 +177,22 @@ class SdaPrivateVisualInstrumentationTest {
       is SdaTileRotGame -> for(i in game.tileRotations.indices) repeat(game.tileRotations[i]) {
        touch(MotionEvent.ACTION_DOWN,172+i%game.cols*612/game.cols+1,95+i/game.cols*408/game.rows+1)
       }
-      is SdaWordSearchGame -> for(cells in game.board.placements.values) {
+      is SdaWordSearchGame -> for((wordIndex,cells) in game.board.placements.values.withIndex()) {
        fun x(c:Int)=game.originX+c%game.cols*game.cellWidth+1
        fun y(c:Int)=game.originY+c/game.cols*game.cellHeight+1
        touch(MotionEvent.ACTION_DOWN,x(cells.first()),y(cells.first()))
+       if(wordIndex==0) {
+        assertTrue(game.selectedCells.isNotEmpty())
+        captureState("wordsearch-selected")
+        touch(MotionEvent.ACTION_MOVE,x(cells.last()),y(cells.last()))
+        assertEquals(cells.toSet(),game.selectedCells.toSet())
+        captureState("wordsearch-dragging")
+       }
        touch(MotionEvent.ACTION_UP,x(cells.last()),y(cells.last()))
+       if(wordIndex==0) {
+        assertEquals(1,game.foundWords.size)
+        captureState("wordsearch-locked")
+       }
       }
       is SdaJigsawGame -> for(id in game.interaction.board.trayOrder) {
        val rect=game.trayRectangles().first { it.id==id };val image=game.image(id,true)

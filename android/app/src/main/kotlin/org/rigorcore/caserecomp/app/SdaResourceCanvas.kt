@@ -36,6 +36,15 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val source=Rect(0,0,minOf(w,bitmap.width),minOf(h,bitmap.height))
   canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),if(photographic) photographs else null)
  }
+ /** Draw atlas text at an explicit anchor; clipping and title-specific offsets belong to callers. */
+ fun atlasText(canvas:Canvas,name:String,text:String,x:Int,y:Int,halign:Int=0,valign:Int=0,opacity:Float=1f) {
+  require(opacity.isFinite() && opacity in 0f..1f)
+  if(opacity==0f) return
+  glyphPaint.alpha=(255*opacity).toInt()
+  val (metrics,atlas)=font(name)
+  for(g in metrics.layout(text,x,y,halign,valign)) canvas.drawBitmap(atlas,
+   Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),glyphPaint)
+ }
  fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h"),opacity:Float=1f) {
   require(opacity.isFinite() && opacity in 0f..1f)
   if(width<=0 || height<=0 || opacity==0f) return
@@ -43,15 +52,14 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   canvas.save();canvas.clipRect(x,y,x+width,y+height)
   val name=node.attributes["font"] ?: node.attributes["fontidle"]
   if(name!=null) {
-   val (metrics,atlas)=font(name)
    val ha=when(node.attributes["halign"]) { "center" -> 1;"right" -> 2;else -> 0 }
    val va=when(node.attributes["valign"]) { "top" -> 3;"bottom" -> 0;"baseline" -> 1;else -> 2 }
    val xx=x+when(ha) { 1 -> width/2-1;2 -> width-1;else -> 0 }
    val yy=y+when(va) { 2 -> height/2-1;0 -> height-1;else -> 0 }
-   for(g in metrics.layout(text,xx,yy,ha,va)) canvas.drawBitmap(atlas,
-    Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),glyphPaint)
+   atlasText(canvas,name,text,xx,yy,ha,va,opacity)
   } else {
    // Generic diagnostic labels without a declared atlas only.
+   paint.alpha=(255*opacity).toInt()
    canvas.drawText(text,x.toFloat(),y+height/2f-(paint.ascent()+paint.descent())/2f,paint)
   }
   canvas.restore()
@@ -72,6 +80,7 @@ interface SdaVisualProfile {
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?)
  fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign)
+ fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean = false
  fun drawTileBonus(canvas:Canvas,campaign:SdaCampaign):Boolean
  fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String?
  val returnMapRect:Rect

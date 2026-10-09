@@ -271,7 +271,7 @@ class SdaGameView(
 
         visuals?.let {
             it.drawBonusBase(canvas,camp)
-            if(it.drawTileBonus(canvas,camp)) return
+            if(it.drawTileBonus(canvas,camp) || it.drawWordSearch(canvas,camp)) return
         }
         if(visuals==null) {
         // Banner

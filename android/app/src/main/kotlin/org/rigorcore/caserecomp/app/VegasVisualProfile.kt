@@ -69,6 +69,34 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {
   base(canvas,campaign,campaign.clock);ui.button(canvas,doc.component("solvebutton"))
  }
+ private val wordCanvases=mutableMapOf<String,SdaResourceCanvas>()
+ override fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean {
+  val game=campaign.bonusGame as? SdaWordSearchGame ?: return false
+  val resource=campaign.currentLevel.bonus
+  if(resource !in wordCanvases) wordCanvases.clear() // retain only the current bonus atlas set
+  val letters=wordCanvases.getOrPut(resource) {
+   SdaResourceCanvas(SdaUiDocument(requireNotNull(content.read(resource)),content.loadStrings(resource)),content)
+  }
+  val control=letters.document.component("wordsearchgametiles")
+  val retired=game.foundWords.flatMap { game.board.placements.getValue(it) }.toSet()
+  val selected=game.selectedCells
+  for(cell in 0 until game.rows*game.cols) {
+   val row=cell/game.cols;val col=cell%game.cols
+   val x=game.originX+col*game.cellWidth;val y=game.originY+row*game.cellHeight
+   val state=if(cell in retired) "locked" else if(cell in selected) "selected" else "normal"
+   val bitmap=letters.bitmap(control.attributes.getValue(state))
+   canvas.drawBitmap(bitmap,null,Rect(x,y,x+game.cellWidth,y+game.cellHeight),null)
+   canvas.save();canvas.clipRect(x,y,x+game.cellWidth,y+game.cellHeight)
+   // 0045c0e0 chooses font index 0; 00461d80 uses center -5 and top alignment.
+   letters.atlasText(canvas,control.attributes.getValue("font1"),game.board.displayGrid[row][col].toString(),x+game.cellWidth/2-5,y,1,3)
+   canvas.restore()
+  }
+  game.words.forEachIndexed { index,word ->
+   val label=doc.component("wslabel$index")
+   ui.label(canvas,label,word,y=label.number("y")+index*label.number("h"))
+  }
+  return true
+ }
  override fun drawTileBonus(canvas:Canvas,campaign:SdaCampaign):Boolean {
   val game=campaign.bonusGame
   val rotation=game as? SdaTileRotGame;val swap=game as? SdaTileSwapGame
