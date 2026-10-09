@@ -248,3 +248,57 @@ Continuación exacta:
 - `tools/sda-prototype/bonus.py::JigsawGame`: sigue usando regla aproximada de 20px; no es referencia independiente ni paridad con Kotlin.
 
 Estado vigente: primer nivel y bonus de rotación, WordSearch del segundo y Jigsaw del tercero tienen rutas funcionales probadas; progresión hasta mapa del 4 acreditada. Niveles 4–25, desenlace auténtico, paridad visual/audio/scoring y flujo completo de perfiles/importación siguen incompletos. Task 3 y objetivo global permanecen abiertos. Ningún EXE original ejecutado, control del mouse/teclado del usuario ni cambios en Director/Huntsville/recursos privados publicados.
+
+
+## Progresión privada de 25 niveles y núcleo de la primera adivinanza
+
+`SdaPrivateLevelJourneyUnitTest.private_campaign_inputs_reach_level_twenty_five_finale_entry_without_forced_state` comienza en el nivel 1, encuentra objetivos mediante píxeles alfa expuestos, resuelve las cuatro familias de bonus con entradas válidas y restaura cada resultado/transición. Llegó al resultado del nivel 25 y luego a la entrada **heredada** `FINALE_1`. No modifica índices/fases/contadores ni llama solve; no ejecuta los pasos inventados de MasterRiddle. **Es una ruta JVM del modelo recibido/corregido, no campaña completa Android ni prueba de fidelidad nativa:** siguen abiertos rank/gates, historia/RNG global, clocks/scoring y minijuegos/render/audio originales completos. La entrada al desenlace no certifica sus transiciones originales.
+
+Matriz del recorrido JVM (todas las filas PARCIALES respecto a aceptación final; puntos/segundos son del modelo, no referencia del original). Cada fila tiene resultado y checkpoint restaurados. Evidencia Android previa solo cubre la ruta hasta el mapa del 4, con alcance descrito en la sección anterior.
+
+| Nivel | Objetivos | Bonus | Puntos antes de confirmar | Segundos del modelo |
+|---|---:|---|---:|---:|
+| 1 | 18 | tilerot | 180000 | 69.761 |
+| 2 | 27 | wordsearch | 482500 | 104.482 |
+| 3 | 37 | jigsaw | 885500 | 145.080 |
+| 4 | 45 | tilegame | 1362400 | 175.235 |
+| 5 | 28 | wordsearch | 1788300 | 108.882 |
+| 6 | 46 | tilerot | 2275400 | 180.434 |
+| 7 | 56 | wordsearch | 2845300 | 215.348 |
+| 8 | 38 | jigsaw | 3326200 | 146.919 |
+| 9 | 28 | tilerot | 3687500 | 109.402 |
+| 10 | 66 | wordsearch | 4276000 | 256.661 |
+| 11 | 47 | jigsaw | 4877800 | 180.914 |
+| 12 | 57 | tilegame | 5450700 | 222.267 |
+| 13 | 37 | tilerot | 5905900 | 143.720 |
+| 14 | 47 | wordsearch | 6346500 | 183.873 |
+| 15 | 56 | tilegame | 6904100 | 217.747 |
+| 16 | 38 | jigsaw | 7357300 | 148.879 |
+| 17 | 76 | tilerot | 8016400 | 291.989 |
+| 18 | 46 | wordsearch | 8580700 | 178.954 |
+| 19 | 66 | jigsaw | 9161800 | 257.261 |
+| 20 | 56 | tilegame | 9784000 | 216.748 |
+| 21 | 76 | tilerot | 10460800 | 296.550 |
+| 22 | 47 | wordsearch | 11009100 | 184.393 |
+| 23 | 67 | jigsaw | 11609600 | 261.022 |
+| 24 | 78 | tilegame | 12300400 | 302.711 |
+| 25 | 90 | tilerot | 13141600 | 351.481 |
+
+Hallazgo indispensable del desenlace: `firstriddle` en ENVS contiene **25 riddlepiece**, ocho con destino/caption y 17 sin target. El Python de ocho objetos omite señuelos. El primer probe falló al resolver targets vacíos; se corrigió para conservar los 25, rechazar un señuelo y resolver los ocho destinos. No se filtraron los distractores para hacer pasar el juego.
+
+Referencia estática: factory `00468000` enlaza primera fase y límite default de 1500 s; vtable `0050808c`, slot 8 = evento `0044ddd0`, actualización `0044ce70`. Esas dos funciones no están reconocidas como funciones en el proyecto guardado: se extrajeron solamente 1520/3936 bytes almacenados y se decodificaron privadamente con Capstone. No se crearon funciones, importó ni ejecutó el original. El evento compara puntero relativo al origen del fondo contra hotspot half-open (`00451a40`), rechaza target nulo, exige placeorder igual al contador actual o -1. `0044e760` incrementa contador y comprueba itemstobeplaced; `0044e3c0`/`0044e620` retiran/devuelven al índice conservado. Listados/pseudocódigo permanecen privados en `research/finale-instructions` y `research/finale-exact`.
+
+`SdaRiddleBoard.select/dropScreen/state` implementa ese núcleo después de completar las animaciones, con objetivos definidos por el llamador, señuelos explícitos, orden de bandeja e índice de devolución, historia de colocaciones y restauración validada. No inventa score, RNG, scroll ni recursos. El probe privado comprueba 25 bindings, ocho captions resueltas, ocho hotspots/order, selección pendiente restaurada y posiciones finales del desplazamiento declaradas en XUI (-713 hasta 0), quedando 17 señuelos. Los endpoints de desplazamiento se suministran al núcleo; no hay animación/controlador de scroll implementado. **No se integra aún en `SdaMasterRiddleGame` ni en campaña/Android.** Las tres fases de desenlace siguen incompletas.
+
+Verificación: RED→GREEN del núcleo y rechazo de señuelos; engine **163**, app **23**, cero fallos/errores/omitidas; `:app:assembleDebug` correcto, diff limpio. Nueva ruta JVM privada de 25 niveles y probe de adivinanza pasan. No se repitió la instrumentación Android anterior: no hubo cambios en su vista/ruta en este bloque. CI Android y Python de `90021a0` completadas correctamente.
+
+`ExportNativeSlice.java` añade modo genérico `only:<dirección>` para hasta 12 funciones ya reconocidas, sin expansión a llamadas/callers ni discover. RED por modo inexistente, rechazo comprobado de raíz no reconocida y GREEN final de dos helpers: ambos `decompileCompleted=true`, salida **exactamente dos funciones**. El exit code de Ghidra por sí solo no sirve: las ejecuciones con script error no se contaron como recuperación. Documentación de uso en tools/ghidra/README.md.
+
+Continuación exacta:
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaRiddleBoard.kt`: núcleo listo para bindings, sin scoring/animación. Mantener señuelos, placeorder y coordinates relativas al fondo.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaBonus.kt::SdaMasterRiddleGame` y `SdaCampaign.kt::confirmLevelComplete/finishBonusInput/restore`: sustituir únicamente cuando existan controladores auténticos; hoy conservan desenlace simulado y reward/transiciones no certificadas.
+- `android/app/src/main/kotlin/org/rigorcore/caserecomp/app/SdaGameView.kt::drawFinale/onTouchEvent`: integrar bandeja de 25 objetos, geometría/captions/scroll/fades/eventos reales; no portar los clics arbitrarios del Python.
+- Referencia privada `finale-instructions/0044ddd0.capstone.txt`, `0044ce70.capstone.txt`: estados/timers de primera fase y devolución/scroll. `full-decompile/0044c3a0.c`: inicialización/mezcla/bandeja. Estos mecanismos faltan antes de una primera fase Android auténtica.
+- `private_first_riddle_hotspots_order_and_recorded_scroll_endpoints` y `private_campaign_inputs_reach_level_twenty_five_finale_entry_without_forced_state` en `SdaPrivateLevelJourneyUnitTest.kt`: extender hacia desenlace real sin escribir estados ni certificarlos mediante la clase heredada.
+
+Estado: progresión JVM hasta resultado 25 y entrada heredada del desenlace verificada; campañas posteriores al 3 no acreditadas por pantalla Android, desenlace completo no jugable auténticamente. Objetivo global abierto. Huntsville, Director, APK aprobada, partidas y cambios ajenos conservados.

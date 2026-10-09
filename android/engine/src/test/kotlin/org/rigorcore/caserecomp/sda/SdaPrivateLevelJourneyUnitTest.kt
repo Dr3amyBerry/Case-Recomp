@@ -40,6 +40,117 @@ class SdaPrivateLevelJourneyUnitTest {
     }
 
 
+    @Test fun private_campaign_inputs_reach_level_twenty_five_finale_entry_without_forced_state() {
+        val packageFile = listOf(File("../../local-output/vegas_full.zip"), File("../local-output/vegas_full.zip"),
+            File("local-output/vegas_full.zip")).firstOrNull { it.isFile }
+        assumeTrue("local private Vegas package is required",packageFile != null)
+        SdaContent.open(packageFile!!, SdaImageDecoder { bytes ->
+            ImageIO.read(ByteArrayInputStream(bytes))?.let { image -> object : SdaPixelSource {
+                override val width=image.width; override val height=image.height
+                override fun getArgb(px:Int,py:Int)=image.getRGB(px,py)
+                override fun getAlpha(px:Int,py:Int)=getArgb(px,py) ushr 24
+            } }
+        }).use { content ->
+            val levels=SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
+            val camp=SdaCampaign(levels,seed=8)
+            for(level in levels) {
+                assertEquals(level.clue,camp.currentLevel.clue)
+                finishObjectives(camp,content)
+                assertEquals("objectives at level ${level.clue}",SdaCampaignPhase.OBJECTS_COMPLETE,camp.phase)
+                camp.startBonus(content)
+                when(val game=camp.bonusGame) {
+                    is SdaTileRotGame -> for(i in game.tileRotations.indices) {
+                        repeat(game.tileRotations[i]) { assertTrue(camp.clickBonus(172+i%game.cols*612/game.cols+1,
+                            95+i/game.cols*408/game.rows+1)) }
+                    }
+                    is SdaTileSwapGame -> for(i in game.tilePositions.indices) {
+                        if(game.lockedTiles[i]) continue
+                        val other=game.tilePositions.indexOf(i)
+                        fun x(cell:Int)=172+cell%game.cols*612/game.cols+1
+                        fun y(cell:Int)=96+cell/game.cols*408/game.rows+1
+                        assertTrue(camp.clickBonus(x(i),y(i)))
+                        assertTrue(camp.clickBonus(x(other),y(other)))
+                    }
+                    is SdaWordSearchGame -> for(path in game.board.placements.values) {
+                        fun x(cell:Int)=game.originX+cell%game.cols*game.cellWidth+1
+                        fun y(cell:Int)=game.originY+cell/game.cols*game.cellHeight+1
+                        assertTrue(camp.beginBonusSelection(x(path.first()),y(path.first())))
+                        assertTrue(camp.endBonusSelection(x(path.last()),y(path.last())))
+                    }
+                    is SdaJigsawGame -> for(id in game.interaction.board.trayOrder) {
+                        val rect=game.trayRectangles().first { it.id==id }
+                        val pixels=game.image(id,true)
+                        val pixel=(0 until pixels.width*pixels.height).first { pixels.getAlpha(it%pixels.width,it/pixels.width)>0 }
+                        assertTrue(camp.clickBonus(rect.x+pixel%pixels.width,rect.y+pixel/pixels.width))
+                        while(game.interaction.board.quarterTurns.getValue(id)!=0) assertTrue(camp.clickBonus(0,0,true))
+                        val piece=game.interaction.board.pieces.getValue(id)
+                        assertTrue(camp.clickBonus(piece.x+piece.width/2,piece.y+piece.height/2))
+                    }
+                    null -> assertEquals(SdaCampaignPhase.LEVEL_COMPLETE,camp.phase)
+                    else -> fail("unsupported campaign bonus ${game.kind}")
+                }
+                assertEquals("result at level ${level.clue}",SdaCampaignPhase.LEVEL_COMPLETE,camp.phase)
+                val result=camp.snapshot().toJson()
+                camp.restore(SdaCampaignState.fromJson(result),content)
+                assertEquals(result,camp.snapshot().toJson())
+                println("PRIVATE LEVEL ${level.clue}: objectives=${camp.completedObjects}, bonus=${camp.bonusGame?.kind}, points=${camp.points}, elapsed=${camp.clock.elapsed}")
+                camp.confirmLevelComplete()
+                val next=camp.snapshot().toJson()
+                camp.restore(SdaCampaignState.fromJson(next),content)
+                assertEquals(next,camp.snapshot().toJson())
+            }
+            assertEquals(SdaCampaignPhase.FINALE_1,camp.phase)
+            assertEquals(25,camp.currentLevel.clue)
+            // Entry only. Do not exercise the simulated MasterRiddle steps or claim campaign completion.
+        }
+    }
+
+    @Test fun private_first_riddle_hotspots_order_and_recorded_scroll_endpoints() {
+        val file=listOf(File("../../local-output/vegas_full.zip"),File("../local-output/vegas_full.zip"),
+            File("local-output/vegas_full.zip")).firstOrNull { it.isFile }
+        assumeTrue("local private Vegas package is required",file!=null)
+        SdaContent.open(file!!,SdaImageDecoder { null }).use { content ->
+            val nodes=SdaXml.parse(content.read("ENVS.MSE")!!).getElementsByTagName("*")
+            val elements=(0 until nodes.length).map { nodes.item(it) as org.w3c.dom.Element }
+            val control=elements.single { it.getAttribute("id")=="firstriddle" }
+            val childNodes=control.getElementsByTagName("*")
+            val children=(0 until childNodes.length).map { childNodes.item(it) as org.w3c.dom.Element }
+            val bindings=children.filter { (it.localName?:it.tagName.substringAfter(':'))=="riddlepiece" }
+            val targets=bindings.filter { it.getAttribute("target").isNotEmpty() }.associate { piece -> piece.getAttribute("image") to
+                children.single { it.getAttribute("id")==piece.getAttribute("target") } }
+            val definitions=bindings.map { piece ->
+                val target=targets[piece.getAttribute("image")]
+                if(target==null) SdaRiddlePiece(piece.getAttribute("image"),-1,0,0,0,0,false) else SdaRiddlePiece(piece.getAttribute("image"),target.getAttribute("placeorder").toInt(),
+                    target.getAttribute("hotspotx").toInt(),target.getAttribute("hotspoty").toInt(),
+                    target.getAttribute("hotspotwidth").toInt(),target.getAttribute("hotspotheight").toInt())
+            }
+            val strings=SdaStrings.parse(content.read("STRINGS.TXT")!!)
+            for(piece in bindings.filter { it.getAttribute("caption").isNotEmpty() }) assertFalse(SdaStrings.resolve(piece.getAttribute("caption"),strings).startsWith("@"))
+            assertEquals(25,definitions.size)
+            assertEquals(8,definitions.count { it.hasTarget })
+            val background=children.single { it.getAttribute("id")==control.getAttribute("backgroundimage") }
+            val x=background.getAttribute("x").toInt()
+            var y=background.getAttribute("y").toInt()
+            var board=SdaRiddleBoard(definitions,control.getAttribute("itemstobeplaced").toInt())
+            val decoy=definitions.first { !it.hasTarget }
+            assertTrue(board.select(decoy.id));assertFalse(board.dropScreen(144,0,x,y))
+            assertEquals(0,board.currentOrder)
+            for(piece in definitions.filter { it.hasTarget }.sortedBy { it.placeOrder }) {
+                assertTrue(board.select(piece.id))
+                val saved=MiniJson.canonical(board.state())
+                @Suppress("UNCHECKED_CAST") val state=MiniJson.parse(saved) as Map<String,Any?>
+                board=SdaRiddleBoard(definitions,8,checkpoint=state)
+                assertEquals(saved,MiniJson.canonical(board.state()))
+                val px=x+piece.hotspotX;val py=y+piece.hotspotY
+                assertTrue(px in 144 until 800 && py in 0 until 600)
+                assertTrue(board.dropScreen(px,py,x,y))
+                y+=targets.getValue(piece.id).getAttribute("screenscrollup").toInt()
+            }
+            assertTrue(board.isSolved);assertEquals(0,y);assertEquals(17,board.available.size)
+            println("PRIVATE FIRST RIDDLE KERNEL: 25 original bindings, 8 targets and 17 decoys; captions/hotspots/placeorders; background scroll endpoints -713 to 0; held resume. No animation, tray, Android or campaign-finale claim")
+        }
+    }
+
     @Test fun private_jigsaw_piece_kernel_rotates_places_and_resumes_all_masks() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))

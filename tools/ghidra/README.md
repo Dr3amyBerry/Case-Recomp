@@ -52,3 +52,13 @@ return zero after a failed script, so exit status alone is insufficient.
 Verified locally against the stored Vegas project: instruction counts 919
 (`0045c0e0`), 7 (`0046e990`) and 582 (`00459400`). These listings are private and
 are not included in Git. This is static evidence, not execution of the original.
+
+
+`ExportNativeSlice.java` also accepts exclusively `only:<hex-address>` roots
+(up to 12) for recognized stored functions. It decompiles just those roots,
+without expanding callees/callers, defining functions or running analysis.
+Do not mix this mode with dependency/discovery roots. Keep its output private.
+Verify `decompile-status.tsv` and the reported selected count; script errors
+may still leave a zero headless process exit code. Undefined code can be read
+with the bounded `bytes:<hex-address>:<length>` mode of
+`ExportStoredInstructions.java`, without creating functions in the project.

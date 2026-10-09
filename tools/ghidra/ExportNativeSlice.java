@@ -14,6 +14,10 @@ public class ExportNativeSlice extends GhidraScript {
         String[] args = getScriptArgs();
         if (args.length < 1) throw new IllegalArgumentException("output directory and optional comma-separated roots required");
         boolean focused = args.length > 1;
+        boolean exactOnly = focused && Arrays.stream(Arrays.copyOfRange(args,1,args.length))
+            .flatMap(a -> Arrays.stream(a.split(","))).allMatch(a -> a.startsWith("only:"));
+        if (exactOnly && String.join(",",Arrays.copyOfRange(args,1,args.length)).split(",").length > 12)
+            throw new IllegalArgumentException("exact function budget exceeded");
         File out = new File(args[0]); out.mkdirs();
         LinkedHashSet<Function> selected = new LinkedHashSet<>();
         try (PrintWriter w = writer(new File(out, "references.tsv"))) {
@@ -47,7 +51,14 @@ public class ExportNativeSlice extends GhidraScript {
         // Vtable roots expose candidate pointer runs; adjacent tables require manual boundary checks.
         if (focused) {
             for (String root : Arrays.copyOfRange(args, 1, args.length)) for (String entry : root.split(",")) {
-                if (entry.equals("all")) {
+                if (entry.startsWith("only:")) {
+                    if (!exactOnly) throw new IllegalArgumentException("only roots cannot mix with dependency modes");
+                    String address=entry.substring(5);
+                    if(!address.matches("[0-9a-fA-F]{8,16}")) throw new IllegalArgumentException("hex address required");
+                    Function f=currentProgram.getFunctionManager().getFunctionAt(toAddr(address));
+                    if(f==null || f.isExternal()) throw new IllegalArgumentException("no stored function at "+address);
+                    selected.add(f);
+                } else if (entry.equals("all")) {
                     FunctionIterator all=currentProgram.getFunctionManager().getFunctions(true);
                     while(all.hasNext()) {
                         Function f=all.next();
@@ -88,7 +99,7 @@ public class ExportNativeSlice extends GhidraScript {
                     selected.add(f);
                 }
             }
-            for (int depth=0; depth<3; depth++) {
+            for (int depth=0; !exactOnly && depth<3; depth++) {
                 for (Function f:new ArrayList<>(selected)) {
                     for (Function other:f.getCalledFunctions(monitor))
                         if (!other.isExternal() && selected.size()<600) selected.add(other);
@@ -103,7 +114,7 @@ public class ExportNativeSlice extends GhidraScript {
             }
         }
         List<Function> seeds = new ArrayList<>(selected);
-        for (Function f : seeds) {
+        if (!exactOnly) for (Function f : seeds) {
             if (selected.size() >= 600) break;
             for (Function other : f.getCalledFunctions(monitor)) if (!other.isExternal() && selected.size()<600) selected.add(other);
             for (Function other : f.getCallingFunctions(monitor)) if (!other.isExternal() && selected.size()<600) selected.add(other);
