@@ -73,19 +73,26 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val x=node.number("x");val y=node.number("y")
   canvas.drawRect(x.toFloat(),y.toFloat(),(x+node.number("w")).toFloat(),(y+node.number("h")).toFloat(),paint)
  }
- fun button(canvas:Canvas,node:SdaUiNode,enabled:Boolean=true) {
-  val texture=node.attributes[if(enabled) "texnormal" else "texdisabled"] ?: node.attributes.getValue("texnormal")
-  val bitmap=bitmap(texture);val x=node.number("x");val y=node.number("y")
-  canvas.drawBitmap(bitmap,x.toFloat(),y.toFloat(),null)
-  label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "center","valign" to "middle")),x=x+node.number("globalcaptionoffsetx"),y=y+node.number("globalcaptionoffsety"),width=bitmap.width,height=bitmap.height)
+ fun button(canvas:Canvas,node:SdaUiNode,enabled:Boolean=true,state:SdaButtonState=SdaButtonState.NORMAL) {
+  val binding=node.buttonPresentation(if(enabled) state else SdaButtonState.DISABLED)
+  val bounds=rect(node)
+  binding.texture?.let { canvas.drawBitmap(bitmap(it),bounds.left.toFloat(),bounds.top.toFloat(),null) }
+  val attributes=node.attributes+mapOf("halign" to "center","valign" to "middle")
+  val font=binding.font
+  val labelNode=node.copy(attributes=if(font==null) attributes-"font" else attributes+("font" to font))
+  label(canvas,labelNode,x=bounds.left+binding.captionX,y=bounds.top+binding.captionY,width=bounds.width(),height=bounds.height())
  }
  fun rect(node:SdaUiNode):Rect {
-  val image=bitmap(node.attributes.getValue("texnormal"));val x=node.number("x");val y=node.number("y")
-  return Rect(x,y,x+image.width,y+image.height)
+  val images=SdaButtonState.entries.mapNotNull { node.attributes[it.textureKey] }.distinct().map(::bitmap)
+  val x=node.number("x");val y=node.number("y")
+  val w=node.number("w",images.maxOfOrNull { it.width } ?: 0);val h=node.number("h",images.maxOfOrNull { it.height } ?: 0)
+  return Rect(x,y,x+w,y+h)
  }
+
 }
 
 interface SdaVisualProfile {
+ fun pointer(x:Int?,y:Int?,pressed:Boolean) {}
  fun pauseRect(campaign:SdaCampaign):Rect? = null
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)

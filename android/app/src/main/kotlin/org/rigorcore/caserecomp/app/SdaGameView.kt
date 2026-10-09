@@ -86,6 +86,7 @@ class SdaGameView(
         private set
     var onPauseChangedListener: (() -> Unit)? = null
     private var resumePointerId: Int? = null
+    private var pausePointerId: Int? = null
 
     var onBonusInputListener: (() -> Unit)? = null
     private var wordPointerId: Int? = null
@@ -486,6 +487,13 @@ class SdaGameView(
         canvas.drawText("REINTENTAR", 350f, 410f, buttonTextPaint)
     }
 
+    override fun onHoverEvent(event: MotionEvent): Boolean {
+        val profile=visuals ?: return super.onHoverEvent(event)
+        if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) profile.pointer(null,null,false)
+        else profile.pointer(((event.x-offsetX)/scale).toInt(),((event.y-offsetY)/scale).toInt(),false)
+        invalidate();return true
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // A resume click belongs to the overlay, including its release; never click through.
         if(resumePointerId!=null) {
@@ -499,13 +507,28 @@ class SdaGameView(
             }
             return true
         }
-        if(event.actionMasked==MotionEvent.ACTION_DOWN) {
-            val camp=campaign
-            val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
-            if(camp!=null && visuals?.pauseRect(camp)?.contains(x,y)==true) {
-                isPaused=true;onPauseChangedListener?.invoke();invalidate();return true
+        val camp=campaign
+        val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
+        if(pausePointerId!=null) {
+            val index=event.findPointerIndex(pausePointerId!!)
+            val px=if(index<0) x else ((event.getX(index)-offsetX)/scale).toInt()
+            val py=if(index<0) y else ((event.getY(index)-offsetY)/scale).toInt()
+            val released=event.actionMasked in listOf(MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP) && event.getPointerId(event.actionIndex)==pausePointerId
+            visuals?.pointer(px,py,!released && event.actionMasked!=MotionEvent.ACTION_CANCEL)
+            if(released || event.actionMasked==MotionEvent.ACTION_CANCEL || index<0) {
+                pausePointerId=null
+                if(released && camp!=null && visuals?.pauseRect(camp)?.contains(px,py)==true) {
+                    isPaused=true;onPauseChangedListener?.invoke()
+                }
             }
+            invalidate();return true
         }
+        if(event.actionMasked==MotionEvent.ACTION_CANCEL) visuals?.pointer(null,null,false)
+        else visuals?.pointer(x,y,event.actionMasked in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE))
+        if(event.actionMasked==MotionEvent.ACTION_DOWN && camp!=null && visuals?.pauseRect(camp)?.contains(x,y)==true) {
+            pausePointerId=event.getPointerId(event.actionIndex);invalidate();return true
+        }
+
 
         val wordCamp = campaign
         if (wordPointerId != null && wordCamp?.phase != SdaCampaignPhase.BONUS) {

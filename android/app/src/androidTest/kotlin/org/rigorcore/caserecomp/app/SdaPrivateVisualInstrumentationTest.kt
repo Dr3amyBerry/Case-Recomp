@@ -74,7 +74,7 @@ class SdaPrivateVisualInstrumentationTest {
       val properties=arrayOf(MotionEvent.PointerProperties().apply { id=0;toolType=MotionEvent.TOOL_TYPE_MOUSE })
       val coords=arrayOf(MotionEvent.PointerCoords().apply { this.x=(shown.width-800f*scale)/2+(x+.5f)*scale;this.y=(shown.height-600f*scale)/2+(y+.5f)*scale;pressure=1f;size=1f })
       val event=MotionEvent.obtain(0,SystemClock.uptimeMillis(),action,1,properties,coords,0,buttons,1f,1f,0,0,android.view.InputDevice.SOURCE_MOUSE,0)
-      try { assertTrue(shown.onTouchEvent(event)) } finally { event.recycle() }
+      try { assertTrue(if(action==MotionEvent.ACTION_HOVER_MOVE || action==MotionEvent.ACTION_HOVER_EXIT) shown.onHoverEvent(event) else shown.onTouchEvent(event)) } finally { event.recycle() }
      }
     }
     fun display(name:String) {
@@ -180,12 +180,21 @@ class SdaPrivateVisualInstrumentationTest {
     val pauseElapsed=campaign.clock.elapsed
     val pausePoints=campaign.points
     val pauseSceneAge=campaign.currentScene!!.sinceFound
+    touch(MotionEvent.ACTION_HOVER_MOVE,110,574)
+    captureState("pause-hover")
     touch(MotionEvent.ACTION_DOWN,110,574)
+    assertFalse("original pause activates on release",shown.isPaused)
+    captureState("pause-pressed")
+    touch(MotionEvent.ACTION_MOVE,-10,574)
+    touch(MotionEvent.ACTION_UP,-10,574)
+    assertFalse("release outside must cancel pause",shown.isPaused)
+    captureState("pause-cancelled")
+    touch(MotionEvent.ACTION_DOWN,110,574)
+    touch(MotionEvent.ACTION_UP,110,574)
     scenario.onActivity { shown.step(5f) }
     assertEquals("pause must freeze clock",pauseElapsed,campaign.clock.elapsed,0f)
     assertEquals("pause must freeze scene",pauseSceneAge,campaign.currentScene!!.sinceFound,0f)
     assertEquals(pausePoints,campaign.points)
-    touch(MotionEvent.ACTION_UP,110,574)
     captureState("scene-paused")
     touch(MotionEvent.ACTION_DOWN,475,326)
     touch(MotionEvent.ACTION_UP,475,326)

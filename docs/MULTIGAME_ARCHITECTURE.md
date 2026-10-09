@@ -291,3 +291,8 @@ XUI se lee con `SdaUiDocument`; los servicios Android de dibujo están en `SdaRe
 ### Atlas SDA y escalado (2026-10-09, bloque parcial)
 
 SdaAtlasFont/SdaImageBudget son capacidades genéricas: charset UTF-16, métricas y kerning originales, alfa y presupuesto de píxeles sin IDs de Vegas. SdaResourceCanvas enlaza fonts/textures de XUI y mantiene una única caché de bitmaps. VegasVisualProfile selecciona atlas/bindings y filtros de fotos frente a UI; SdaGameView filtra fotografías/piezas sin cambiar hit-testing ni modificar los originales. No hay upscaling de texturas. Director/Huntsville permanecen intactos. Validación de fidelidad completa y controles/animaciones pendientes: docs/MYSTERY_PI_ANDROID_VISUAL_COMPARISON.md.
+
+
+### Estados de controles SDA (2026-10-09)
+
+SdaButtonPresentation resuelve variantes y offsets de botones usando exclusivamente atributos XUI. SdaResourceCanvas ofrece dibujo de esas variantes y geometría del control; SdaVisualProfile.pointer comunica el estado del puntero. VegasVisualProfile decide qué controles dibujar y sus bindings. La captura del gesto de pausa y la pausa transitoria de presentación pertenecen a SdaGameView; el launcher reutiliza el guardado existente. Ningún ID, textura o offset de Vegas entra en el núcleo SDA. Director/Huntsville permanecen independientes. La integración visual y la auditoría global aún son parciales.

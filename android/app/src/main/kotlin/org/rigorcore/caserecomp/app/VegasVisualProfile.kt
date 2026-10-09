@@ -26,6 +26,18 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   require(nodes.size in 1..9)
   return nodes.zip(layouts[nodes.size-1])
  }
+ private var pointerPosition:Pair<Int,Int>?=null
+ private var pointerPressed=false
+ override fun pointer(x:Int?,y:Int?,pressed:Boolean) {
+  pointerPosition=if(x!=null && y!=null) x to y else null;pointerPressed=pressed
+ }
+ private fun buttonState(node:SdaUiNode):SdaButtonState {
+  val p=pointerPosition ?: return SdaButtonState.NORMAL
+  return if(ui.rect(node).contains(p.first,p.second)) {
+   if(pointerPressed) SdaButtonState.PRESSED else SdaButtonState.HOVER
+  } else SdaButtonState.NORMAL
+ }
+ private fun button(canvas:Canvas,node:SdaUiNode)=ui.button(canvas,node,state=buttonState(node))
  override fun pauseRect(campaign:SdaCampaign):Rect? =
   if(campaign.phase in setOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE)) ui.rect(doc.component("pdadownpausebutton")) else null
  override fun drawPause(canvas:Canvas) {
@@ -40,7 +52,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val timer=doc.component("clock")
   ui.label(canvas,timer,doc.caption(timer),width=35)
   ui.label(canvas,timer.copy(attributes=timer.attributes+mapOf("halign" to "left")),clock?.text().orEmpty(),x=timer.number("x")+35)
-  ui.button(canvas,doc.component("pdadownpausebutton"))
+  button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")
   ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
  }
@@ -76,10 +88,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   val total=doc.component("totalitems")
   ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
-  ui.button(canvas,doc.component("mapbutton"))
+  button(canvas,doc.component("mapbutton"))
  }
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {
-  base(canvas,campaign,campaign.clock);ui.button(canvas,doc.component("solvebutton"))
+  base(canvas,campaign,campaign.clock);button(canvas,doc.component("solvebutton"))
  }
  private val wordCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean {
