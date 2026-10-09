@@ -156,44 +156,82 @@ class HomeActivity : Activity() {
     /** Rebuild the cards from the repository's state (imported or not, its cover). */
     private fun refresh() {
         games.removeAllViews()
-        for (game in GAMES) {
-            games.addView(if (game.ready) card(game.title) else lockedCard(game.title),
-                LinearLayout.LayoutParams(dp(coverHeight() * 3 / 2 + 24), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    marginStart = dp(CARD_GAP / 2); marginEnd = dp(CARD_GAP / 2)
-                })
+        val width = dp(cardWidth())
+        for (game in HomeCatalog.GAMES) {
+            val view = when {
+                game.engine == EngineFamily.DIRECTOR && game.status == CompatibilityStatus.VERIFIED ->
+                    directorCard(game)
+                else ->
+                    statusCard(game)
+            }
+            games.addView(view, LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(CARD_GAP / 2)
+                marginEnd = dp(CARD_GAP / 2)
+            })
         }
     }
 
-    /** A title the engine is not verified against yet: shown, but not importable. */
-    private fun lockedCard(title: String): View = LinearLayout(this).apply {
+    /** A title whose engine or runtime is in development: shown clearly, but not importable via Director. */
+    private fun statusCard(game: GameEntry): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         setPadding(dp(12), dp(12), dp(12), dp(12))
         background = rounded(CARD, dp(14).toFloat(), CARD_EDGE)
-        alpha = 0.6f
+        alpha = 0.85f
         addView(FrameLayout(this@HomeActivity).apply {
             background = rounded(COVER_BACK, dp(10).toFloat(), 0)
             addView(TextView(this@HomeActivity).apply {
-                text = "🔒\n" + title
+                val icon = if (game.engine == EngineFamily.SDA) "🎰" else "🔒"
+                text = "$icon\n${game.title}"
                 setTextColor(MUTED)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
                 typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
                 gravity = Gravity.CENTER
             })
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(coverHeight())))
         addView(TextView(this@HomeActivity).apply {
-            text = title
+            text = game.title
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, dp(8))
+            setPadding(0, dp(10), 0, dp(2))
         })
-        addView(actionButton("En desarrollo", primary = false) {}.apply { isEnabled = false },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
+        addView(TextView(this@HomeActivity).apply {
+            text = "${game.subtitle} · ${game.engine.displayName}"
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        })
+        val btnLabel = when (game.status) {
+            CompatibilityStatus.IN_DEVELOPMENT -> "En desarrollo"
+            CompatibilityStatus.PLANNED -> "Planificado"
+            CompatibilityStatus.VERIFIED -> "Disponible"
+        }
+        addView(actionButton(btnLabel, primary = false) {
+            showDevelopmentNotice(game)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
     }
 
-    private fun card(title: String): View {
+    private fun showDevelopmentNotice(game: GameEntry) {
+        val message = when (game.engine) {
+            EngineFamily.SDA ->
+                "${game.subtitle}: ${game.title} utiliza el motor SDA.\n\n" +
+                "El soporte para este motor se está integrando actualmente en Case-Recomp como parte de la arquitectura multijuego unificada.\n\n" +
+                "Los componentes del runtime Kotlin en :engine están en desarrollo activo. Las opciones de importación y juego se habilitarán una vez completada la integración."
+            EngineFamily.DIRECTOR ->
+                "${game.subtitle}: ${game.title} utiliza el motor Director / Lingo.\n\n" +
+                "La compatibilidad con este título está pendiente de verificación para garantizar la fidelidad con los recursos originales."
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle(game.title)
+            .setMessage(message)
+            .setPositiveButton("Cerrar", null)
+            .show()
+    }
+
+    private fun directorCard(game: GameEntry): View {
         val imported = repository.hasActive()
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -209,27 +247,34 @@ class HomeActivity : Activity() {
                 addView(ImageView(this@HomeActivity).apply {
                     setImageBitmap(cover)
                     scaleType = ImageView.ScaleType.FIT_CENTER
-                    contentDescription = title
+                    contentDescription = game.title
                     setPadding(dp(8), dp(8), dp(8), dp(8))
                 })
             } else {
                 // Before an import there is no cover to show: the title's name stands in.
                 addView(TextView(this@HomeActivity).apply {
-                    text = title
+                    text = "${game.subtitle}\n${game.title}"
                     setTextColor(GOLD)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
                     typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
                     gravity = Gravity.CENTER
                 })
             }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(coverHeight())))
         card.addView(TextView(this).apply {
-            text = title
+            text = game.title
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, dp(8))
+            setPadding(0, dp(10), 0, dp(2))
+        })
+        card.addView(TextView(this).apply {
+            text = "${game.subtitle} · ${game.engine.displayName}"
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
         })
         if (importing) {
             card.addView(ProgressBar(this), LinearLayout.LayoutParams(dp(36), dp(36)))
@@ -314,21 +359,23 @@ class HomeActivity : Activity() {
         super.onDestroy()
     }
 
+    /** Card width (dp): decoupled from catalog size to support a smooth horizontal carousel. */
+    private fun cardWidth(): Int {
+        val screenWidth = resources.configuration.screenWidthDp
+        return minOf(260, (screenWidth * 0.78f).toInt()).coerceAtLeast(200)
+    }
+
     /** Cover height (dp): what the screen leaves under the title, name and buttons. */
     private fun coverHeight(): Int {
         val config = resources.configuration
-        val byHeight = config.screenHeightDp - 250
-        // Every title's card fits across the screen.
-        val byWidth = ((config.screenWidthDp - 48) / GAMES.size - CARD_GAP - 24) * 2 / 3
-        return minOf(byHeight, byWidth).coerceIn(100, 300)
+        val byHeight = config.screenHeightDp - 220
+        return byHeight.coerceIn(120, 240)
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density + 0.5f).toInt()
 
     private companion object {
         const val APP_TITLE = "Case Recomp"
-        /** Titles shown; only [Game.ready] ones import a private package and play. */
-        val GAMES = listOf(Game("Huntsville", ready = true), Game("Prime Suspects", ready = false), Game("Ravenhearst", ready = false))
         const val CARD_GAP = 16
         const val BETA_SEEN = "beta-notice-seen"
         const val ISSUES_URL = "https://github.com/Dr3amyBerry/Case-Recomp/issues"
@@ -344,4 +391,56 @@ class HomeActivity : Activity() {
         const val GOLD = 0xFFE8B84A.toInt()
         const val MUTED = 0xFFAAB4C4.toInt()
     }
+}
+
+enum class EngineFamily(val displayName: String) {
+    DIRECTOR("Director / Lingo"),
+    SDA("SDA Engine"),
+}
+
+enum class CompatibilityStatus(val label: String) {
+    VERIFIED("Verificado"),
+    IN_DEVELOPMENT("En desarrollo"),
+    PLANNED("Planificado"),
+}
+
+data class GameEntry(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val engine: EngineFamily,
+    val status: CompatibilityStatus,
+)
+
+object HomeCatalog {
+    val GAMES: List<GameEntry> = listOf(
+        GameEntry(
+            id = "huntsville",
+            title = "Huntsville",
+            subtitle = "Mystery Case Files",
+            engine = EngineFamily.DIRECTOR,
+            status = CompatibilityStatus.VERIFIED,
+        ),
+        GameEntry(
+            id = "prime_suspects",
+            title = "Prime Suspects",
+            subtitle = "Mystery Case Files",
+            engine = EngineFamily.DIRECTOR,
+            status = CompatibilityStatus.IN_DEVELOPMENT,
+        ),
+        GameEntry(
+            id = "ravenhearst",
+            title = "Ravenhearst",
+            subtitle = "Mystery Case Files",
+            engine = EngineFamily.DIRECTOR,
+            status = CompatibilityStatus.IN_DEVELOPMENT,
+        ),
+        GameEntry(
+            id = "vegas_heist",
+            title = "The Vegas Heist",
+            subtitle = "Mystery P.I.",
+            engine = EngineFamily.SDA,
+            status = CompatibilityStatus.IN_DEVELOPMENT,
+        ),
+    )
 }

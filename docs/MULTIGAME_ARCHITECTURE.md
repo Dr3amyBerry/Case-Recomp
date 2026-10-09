@@ -2,13 +2,83 @@
 
 Fecha: 2026-10-08. Propuesta de evoluci?n fundada en [auditor?a Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditor?a Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **Especificaci?n, todav?a no implementaci?n.** La investigaci?n previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar m?dulos.
 
-## Decisi?n y estado actual
+## 1. Decisiones arquitectónicas obligatorias y aprobadas (Requisitos permanentes)
 
-Case-Recomp ser? una plataforma de compatibilidad con servicios Android compartidos y m?dulos por tecnolog?a. Los t?tulos aportan identidad, recursos y perfiles declarativos. Las correcciones generales pertenecen al motor o al servicio correspondiente.
+Estas decisiones arquitectónicas son **vinculantes, definitivas e innegociables** para el presente y futuro de Case-Recomp:
 
-Hoy existen dos m?dulos Gradle (`:engine`, `:app`). El primero contiene shell Scenario, evidencias, Director/Lingo y Flash; el segundo contiene servicios Android mezclados con Director. `HomeActivity` tiene cat?logo fijo y `PrivateDirectorRepository` mantiene un ?nico paquete activo. El convertidor web busca una pel?cula Director y reconoce Huntsville por cuatro nombres de casts; no verifica edici?n. Los ZIPs tienen integridad/source binding, pero no una identidad de juego acreditada. La persistencia Director usa el SHA del ZIP, por lo que otra conversi?n del mismo original separa los saves.
+### 1.1. Una sola APK multijuego
+Case-Recomp se distribuye **exclusivamente como una única aplicación Android (APK)** que reúne todos los motores compatibles que soporte la versión.
+- **Prohibición estricta:** No crear una APK para Director, una APK separada para SDA, una APK independiente para Vegas ni empaquetados individuales por juego.
+- Los módulos Gradle internos (`:engine`, `:app`) separan capas de compilación, pero se integran siempre en el mismo ejecutable de aplicación final.
 
-La copia local de Huntsville sirve de primera referencia real; la ejecuci?n JVM se ha vuelto a comprobar, pero sus resultados WSA completos son hist?ricos. Mystery P.I. tiene evidencia de SDA/SDL/BASS nativo x86, no un m?dulo disponible. Prime Suspects y Ravenhearst son entradas visuales en desarrollo, no compatibilidad demostrada.
+### 1.2. Detección automática de juegos y motores
+El usuario nunca debe tener que elegir manualmente el motor ni configurar parámetros técnicos.
+- El sistema analiza automáticamente los archivos legítimos aportados y reconoce:
+  1. La identidad del juego y su edición mediante evidencias verificables (fingerprints, checksums de assets, estructura de ficheros).
+  2. El runtime correspondiente (`EngineFamily.DIRECTOR`, `EngineFamily.SDA`).
+- Catálogo previsto y mapeo de motores:
+  - *Mystery Case Files: Huntsville* -> Director / Lingo (validado).
+  - *Mystery Case Files: Prime Suspects* -> Director (sujeto a validación por edición).
+  - *Mystery Case Files: Ravenhearst* -> Director / Flash (sujeto a validación).
+  - *Mystery P.I.: The Vegas Heist* -> SDA (en desarrollo e integración).
+  - *Mystery P.I.: The Lottery Ticket* -> SDA (candidato sujeto a verificación).
+- **Regla estricta:** Dos juegos de la misma saga no se presumen compatibles sin verificación individual.
+
+### 1.3. Experiencia de usuario unificada
+El flujo de usuario es idéntico e intuitivo para cualquier juego:
+1. Obtener legítimamente los archivos originales del juego.
+2. Prepararlos con la herramienta de conversión offline cuando sea necesario.
+3. Importarlos en Case-Recomp desde la aplicación.
+4. Seleccionar el título en el carrusel y pulsar «Jugar».
+El usuario no necesita conocer si el juego corre bajo Director, Lingo, SDA, Python o Kotlin.
+
+### 1.4. Motores independientes con servicios compartidos
+Director y SDA conservan sus propios intérpretes, parsers, jerarquías de componentes y sistemas de ejecución en paquetes completamente aislados.
+- **Prohibición estricta:** No introducir dependencias de Director dentro del runtime SDA ni modificar comportamientos de Huntsville para acomodar Vegas.
+- **Servicios Android compartidos:**
+  - Superficie y renderizado visual (`StageRenderer`, Viewports, Canvas/Bitmap).
+  - Entrada táctil unificada (touch events, escalado lógico, down/up/move/cancel).
+  - Audio (SFX, loops, volumen, gestión de canales).
+  - Archivos e importación segura (staging, validación, transacciones atómicas).
+  - Guardado y persistencia con namespaces estrictamente aislados.
+  - Ciclo de vida Android (pause, resume, checkpoints, liberación de memoria).
+  - Diagnósticos y registros de ejecución locales.
+
+### 1.5. Aislamiento por juego
+Cada juego dispone de identificación, directorio privado de instalación, recursos, perfiles y partidas independientes.
+- La importación, ejecución o actualización de Vegas nunca debe alterar, compartir ni sobrescribir los datos de Huntsville.
+
+---
+
+## 2. Estado de componentes: Implementados, Propuestos y Pendientes de validación
+
+### A. Componentes ya implementados
+1. **Motor Director / Lingo en Android (`android/engine` y `android/app`):**
+   - Intérprete Lingo, Score, Casts, sprites, animaciones y Xtras completos para *Huntsville*.
+   - Presentación desacoplada y perfiles de visualización probados.
+2. **Prototipo ejecutable de investigación SDA (`tools/sda-prototype/`):**
+   - Reconstrucción de 25 niveles de campaña y 4 familias de bonus (`TileRot`, `TileSwap`, `WordSearch`, `Jigsaw`).
+   - Desenlace auténtico del Nivel 25 en 3 fases (`FirstRiddleGame`, `SecondRiddleGame`, `ThirdRiddleGame`).
+   - Puntuación, penalización de 0 pts por salto (`0045b150.c`), reloj nativo y serialización con hash.
+   - Suite de 69 pruebas unitarias y smoke test headless determinista.
+
+### B. Componentes propuestos y en desarrollo
+1. **Motor SDA en Kotlin (`org.rigorcore.caserecomp.sda` dentro de `:engine`):**
+   - Lectura de estructuras XUI y definiciones de escena en Kotlin puro.
+   - Modelo de escena, orden de capas, sprites e hit-testing alfa.
+   - Reloj monotónico, sistema de puntuación y persistencia de sesión.
+2. **Carrusel de juegos adaptable en Android (`HomeActivity` en `:app`):**
+   - Navegación horizontal fluida que no encoge las tarjetas al añadir juegos.
+   - Inclusión de *Mystery P.I.: The Vegas Heist* con estado «En desarrollo».
+3. **Importador multiformato:**
+   - Separación entre la importación `.director.zip` y el futuro paquete SDA versionado.
+
+### C. Funcionalidades pendientes de validación
+1. **Primera prueba vertical de SDA en Android:** Ejecución interactiva de la escena Vault de Vegas Heist con recursos privados y toques reales.
+2. **Paridad determinista Kotlin vs Python:** Pruebas cruzadas entre el motor Kotlin y el prototipo Python con los mismos vectores de prueba.
+3. **Audio y fuentes nativas SDA en Android:** Decodificación de clips de sonido y renderizado tipográfico basado en atlas originales.
+
+---
 
 ## Capas y responsabilidades
 
