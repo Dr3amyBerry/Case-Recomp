@@ -213,7 +213,8 @@ with a 1320-second clock. The map now draws the original scene cards, arranged
 in declaration order with the native count-dependent layout. Each scene starts
 its recovered ten-set selection;
 compound targets can require multiple clicks, but count once after all components
-retire. Use the original PDA map button to reach the other location. The shell stops at
+retire. Use the original PDA map button while playing; after the full batch
+retires, confirm the completed-location notice to reach the other location. The shell stops at
 `objects_complete`, which is the object objective boundary, not the original
 bonus round, clue collection, victory screen or next-level progression.
 
@@ -338,3 +339,29 @@ vault batch through the backend and entered slots with score, clock and player
 preserved across file round trips. GUI --resume also restored that state. This
 is a bounded startup prototype, not full native player-file compatibility or a
 visual approval of the original dialogs. The suite has 51 passing tests.
+
+
+## Completed-location notice and next scene
+
+After the whole active batch retires while the level still has objectives,
+`Session` enters `scene_complete`. This follows the reviewed empty-list route:
+00429050 → 00426060/0040a390 → location notice. The original caption asks the
+player to return to the map and choose another location, rather than immediately
+assigning another batch in that same location. Its OK action is 334; the newly
+recovered 00411550/state 0x30 requests the existing action 301 map route.
+
+The campaign shell now presents that confirmation using its own Tk controls and
+the recovered localized captions. Confirming keeps points, clock, player and
+completed sets. Closing while the notice is open saves that phase; --resume
+restores it. Clicking the scene while the notice is active does not add misses.
+The clock freezes at this experimental modal boundary; native pause propagation,
+label fade/compaction, dialog textures and deferred overlays remain pending.
+Re-entering a cached empty scene shows the notice again. Reaching the global
+level quota still stops at objects_complete, without inventing a bonus/victory.
+
+The diagnostic single-scene command still has an explicit next-batch research
+control. It should not be confused with this recovered first-level location route.
+A new synthetic test covers the modal boundary, persistence, confirmation, next
+location and global completion. The suite has 52 passing tests. Private hidden-Tk
+checks restored the notice, confirmed OK, selected slots and saved with points,
+clock and profile intact; no original EXE or global input was used.

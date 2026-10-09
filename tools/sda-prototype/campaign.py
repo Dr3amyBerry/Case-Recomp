@@ -71,6 +71,8 @@ class Session:
         scene.score.points = self.points
         scene.score.fast_chain, scene.score.fast_bonus, scene.score.misses = False, 2500, []
         scene.since_found = 0.0
+        if self._scene_retired():
+            self.phase = "scene_complete"
         return scene
 
     @property
@@ -81,8 +83,19 @@ class Session:
     def remaining(self):
         return max(0, self.level.objects - self.completed)
 
+    def _scene_retired(self):
+        return bool(self.scene.active_sets) and all(ids in self.counted[self.current] for ids in self.scene.active_sets)
+
+    def confirm_scene_complete(self, action=334):
+        number(action, integer=True)
+        if action != 334 or self.phase != "scene_complete":
+            raise ValueError("no completed-scene dialog for this action")
+        # 00412300/334 -> callback 00411550/state 0x30 -> action 301.
+        # This shell skips fade/overlay passes but preserves the confirmation boundary.
+        self.to_map()
+
     def to_map(self):
-        if self.phase != "scene":
+        if self.phase not in ("scene", "scene_complete"):
             raise ValueError("not in a scene")
         self.points = self.scene.score.points
         self.phase = "map"
@@ -105,6 +118,8 @@ class Session:
             self.phase = "objects_complete"
         elif "timeout" in self.events:
             self.phase = "timeout"
+        elif self._scene_retired():
+            self.phase = "scene_complete"
 
     def click(self, x, y):
         if self.phase != "scene":
@@ -135,7 +150,7 @@ class Session:
             raise ValueError("saved clock differs from original level")
         value.clock = LevelClock(c["limit"], number(c["elapsed"], low=0), boolean(c["paused"]))
         value.phase, value.current = state["phase"], state["current"]
-        if value.phase not in ("map", "scene", "objects_complete", "timeout"):
+        if value.phase not in ("map", "scene", "scene_complete", "objects_complete", "timeout"):
             raise ValueError("invalid campaign phase")
         if set(state["scenes"]) != set(state["counted"]) or not set(state["scenes"]).issubset(value.level.scenes):
             raise ValueError("invalid campaign scenes")
@@ -154,6 +169,8 @@ class Session:
             raise ValueError("invalid active campaign scene")
         if (value.phase == "objects_complete") != (value.remaining == 0):
             raise ValueError("inconsistent completion boundary")
+        if value.phase == "scene_complete" and not value._scene_retired():
+            raise ValueError("completed-scene dialog has unfinished sets")
         value.events = list(state["events"])
         if any(event not in (1, 2, 3, 4, "timeout") for event in value.events):
             raise ValueError("invalid clock events")

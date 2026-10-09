@@ -35,6 +35,58 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(clock.display_seconds(), 9)
         self.assertEqual(clock.display_seconds(unlimited=True), 1)
 
+    def test_scene_dialog_waits_for_retirement_confirms_map_and_persists(self):
+        root = Path(__file__).resolve().parents[2] / "local-output/sda-prototype/tests"
+        root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=root) as directory:
+            resources = CampaignResources()
+            resources.path = Path(directory) / "fixture.dat"
+            resources.path.write_bytes(b"own completion fixture")
+            session = Session(resources, 8)
+            session.enter("one")
+            for identity in session.scene.targets:
+                sprite = session.scene.objects[identity]
+                session.click(sprite.x+1, sprite.y+1)
+            self.assertEqual(session.phase, "scene")
+            with self.assertRaises(ValueError):
+                session.confirm_scene_complete()
+            unfinished = session.state()
+            unfinished["phase"] = "scene_complete"
+            with self.assertRaises(ValueError):
+                Session.restore(resources, unfinished)
+            for _ in range(100):
+                session.advance(.04)
+            self.assertEqual(session.phase, "scene_complete")
+            self.assertEqual(session.remaining, 8)
+            before = session.state()
+            session.advance(60)
+            self.assertEqual(session.state(), before)
+            self.assertEqual(session.click(1, 1), {"kind": "inactive"})
+            out = Path(directory) / "dialog.json"
+            write_state(session.state(), out)
+            restored = Session.restore(resources, read_state(out))
+            self.assertEqual(restored.state(), before)
+            for invalid_action in (301, True, 334.0):
+                with self.assertRaises(ValueError):
+                    restored.confirm_scene_complete(invalid_action)
+            restored.confirm_scene_complete(334)
+            self.assertEqual(restored.phase, "map")
+            self.assertEqual(restored.points, before["points"])
+            self.assertEqual(restored.clock.elapsed, before["clock"]["elapsed"])
+            restored.enter("one")
+            self.assertEqual(restored.phase, "scene_complete")
+            restored.confirm_scene_complete()
+            restored.enter("two")
+            self.assertEqual(restored.phase, "scene")
+            for identity in restored.scene.targets[:8]:
+                sprite = restored.scene.objects[identity]
+                restored.click(sprite.x+1, sprite.y+1)
+            for _ in range(100):
+                restored.advance(.04)
+            self.assertEqual(restored.phase, "objects_complete")
+            with self.assertRaises(ValueError):
+                restored.confirm_scene_complete()
+
     def test_two_scene_level_counts_retired_sets_once_and_resumes(self):
         root = Path(__file__).resolve().parents[2] / "local-output" / "sda-prototype" / "tests"
         root.mkdir(parents=True, exist_ok=True)

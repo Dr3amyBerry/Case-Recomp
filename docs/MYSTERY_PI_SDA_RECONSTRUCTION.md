@@ -657,3 +657,67 @@ aristas directas; las raíces nuevas ya eran alcanzables desde el mapa anterior.
 La jerarquía/eventos indirectos, reconstrucción de escenas, bonus/victoria/avance
 de nivel y contraste con el original siguen abiertos. El objetivo permanece
 activo y las APK aprobadas no se modificaron.
+
+
+### Fin de tanda por ubicación y confirmación de regreso
+
+La retirada de un set usa 00429d80 → 004277f0: consulta +0xd4 (retirada), no sólo
+el flag de clic. 0042a020 prepara el estado de desaparición y 0042a600 gobierna
+el fade de la etiqueta; cuando termina, llama a 00429050. Este elimina el set
+activo, compacta posiciones desde y=121, llama a 00426060 y, si queda vacío,
+00421310 marca la ubicación completada. No genera de inmediato otra tanda en la
+misma ubicación. 00419f90 registra ese último hecho en la ruta unlimited.
+
+00426060 también llama a 00416370 para actualizar el contador de nivel; con lista
+vacía pasa por 0040a390. La ruta ordinaria muestra el diálogo de app+0x3a0 si
++0x5f0 permite hacerlo o aplaza mediante +0x628. 0040a720 enlaza ese diálogo.
+ENVS declara allobjectspickeddialog y su texto pide volver al mapa para elegir
+otra ubicación. Su botón envía 334. 00412300 recibe 334 y oculta el diálogo con
+callback/state 0x30; 00411550 ejecuta 004120f0(0) y solicita 301, la ruta de mapa.
+
+El export batch-completion-slice recuperó explícitamente 00411550, que faltaba
+como función en el export completo previo. Se completaron 600 funciones desde
+los siete roots existentes y el callback descubierto. Esa entrada es importante:
+las llamadas indirectas antes sólo mostraban LAB_00411550 y no explicaban la
+continuación tras confirmar. También recupera estados 0x3c/0x41 que resuelven
+avisos aplazados; no se han sustituido esas rutas por temporizadores inventados.
+
+```mermaid
+flowchart LR
+    A[Objetos retirados] --> B[Fade de etiqueta y compactación]
+    B --> C[Lista vacía]
+    C --> D[Contador de nivel y aviso de ubicación]
+    D --> E[OK: acción 334]
+    E --> F[Callback 00411550: estado 0x30]
+    F --> G[Acción 301: mapa]
+    G --> H[Tarjeta 302: otra ubicación]
+```
+
+Session incorpora scene_complete cuando toda la tanda está retirada y quedan
+objetivos de nivel. Bloquea clics y congela el reloj hasta la confirmación; esta
+pausa es política experimental del shell, pendiente del grafo modal. Confirmar
+334 devuelve al mapa conservando puntos, tiempo, sets y perfil. No convierte el
+fin de una ubicación en victoria: al alcanzar la cuota sigue objects_complete,
+con bonus/avance nativos pendientes. Reabrir una escena cacheada ya vacía vuelve
+al aviso; reconstruirla como lo hace el original todavía está pendiente.
+
+El aviso se presenta con controles Tk propios y captions de ENVS/STRINGS; no es
+una reproducción de dialogimg, clipping ni overlays SDA. El prototipo tampoco
+reproduce aún el fade/compactación de etiquetas y sus pases de actualización.
+La fase nueva se guarda dentro del formato de campaña experimental existente;
+se rechaza un snapshot scene_complete que todavía tenga sets sin retirar.
+
+Pasaron 52 pruebas. La nueva comprueba confirmación rechazada antes de retirada,
+pausa del aviso, clic inactivo, guardado/carga del aviso, acción 334, regreso a
+una escena vacía, entrada a la siguiente y prioridad del límite global. Después
+de reforzar el tipo entero del action se repitieron las tres de campaña y pasaron.
+Con recursos reales, batch-dialog-gui-check.json cargó el aviso de vault, invocó
+el botón OK real de Tk, llegó al mapa y seleccionó slots mediante los callbacks
+del canvas. Conservaron 175500 puntos, 7,999993801 segundos y el perfil Dream;
+el cierre volvió a guardar. Root permaneció withdrawn; no hubo EXE ni entrada
+global. La prueba verifica la ruta del shell, no la temporización gráfica nativa.
+
+El mapa con siete exports suma 144 raíces, 1.791 nodos y 6.084 aristas directas;
+la nueva función explica dependencias antes ausentes. Persisten los límites de
+llamadas indirectas y prototipos inferidos. El objetivo sigue activo por el grafo,
+transiciones y contraste pendientes. Huntsville, Director y APK aprobadas intactos.

@@ -6,7 +6,8 @@ from map_view import MapView
 from pda_view import PdaView
 from startup import Startup
 from menu_view import MenuView
-from runtime import Resources
+from runtime import Resources, parse_xui, local_name
+from fonts import parse_strings, resolve_caption
 from progress import progress_path, write_state, read_state
 
 
@@ -28,6 +29,13 @@ def main():
     session = flow.session if flow else (Session.restore(resources, read_state(args.save)) if args.resume else None)
     map_view = MapView(resources, session.level) if session else None
     pda_view = PdaView(resources)
+    strings = parse_strings(resources.read("STRINGS.TXT"))
+    completed_dialog = next(node for node in parse_xui(resources.read("ENVS.MSE")).iter()
+                            if node.attrib.get("id") == "allobjectspickeddialog")
+    completed_text = "\n".join(resolve_caption(node.attrib["caption"], strings)
+                               for node in completed_dialog if local_name(node.tag) == "label")
+    completed_text = completed_text.replace("\\sa23", "\n")
+    completed_ok = next(node for node in completed_dialog if node.attrib.get("value") == "334")
     import tkinter as tk
     from PIL import ImageTk
     window = tk.Tk()
@@ -66,6 +74,10 @@ def main():
             tk.Button(controls, text="Nueva partida experimental", command=start).pack(side=tk.LEFT)
         elif session.phase == "map":
             tk.Label(controls, text="Elige una tarjeta del mapa").pack(side=tk.LEFT)
+        elif session.phase == "scene_complete":
+            tk.Label(controls, text=completed_text).pack(side=tk.LEFT)
+            tk.Button(controls, text=resolve_caption(completed_ok.attrib["caption"], strings),
+                      command=confirm_complete).pack(side=tk.LEFT)
         elif session.phase == "scene":
             tk.Label(controls, text="Usa el botón del PDA para volver al mapa").pack(side=tk.LEFT)
         else:
@@ -100,6 +112,11 @@ def main():
         nonlocal last
         session.enter(name)
         last = time.monotonic()
+        rebuild()
+        persist()
+
+    def confirm_complete():
+        session.confirm_scene_complete(int(completed_ok.attrib["value"]))
         rebuild()
         persist()
 
