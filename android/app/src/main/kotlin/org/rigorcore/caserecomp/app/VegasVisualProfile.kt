@@ -35,7 +35,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
  }
  override fun drawMap(canvas:Canvas,campaign:SdaCampaign) {
-  ui.image(canvas,doc.component("map_backgroundstart"),photographic=true);base(canvas,campaign,campaign.clock)
+  // Native 0043f580 completes the map crossfade onto goldbackground; render that stable state.
+  val background=doc.component("mapunderlay").attributes.getValue("goldbackground")
+  ui.image(canvas,doc.component(background),photographic=true);base(canvas,campaign,campaign.clock)
   ui.label(canvas,doc.component("mapunderlay").children.single { it.type=="label" && it.attributes["id"]=="mapscreencaption" },doc.resolve(campaign.currentLevel.title))
   for((node,pos) in cards(campaign)) {
    val (x,y)=pos;val a=node.attributes

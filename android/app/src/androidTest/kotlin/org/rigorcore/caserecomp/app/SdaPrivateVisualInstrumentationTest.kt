@@ -118,6 +118,15 @@ class SdaPrivateVisualInstrumentationTest {
       assertTrue("retired row still visible: $ink",ink.first()<5)
       assertTrue("remaining row disappeared: $ink",ink.drop(1).all { it>20 })
      }
+     if(name=="map") {
+      val background=content.decodeImage("map_backgroundend.jpg")
+      for((x,y) in listOf(750 to 100,750 to 450,200 to 100)) {
+       val expected=background.getArgb(x-144,y)
+       val actual=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
+       val channels=listOf(android.graphics.Color.red(actual)-android.graphics.Color.red(expected),android.graphics.Color.green(actual)-android.graphics.Color.green(expected),android.graphics.Color.blue(actual)-android.graphics.Color.blue(expected))
+       assertTrue("stable map background differs at $x,$y: $channels",channels.all { kotlin.math.abs(it)<=26 })
+      }
+     }
      if(name=="wordsearch") {
       val game=campaign.bonusGame as SdaWordSearchGame
       val ink=(0 until game.cellWidth*game.cellHeight).count { point ->
