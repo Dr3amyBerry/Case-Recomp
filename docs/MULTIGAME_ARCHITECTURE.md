@@ -192,3 +192,20 @@ Se conserva el renderer Android; Tekton no se adopta. Se corrigen los volúmenes
 negativos en el adaptador de Huntsville y se reemplaza «Pantalla completa» por
 «Apoya al desarrollador», que abre el enlace PayPal indicado por el usuario.
 Validación y alcance en [HUNTSVILLE_OPTIONS.md](HUNTSVILLE_OPTIONS.md).
+
+## Prerelease 0.6.1-beta de Huntsville (2026-10-08)
+
+A petición del usuario, el cursor de entrada del nombre sube 3 píxeles de escenario:
+el ajuste de sprite 31 pasa de `(12, 3)` a `(12, 0)`, conservando la separación
+horizontal. El perfil de Huntsville pasa a revisión 7. Se mantienen las letras
+Android elegidas por el usuario y los arreglos de volumen/botón de apoyo.
+
+La versión APK es `0.6.1-beta`, versionCode 9. Se publica una APK release firmada
+en un **prerelease de GitHub Releases**, no solamente un tag. El paquete no contiene
+el juego ni las fuentes Tekton extraídas; el usuario importa su conversión local.
+La compilación usa una copia de los archivos Android seguidos por Git, excluyendo
+el archivo heredado local no seguido `DirectorAndroidPorts.kt`; la única adaptación
+de build local es la ruta al archivo privado de firma. La referencia aprobada
+0.6.0 permanece congelada y no se reemplazan sus artefactos.
+
+[Case Recomp 0.6.1 beta — GitHub Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases/tag/v0.6.1-beta).
