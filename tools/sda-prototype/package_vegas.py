@@ -24,10 +24,19 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
 
     files_data = {}
 
-    # Cover image from distributor
-    dist_img = Image.open("private/mystery-pi-vegas/game/distributor.jpg")
+    # A catalog thumbnail of the authentic menu background, not a Windows
+    # execution capture. Resolve its URI from XUI rather than a distributor file.
+    tree = parse_xui(res.read("ENVS.MSE"))
+    menu = next(node for node in tree.iter() if local_name(node.tag) == "mainmenu")
+    background = next(node for node in menu if local_name(node.tag) == "image"
+                      and node.attrib.get("x", "0") == "0"
+                      and node.attrib.get("y", "0") == "0" and "tex" in node.attrib)
+    textures = {node.attrib["id"]: node.attrib["uri"] for node in tree.iter()
+                if local_name(node.tag) == "texture" and "id" in node.attrib and "uri" in node.attrib}
+    cover = res.image(textures[background.attrib["tex"]]).copy()
+    cover.thumbnail((320, 240), Image.Resampling.LANCZOS)
     cover_buf = io.BytesIO()
-    dist_img.resize((320, 240)).save(cover_buf, format="PNG")
+    cover.save(cover_buf, format="PNG")
     files_data["cover.png"] = cover_buf.getvalue()
 
     # Base strings
