@@ -124,3 +124,16 @@ Verificación: RED con versión anterior falla en original pause activates on re
 Comparación privada comparison.html/coverage.json/build_report.py incluye ROI PAUSA (72,557)-(144,600), lado a lado Windows/Android y estado cancelado. MAE del recorte hover4.795, presionado3.141 en escala RGB0–255; Android normalizado desde viewport(15,23)-(785,600) con nearest. Estas métricas incluyen remuestreo y no certifican igualdad exacta ni todo el PDA. APK vegas-button-states-debug.apk SHA256 a71cd10c7ebbe511ba93e123625b8c4ef43a27b547313552dd8be2362d4feb2c.
 
 Solo se valida el gesto de PAUSA en escena; MAPA/RESOLVER conservan por ahora su activación previa en DOWN y quedan pendientes de contraste/control completo. Estados disabled/normal de todos los controles, otras densidades/contextos, menús/pistas/indicadores, guardado entre procesos,25niveles y desenlace siguen abiertos. Continuar en SdaButtonPresentation, SdaResourceCanvas.button/rect, VegasVisualProfile.buttonState/base/drawHud, SdaGameView.onTouchEvent/onHoverEvent y SdaPrivateVisualInstrumentationTest. Director/Huntsville/main/APK aprobadas y cambios locales ajenos intactos. Objetivo global activo.
+
+
+## 2026-10-09 — MAPA: gesto y navegación originales (PARCIAL)
+
+Windows confirma hover/presionado de MAPA y navegación solo al liberar dentro; arrastrar fuera antes de liberar mantiene la escena. Se capturan ambos estados y el mapa estable. El primer fotograma tras liberar fue negro durante transición; se conserva como captura inválida y no se usa para validar. El original queda pausado, sin encontrar objetos ni cambiar preferencias.
+
+SdaGameView reutiliza captura de puntero para PAUSA/RETURN_MAP, sin duplicar el motor ni introducir IDs de Vegas. Al soltar se comprueba nuevamente rectángulo/fase disponibles y se invoca el callback existente; UP fuera/CANCEL no pasa a objetos. Renderer/bindings de estados permanecen en el perfil/recursos.
+
+RED: MAPA must activate on release expectedSCENE butMAP. GREEN: 179 engine +23 app sin fallos/errores/omisiones; APK/test compilados. WSA34.973s, test code0, hover/presionado/cancelación/navegación con capturas reales. Regresión de pausa, fila retirada, cuatro bonus por MotionEvents y avance1→5 aprobada para alcance de componente, objetivos preparados por APIs; no E2E de importación ni25niveles.
+
+Evidencias privadas local-output/vegas-map-controls/comparison.html, coverage.json, android/, windows-map-*.png y vegas-map-controls-debug.apk. SHA2560fc4f2d334819029ecca84c9008155ab763cf61473d39c6f6447d842b5555193. ROI(16,388)-(134,418), MAEhover3.999/presionado4.510 RGB0–255 tras normalizar viewport Android medido con nearest. Objetivos/reloj difieren; no se certifica igualdad total de pantalla. Revisión independiente sin errores importantes.
+
+Pendiente: transición animada, otros contextos/resoluciones, RESOLVER y menú/pistas/indicadores del PDA, catálogo/importación/perfiles reales, guardado entre procesos,25niveles y desenlace. Continuar en SdaGameView.controlRect/onTouchEvent, VegasVisualProfile.base/drawMap/drawHud, SdaPrivateVisualInstrumentationTest; HomeActivity.selectSdaZip/onActivityResult/playSda y SdaLauncherActivity para E2E real. Director/Huntsville/main/APK aprobadas y cambios ajenos intactos. Objetivo global activo.

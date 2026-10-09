@@ -86,7 +86,16 @@ class SdaGameView(
         private set
     var onPauseChangedListener: (() -> Unit)? = null
     private var resumePointerId: Int? = null
-    private var pausePointerId: Int? = null
+    private enum class CapturedControl { PAUSE, RETURN_MAP }
+    private var controlPointerId: Int? = null
+    private var capturedControl: CapturedControl? = null
+    private fun controlRect(control:CapturedControl,camp:SdaCampaign):Rect? {
+        val profile=visuals ?: return null
+        return when(control) {
+            CapturedControl.PAUSE -> profile.pauseRect(camp)
+            CapturedControl.RETURN_MAP -> if(camp.phase in listOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE)) profile.returnMapRect else null
+        }
+    }
 
     var onBonusInputListener: (() -> Unit)? = null
     private var wordPointerId: Int? = null
@@ -509,24 +518,31 @@ class SdaGameView(
         }
         val camp=campaign
         val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
-        if(pausePointerId!=null) {
-            val index=event.findPointerIndex(pausePointerId!!)
+        if(controlPointerId!=null) {
+            val index=event.findPointerIndex(controlPointerId!!)
             val px=if(index<0) x else ((event.getX(index)-offsetX)/scale).toInt()
             val py=if(index<0) y else ((event.getY(index)-offsetY)/scale).toInt()
-            val released=event.actionMasked in listOf(MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP) && event.getPointerId(event.actionIndex)==pausePointerId
+            val released=event.actionMasked in listOf(MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP) && event.getPointerId(event.actionIndex)==controlPointerId
             visuals?.pointer(px,py,!released && event.actionMasked!=MotionEvent.ACTION_CANCEL)
             if(released || event.actionMasked==MotionEvent.ACTION_CANCEL || index<0) {
-                pausePointerId=null
-                if(released && camp!=null && visuals?.pauseRect(camp)?.contains(px,py)==true) {
-                    isPaused=true;onPauseChangedListener?.invoke()
+                val control=checkNotNull(capturedControl)
+                controlPointerId=null;capturedControl=null
+                if(released && camp!=null && controlRect(control,camp)?.contains(px,py)==true) {
+                    when(control) {
+                        CapturedControl.PAUSE -> { isPaused=true;onPauseChangedListener?.invoke() }
+                        CapturedControl.RETURN_MAP -> onReturnToMapListener?.invoke()
+                    }
                 }
             }
             invalidate();return true
         }
         if(event.actionMasked==MotionEvent.ACTION_CANCEL) visuals?.pointer(null,null,false)
         else visuals?.pointer(x,y,event.actionMasked in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE))
-        if(event.actionMasked==MotionEvent.ACTION_DOWN && camp!=null && visuals?.pauseRect(camp)?.contains(x,y)==true) {
-            pausePointerId=event.getPointerId(event.actionIndex);invalidate();return true
+        if(event.actionMasked==MotionEvent.ACTION_DOWN && camp!=null) {
+            val control=CapturedControl.entries.firstOrNull { controlRect(it,camp)?.contains(x,y)==true }
+            if(control!=null) {
+                capturedControl=control;controlPointerId=event.getPointerId(event.actionIndex);invalidate();return true
+            }
         }
 
 

@@ -224,8 +224,20 @@ class SdaPrivateVisualInstrumentationTest {
      software.recycle()
     }
 
-    touch(MotionEvent.ACTION_DOWN,profile.returnMapRect.centerX(),profile.returnMapRect.centerY())
+    val mapX=profile.returnMapRect.centerX();val mapY=profile.returnMapRect.centerY()
+    touch(MotionEvent.ACTION_HOVER_MOVE,mapX,mapY)
+    captureState("map-button-hover")
+    touch(MotionEvent.ACTION_DOWN,mapX,mapY)
+    assertEquals("MAPA must activate on release",SdaCampaignPhase.SCENE,campaign.phase)
+    captureState("map-button-pressed")
+    touch(MotionEvent.ACTION_MOVE,200,mapY)
+    touch(MotionEvent.ACTION_UP,200,mapY)
+    assertEquals("MAPA release outside must cancel",SdaCampaignPhase.SCENE,campaign.phase)
+    captureState("map-button-cancelled")
+    touch(MotionEvent.ACTION_DOWN,mapX,mapY)
+    touch(MotionEvent.ACTION_UP,mapX,mapY)
     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
+    captureState("map-returned")
     repeat(4) { level ->
      finishObjects();campaign.startBonus(content)
      display(listOf("rotation","wordsearch","jigsaw","swap")[level])
