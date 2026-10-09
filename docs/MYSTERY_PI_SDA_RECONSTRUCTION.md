@@ -597,3 +597,63 @@ no afirma cierre de llamadas indirectas. Siguen pendientes inicio/perfil nativos
 jerarquía de escenas y transiciones, hints/coleccionables/audio, bonus, victoria,
 avance de nivel y comparación diferencial. Huntsville, Director y las APK
 aprobadas no se modificaron en este trabajo. El objetivo permanece activo.
+
+
+### Inicio con primer jugador y persistencia experimental
+
+00412300/action 299 comprueba app+0x410: sin jugador borra +0x4f8 y llama a
+00406cc0(0), que abre newplayer. Con jugador, en la ruta ordinaria sin el flag
++0x5ee, carga niveles mediante 00416810(1) y prepara la transición al mapa.
+No se interpreta 299 como carga directa de vault. La ruta de partida finalizada
+(+0x5ee) abre otro diálogo y sigue pendiente.
+
+Action 1 comprueba 004106b0 (nombre vacío tras recorte) y 004104a0 (duplicado).
+La cadena en 005193c0 contiene únicamente espacio ASCII: el recorte no equivale
+a strip() de todo whitespace. 004104a0 compara el nombre recortado byte a byte,
+sin normalizar mayúsculas. 00406dc0 crea el jugador, toma el icono de 0042fe00 y
+actualiza el menú por 0040ece0/0043de70. El ensamblador de 00406dc0 confirma los
+bucles de recorte que Ghidra marca erróneamente como bloques inalcanzables.
+Al confirmar se vuelve al menú; no se despacha automáticamente otro 299.
+00416d80 distingue carga de progreso y preparación inicial del nivel.
+
+`startup.py` incorpora ese recorrido acotado para un primer jugador. La partida
+experimental sólo se crea al pulsar de nuevo el botón principal tras confirmar
+el nombre. `menu_view.py` dibuja el menú estático recuperado, enlaza el nombre e
+icono y procesa únicamente el botón 299 con los estados comunes revisados.
+Respeta tamaño declarado, fuente y offsets de normal/hover/pushed/dragged. El
+fondo se genera sin el botón principal antes de dibujar su estado dinámico,
+evita superponer su caption normal y recorta la textura 285×93 al rect 285×90.
+No habilita las demás acciones del menú ni sus faders/logo/transiciones.
+
+`campaign_preview.py --player-startup` conecta la ruta con el mapa y las escenas
+existentes. La entrada de nombre y confirmar/cancelar son controles Tk propios;
+no se presentan como reproducción de editbox/dialogimg/radiobutton. Esta vista
+elige icono genérico; el modelo admite los tres valores recuperados. La selección
+entre seis jugadores, eliminación, límites de edición/encoding y diálogos
+nativos todavía requieren recuperación. Huntsville y sus perfiles no participan.
+
+El formato propio `case-recomp-sda-player/1` conserva nombre/icono, semilla y el
+snapshot completo de campaña, con huella de Resources.dll. Se escribe mediante
+la misma ruta atómica restringida a local-output/sda-prototype. Un borrador de
+nombre no se guarda como jugador; una carga incoherente (campaña sin jugador,
+semillas distintas o fase game sin campaña) se rechaza. El formato no lee ni
+escribe los perfiles del original. El modo de campaña previo conserva su formato.
+
+`startup-gui-check.json` registra los callbacks reales de Tk: 299, rechazo de
+nombre vacío, creación de Dream, regreso al menú sin campaña, segundo 299 al
+mapa, tarjeta vault y guardado al cerrar. Tras esa carga, el backend completó los
+diez sets de vault, guardó/cargó y entró a slots con 175500 puntos, 7,999993801
+segundos y el perfil intactos. Se abrió de nuevo el prototipo con --resume y el
+cierre conservó esos datos. No hubo errores de callback, ventana visible, entrada
+global ni ejecución del EXE. `menu-play-route-player.png` muestra el nombre con
+atlas original; se inspeccionó la vista. No es comparación diferencial aprobada.
+
+Pasaron 51 pruebas: cuatro nuevas de validación, orden de inicio, guardado de
+perfil/campaña y rechazo de estados; dos del botón 299, arrastre y dibujo de
+nombre/estado. Tras ajustar el recorte del botón se repitieron esas dos y pasaron.
+El slice startup-player-slice completó 600 funciones desde doce raíces. El mapa
+con los seis exports incluye ahora 141 raíces revisadas, 1.762 nodos y 5.894
+aristas directas; las raíces nuevas ya eran alcanzables desde el mapa anterior.
+La jerarquía/eventos indirectos, reconstrucción de escenas, bonus/victoria/avance
+de nivel y contraste con el original siguen abiertos. El objetivo permanece
+activo y las APK aprobadas no se modificaron.

@@ -7,7 +7,7 @@ from runtime import Resources, parse_xui, local_name
 from fonts import FontCatalog, parse_strings, resolve_caption
 
 
-def render_menu(resources):
+def render_menu(resources, exclude_action=None):
     tree = parse_xui(resources.read("ENVS.MSE"))
     menu = next(n for n in tree.iter() if local_name(n.tag) == "mainmenu")
     catalog = FontCatalog(resources)
@@ -20,6 +20,8 @@ def render_menu(resources):
         a = node.attrib
         kind = local_name(node.tag)
         identity = a.get("id", kind)
+        if exclude_action is not None and a.get("value") == str(exclude_action):
+            continue
         if "flags" in a and "render" not in a["flags"].split():
             report["skipped"].append({"id": identity, "reason": "no render flag"})
             continue

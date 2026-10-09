@@ -4,6 +4,8 @@ import time
 from campaign import Session
 from map_view import MapView
 from pda_view import PdaView
+from startup import Startup
+from menu_view import MenuView
 from runtime import Resources
 from progress import progress_path, write_state, read_state
 
@@ -13,11 +15,17 @@ def main():
     parser.add_argument("--resources", required=True)
     parser.add_argument("--save", required=True)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--player-startup", action="store_true",
+                        help="original play button with experimental first-player controls")
     parser.add_argument("--seed", type=int, default=8)
     args = parser.parse_args()
     progress_path(args.save)
     resources = Resources(args.resources)
-    session = Session.restore(resources, read_state(args.save)) if args.resume else None
+    flow = None
+    if args.player_startup:
+        flow = Startup.restore(resources, read_state(args.save)) if args.resume else Startup(resources, args.seed)
+    menu_view = MenuView(resources) if flow else None
+    session = flow.session if flow else (Session.restore(resources, read_state(args.save)) if args.resume else None)
     map_view = MapView(resources, session.level) if session else None
     pda_view = PdaView(resources)
     import tkinter as tk
@@ -33,17 +41,28 @@ def main():
     image_id = canvas.create_image(0, 0, anchor="nw")
     last, last_save = time.monotonic(), time.monotonic()
     photo = None
+    name_input = tk.StringVar()
 
     def persist():
         nonlocal last_save
-        if session:
+        if flow:
+            write_state(flow.state(), args.save)
+        elif session:
             write_state(session.state(), args.save)
         last_save = time.monotonic()
 
     def rebuild():
         for button in controls.winfo_children():
             button.destroy()
-        if session is None:
+        if flow and flow.phase != "game":
+            if flow.phase == "newplayer":
+                tk.Label(controls, text="Perfil experimental: nombre").pack(side=tk.LEFT)
+                tk.Entry(controls, textvariable=name_input, width=24).pack(side=tk.LEFT)
+                tk.Button(controls, text="Crear perfil", command=lambda: startup_action(1)).pack(side=tk.LEFT)
+                tk.Button(controls, text="Cancelar", command=lambda: startup_action(9)).pack(side=tk.LEFT)
+            else:
+                tk.Label(controls, text="Pulsa el bot\u00f3n principal; solo esa acci\u00f3n est\u00e1 conectada").pack(side=tk.LEFT)
+        elif session is None:
             tk.Button(controls, text="Nueva partida experimental", command=start).pack(side=tk.LEFT)
         elif session.phase == "map":
             tk.Label(controls, text="Elige una tarjeta del mapa").pack(side=tk.LEFT)
@@ -54,6 +73,21 @@ def main():
                      else "Tiempo agotado").pack(side=tk.LEFT)
         if session:
             tk.Button(controls, text="Guardar progreso", command=persist).pack(side=tk.LEFT)
+
+    def startup_action(value):
+        nonlocal session, map_view, last
+        result = flow.action(value, name_input.get())
+        if result == "empty":
+            status.set("Escribe un nombre antes de crear el perfil")
+            return
+        session = flow.session
+        if session:
+            map_view = MapView(resources, session.level)
+        menu_view.button.state, menu_view.button.activation = 0, False
+        name_input.set("")
+        last = time.monotonic()
+        rebuild()
+        persist()
 
     def start():
         nonlocal session, map_view
@@ -76,6 +110,10 @@ def main():
 
     def click(event):
         nonlocal last
+        if flow and flow.phase != "game":
+            if flow.phase == "menu":
+                menu_view.pointer("down", event.x, event.y)
+            return
         if session:
             pda_view.pointer("down", event.x, event.y)
             if pda_view.owns(event.x, event.y):
@@ -94,6 +132,10 @@ def main():
             persist()
 
     def pointer(event, kind):
+        if flow and flow.phase != "game":
+            if flow.phase == "menu":
+                menu_view.pointer(kind, event.x, event.y, bool(event.state & 0x100))
+            return
         if session:
             pda_view.pointer(kind, event.x, event.y, bool(event.state & 0x100))
         if session and session.phase == "map":
@@ -102,7 +144,15 @@ def main():
     def draw():
         nonlocal last, photo
         now = time.monotonic()
-        if session:
+        if flow and flow.phase != "game":
+            photo = ImageTk.PhotoImage(menu_view.render(flow.player))
+            canvas.itemconfigure(image_id, image=photo)
+            if flow.phase == "menu":
+                status.set("Inicio experimental - perfil y guardado propios; transiciones pendientes")
+                action = menu_view.consume_activation()
+                if action:
+                    startup_action(action)
+        elif session:
             previous = session.phase
             session.advance(now - last)
             if session.phase != previous:

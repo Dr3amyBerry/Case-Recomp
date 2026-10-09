@@ -302,3 +302,39 @@ The hidden-root GUI check loaded 175500 points, entered slots through a map card
 returned using the PDA and saved on close without adding a miss or resetting the
 clock. Two synthetic PDA tests bring the suite to 45 passing tests. All captures
 and real-resource observations remain private.
+
+
+## First-player startup experiment
+
+```powershell
+# Uses the original main menu play button and own profile-entry controls.
+python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/player.json --player-startup --seed 8
+# Resume the committed player and campaign together.
+python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/player.json --player-startup --resume
+```
+
+Click the large main menu adventure button (action 299). With no player this
+opens experimental Tk name controls. Confirming a valid name returns to the menu;
+click the main button again to enter the scene map. Profile creation does not
+silently start a campaign. Only action 299 is connected in this menu view; other
+menu actions, native modal widgets, logo/faders and transition passes are pending.
+The UI creates a generic player; the backend exposes all three recovered icons.
+
+`startup.py` uses the reviewed space-only trim and case-sensitive duplicate check.
+It does not claim original editbox encoding, glyph filtering or length limits.
+`menu_view.py` binds the committed name and icon to original atlas/resources and
+preserves normal/hover/pushed/dragged button behavior. Multi-player selection,
+deleting profiles and completed-campaign/restart dialogs remain unresolved.
+
+`case-recomp-sda-player/1` stores one experimental player and the entire existing
+campaign snapshot. It rejects inconsistent player/campaign/seed state and binds
+to the DLL hash. Draft input is not committed on close. Use a separate player.json
+file: this wrapper and the earlier campaign-only save format are distinct. The
+original game profile files are never opened or written.
+
+A private hidden-root check exercised menu clicks, empty-name rejection, creation,
+a second play click, map selection and close. It then completed the first real
+vault batch through the backend and entered slots with score, clock and player
+preserved across file round trips. GUI --resume also restored that state. This
+is a bounded startup prototype, not full native player-file compatibility or a
+visual approval of the original dialogs. The suite has 51 passing tests.
