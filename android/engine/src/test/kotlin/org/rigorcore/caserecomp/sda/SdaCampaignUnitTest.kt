@@ -26,6 +26,7 @@ class SdaCampaignUnitTest {
                 "SCENE_ONE.MSL" to compound.toByteArray(),
                 "SCENE_TWO.MSL" to compound.toByteArray(),
                 "pixel.png" to SyntheticSdaPackage.createSamplePng(3, 3),
+                "test.tgl" to "<xui><mpi:tilegameobjects rows=\"2\" columns=\"2\"/></xui>".toByteArray(),
                 "test.trg" to "<xui><mpi:tilerotgameobjects rows=\"2\" columns=\"2\"/></xui>".toByteArray(),
             )
             val manifest = MiniJson.canonical(mapOf(
@@ -117,4 +118,52 @@ class SdaCampaignUnitTest {
         assertThrows(IllegalArgumentException::class.java) { SdaBonusLoader.load(content, "unknown.bin") }
         assertThrows(IllegalArgumentException::class.java) { SdaBonusLoader.load(content, "missing.trg") }
     }
+    private fun reachBonus(camp: SdaCampaign, content: SdaContent) {
+        finishScene(camp, content, "one"); camp.confirmSceneComplete()
+        finishScene(camp, content, "two"); camp.startBonus(content)
+    }
+
+    @Test fun partial_rotation_bonus_checkpoint_restores_exact_board() = withContent { content ->
+        val camp = SdaCampaign(levels(), seed = 8)
+        reachBonus(camp, content)
+        assertTrue(camp.clickBonus(200, 100))
+        camp.advance(.04f)
+        val saved = SdaCampaignState.fromJson(camp.snapshot().toJson())
+        val resumed = SdaCampaign(levels())
+        resumed.restore(saved, content)
+        assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
+        assertEquals(camp.clickBonus(200, 100), resumed.clickBonus(200, 100))
+        assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
+    }
+
+    @Test fun partial_swap_bonus_checkpoint_restores_selection_and_permutation() = withContent { content ->
+        val swapLevels = levels().map { it.copy(bonus = "test.tgl") }
+        val camp = SdaCampaign(swapLevels, seed = 8)
+        reachBonus(camp, content)
+        assertTrue(camp.clickBonus(200, 100))
+        assertTrue(camp.clickBonus(600, 100))
+        assertTrue(camp.clickBonus(200, 100))
+        val saved = SdaCampaignState.fromJson(camp.snapshot().toJson())
+        val resumed = SdaCampaign(swapLevels)
+        resumed.restore(saved, content)
+        assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
+        assertEquals(camp.clickBonus(600, 400), resumed.clickBonus(600, 400))
+        assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
+    }
+
+    @Test fun invalid_bonus_checkpoint_is_rejected_without_mutating_session() = withContent { content ->
+        val camp = SdaCampaign(levels(), seed = 8)
+        reachBonus(camp, content)
+        val valid = camp.snapshot()
+        val resumed = SdaCampaign(levels())
+        val before = resumed.snapshot().toJson()
+        val bad = valid.copy(bonusGameState = valid.bonusGameState!! + ("rotations" to listOf(99)))
+        assertThrows(IllegalArgumentException::class.java) { resumed.restore(bad, content) }
+        assertEquals(before, resumed.snapshot().toJson())
+        assertThrows(IllegalArgumentException::class.java) {
+            resumed.restore(valid.copy(completedObjects = 100), content)
+        }
+        assertEquals(before, resumed.snapshot().toJson())
+    }
+
 }

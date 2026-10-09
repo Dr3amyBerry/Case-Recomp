@@ -39,3 +39,7 @@
 - Task 2: complete for compound accounting, phase/reward gates, safe shared XML and truthful tests. RED 7/6 failures → GREEN 7/0; private first-level input journey passes. Final local suites engine 128/128, app 23/23, Python 69/69; debug APK builds.
 - Ruling: remove the fabricated full-playthrough test, retain native rank correction as a separate profile task rather than adjust its expected rank to hide the CI issue. Cost if wrong: rank stays incorrect until Task 5; documented explicitly.
 - Continuation: Task 3 (bonus mechanics and exact restoration) first. No 25-level or ending completion claim is allowed.
+
+- Task 3: checkpoint subtask complete. Three new tests RED→GREEN; engine 131/131, app 23/23, APK builds. TileRot/TileSwap boards and selection resume exactly. WordSearch/Jigsaw/finale mechanics still require authentic reconstruction; do not count this as Task 3 complete.
+- Ruling: retain legacy finale checkpoint data via an explicitly diagnostic restoration path rather than discard saves while replacing the invented mechanics. Cost if wrong: diagnostic progress might be misread as authentic; audit labels it SIMULADA and completion remains unproven.
+- CI af4b96c: all Android jobs, API 26/33/36 base instrumentation and Python passed. No private SDA Android completion evidence.

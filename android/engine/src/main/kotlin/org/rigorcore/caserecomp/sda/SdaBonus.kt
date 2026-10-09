@@ -373,6 +373,82 @@ object SdaBonusLoader {
         throw IllegalArgumentException("unsupported bonus format: $bonusName")
     }
 
+    /** Restore the recorded board; reconstruction from its seed is not a checkpoint. */
+    fun restore(content: SdaContent, state: Map<String, Any?>, resource: String,
+                seed: Long, bonusImage: String): SdaBonusGame {
+        require(state["resourceName"] == resource && integer(state["seed"]) == seed) { "bonus identity mismatch" }
+        val game = load(content, resource, seed, bonusImage)
+        require(state["kind"] == game.kind && integer(state["rows"]) == game.rows.toLong() &&
+            integer(state["cols"]) == game.cols.toLong()) { "bonus definition mismatch" }
+        require((state["bonusImage"] ?: "") == bonusImage) { "bonus image mismatch" }
+        val points = integer(state["points"])
+        require(points == 0L || points == SDA_BONUS_REWARD.toLong()) { "invalid bonus reward" }
+        fun integers(key: String): List<Int> {
+            val values = state[key] as? List<*> ?: throw IllegalArgumentException("missing bonus $key")
+            require(values.size <= 1024) { "bonus list exceeds budget" }
+            return values.map {
+                val value = integer(it)
+                require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) { "invalid bonus integer" }
+                value.toInt()
+            }
+        }
+        when (game) {
+            is SdaTileRotGame -> {
+                val rotations = integers("rotations")
+                require(rotations.size == game.tileRotations.size && rotations.all { it in 0..3 }) { "invalid rotations" }
+                rotations.forEachIndexed { index, value -> game.tileRotations[index] = value }
+            }
+            is SdaTileSwapGame -> {
+                val tiles = integers("tiles")
+                require(tiles.sorted() == game.tilePositions.indices.toList()) { "invalid tile permutation" }
+                tiles.forEachIndexed { index, value -> game.tilePositions[index] = value }
+                game.selectedIndex = state["selectedIndex"]?.let {
+                    val index = integer(it)
+                    require(index in 0 until tiles.size.toLong()) { "invalid selected tile" }
+                    index.toInt()
+                }
+            }
+            is SdaWordSearchGame -> {
+                require(state["words"] == game.words) { "wordsearch list mismatch" }
+                val words = state["foundWords"] as? List<*> ?: throw IllegalArgumentException("missing found words")
+                require(words.all { it is String && it in game.words } && words.distinct().size == words.size) { "invalid found words" }
+                game.foundWords.addAll(words.map { it as String })
+            }
+            is SdaJigsawGame -> {
+                require(integer(state["totalPieces"]) == game.totalPieces.toLong()) { "jigsaw definition mismatch" }
+                val pieces = integers("placedPieces")
+                require(pieces.distinct().size == pieces.size && pieces.all { it in 0 until game.totalPieces }) { "invalid placed pieces" }
+                game.placedPieces.addAll(pieces)
+            }
+        }
+        game.points = points.toInt()
+        return game
+    }
+
+    /** Preserve received diagnostic finale checkpoints, without certifying their rules. */
+    internal fun restoreLegacyFinale(state: Map<String, Any?>, seed: Long): SdaMasterRiddleGame {
+        require(state["kind"] == "master_riddle" && state["resourceName"] == "ENVS.MSE" &&
+            integer(state["seed"]) == seed && integer(state["rows"]) == 1L &&
+            integer(state["cols"]) == 6L) { "invalid legacy finale identity" }
+        val stage = integer(state["stage"])
+        require(stage in 1L..4L) { "invalid legacy finale stage" }
+        val game = SdaMasterRiddleGame(stage.toInt(), seed)
+        val steps = state["completedSteps"] as? List<*> ?: throw IllegalArgumentException("missing legacy finale steps")
+        require(steps.distinct().size == steps.size && steps.all {
+            it is String && it in game.currentStageRequirements()
+        }) { "invalid legacy finale steps" }
+        val points = integer(state["points"])
+        require(points == 0L || points == SDA_BONUS_REWARD.toLong()) { "invalid legacy finale reward" }
+        game.completedSteps.addAll(steps.map { it as String })
+        game.points = points.toInt()
+        return game
+    }
+
+    private fun integer(value: Any?): Long {
+        require(value is Int || value is Long) { "bonus integer required" }
+        return (value as Number).toLong()
+    }
+
     private fun dimension(attrs: Map<String, String>, name: String): Int {
         val value = attrs[name]?.toIntOrNull()
         require(value != null && value in 1..1024) { "invalid bonus $name" }

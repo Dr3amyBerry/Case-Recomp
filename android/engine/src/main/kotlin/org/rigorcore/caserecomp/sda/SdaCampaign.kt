@@ -128,7 +128,7 @@ class SdaCampaign(
             "Husmeador",
             "Detective",
             "Rastreador astuto",
-            "Súper indagador",
+            "SÃºper indagador",
             "Detective explosivo",
             "As investigador",
             "P.I. Maestro",
@@ -345,33 +345,76 @@ class SdaCampaign(
     }
 
     fun restore(state: SdaCampaignState, content: SdaContent) {
+        // Build and validate everything first. Failed restoration must not corrupt a live session.
+        require(state.levelIndex in levels.indices && state.seed in 0..0xFFFFFFFFL) { "invalid campaign identity" }
+        val level = levels[state.levelIndex]
+        require(state.points >= 0 && state.completedObjects >= 0 &&
+            state.totalElapsed.isFinite() && state.totalElapsed >= 0f) { "invalid campaign counters" }
+        require(state.clockLimit == level.time) { "saved clock differs from level" }
+        val restoredClock = SdaClock(state.clockLimit, state.clockElapsed)
+        val restoredPhase = try { SdaCampaignPhase.valueOf(state.phase) }
+            catch (e: Exception) { throw IllegalArgumentException("invalid campaign phase", e) }
+        require(state.scenes.keys == state.countedSets.keys && state.scenes.keys.all { it in level.scenes }) { "invalid campaign scenes" }
+        val restoredScenes = state.scenes.mapValues { (name, sceneState) ->
+            val scene = content.loadScene("SCENE_${name.uppercase()}.MSL", seed = state.seed)
+            require(sceneState.activeSets.distinct().size == sceneState.activeSets.size &&
+                sceneState.activeSets.all { it in scene.targetSets } &&
+                sceneState.candidateSets.all { it in scene.targetSets } &&
+                sceneState.objects.keys == scene.objects.keys) { "invalid scene references" }
+            scene.restore(sceneState)
+            scene
+        }
+        for ((name, groups) in state.countedSets) {
+            val scene = restoredScenes.getValue(name)
+            require(groups.distinct().size == groups.size && groups.all { ids ->
+                ids in scene.targetSets && ids.all { scene.objects[it]?.motion?.removed == true } &&
+                    (scene.rows[ids]?.removed != false)
+            }) { "invalid completed objectives" }
+        }
+        require(state.completedObjects == state.countedSets.values.sumOf { it.size }) { "completed count differs from retired rows" }
+        val inScene = restoredPhase in listOf(SdaCampaignPhase.SCENE, SdaCampaignPhase.SCENE_COMPLETE,
+            SdaCampaignPhase.OBJECTS_COMPLETE) || (restoredPhase == SdaCampaignPhase.TIMEOUT && state.bonusGameState == null)
+        require(if (inScene) state.currentScene in restoredScenes else state.currentScene == null) { "invalid active scene" }
+        val completedPhase = restoredPhase in listOf(SdaCampaignPhase.OBJECTS_COMPLETE, SdaCampaignPhase.BONUS,
+            SdaCampaignPhase.LEVEL_COMPLETE, SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2,
+            SdaCampaignPhase.FINALE_3, SdaCampaignPhase.CAMPAIGN_COMPLETE)
+        require(if (completedPhase) state.completedObjects >= level.objects
+            else restoredPhase == SdaCampaignPhase.TIMEOUT || state.completedObjects < level.objects) { "invalid completion boundary" }
+        if (restoredPhase == SdaCampaignPhase.SCENE_COMPLETE)
+            require(restoredScenes.getValue(state.currentScene!!).batchRetired) { "unfinished completed scene" }
+        if (restoredPhase == SdaCampaignPhase.TIMEOUT) require(restoredClock.isExpired) { "invalid timeout" }
+        val finale = restoredPhase in listOf(SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2,
+            SdaCampaignPhase.FINALE_3, SdaCampaignPhase.CAMPAIGN_COMPLETE)
+        if (finale) require(state.levelIndex == levels.lastIndex) { "finale before last level" }
+        val restoredBonus = state.bonusGameState?.let {
+            if (finale || (restoredPhase == SdaCampaignPhase.TIMEOUT && it["kind"] == "master_riddle")) {
+                require(state.levelIndex == levels.lastIndex) { "finale before last level" }
+                SdaBonusLoader.restoreLegacyFinale(it, state.seed)
+            } else {
+                require(restoredPhase in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.LEVEL_COMPLETE,
+                    SdaCampaignPhase.TIMEOUT)) { "unexpected bonus checkpoint" }
+                SdaBonusLoader.restore(content, it, level.bonus, state.seed, level.bonusImage)
+            }
+        }
+        if (restoredPhase == SdaCampaignPhase.BONUS) require(restoredBonus != null && !restoredBonus.isSolved) { "invalid active bonus" }
+        if (restoredPhase == SdaCampaignPhase.LEVEL_COMPLETE && level.bonus.isNotEmpty())
+            require(restoredBonus?.isSolved == true) { "unfinished level bonus" }
+        if (finale && restoredPhase != SdaCampaignPhase.CAMPAIGN_COMPLETE)
+            require(restoredBonus is SdaMasterRiddleGame) { "missing legacy finale checkpoint" }
+        if (restoredPhase == SdaCampaignPhase.CAMPAIGN_COMPLETE)
+            require(restoredBonus == null) { "unexpected finished finale bonus" }
+
         levelIndex = state.levelIndex
         seed = state.seed
         points = state.points
-        phase = SdaCampaignPhase.valueOf(state.phase)
+        phase = restoredPhase
         currentSceneName = state.currentScene
         completedObjects = state.completedObjects
-        clock = SdaClock(limit = state.clockLimit)
-        clock.elapsed = state.clockElapsed
+        clock = restoredClock
         totalElapsed = state.totalElapsed
-
-        scenes.clear()
-        for ((name, scState) in state.scenes) {
-            val resName = "SCENE_${name.uppercase()}.MSL"
-            val sc = content.loadScene(resName, seed = seed)
-            sc.restore(scState)
-            scenes[name] = sc
-        }
-
+        scenes.clear(); scenes.putAll(restoredScenes)
         counted.clear()
-        for ((name, sets) in state.countedSets) {
-            counted[name] = sets.toMutableSet()
-        }
-
-        if (state.bonusGameState != null) {
-            val bgKind = state.bonusGameState["kind"] as? String
-            val bgRes = state.bonusGameState["resourceName"] as? String ?: currentLevel.bonus
-            bonusGame = SdaBonusLoader.load(content, bgRes, seed, currentLevel.bonusImage)
-        }
+        state.countedSets.forEach { (name, groups) -> counted[name] = groups.toMutableSet() }
+        bonusGame = restoredBonus
     }
 }
