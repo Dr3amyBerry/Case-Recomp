@@ -840,31 +840,32 @@ las definiciones XUI (`TILEROTGAME01.TRG`, `TILEGAME_01.TGL`, `WORDSEARCH01.WSG`
    - **Intercambio de fichas (`.tgl` / `tilegameobjects`):** cuadrícula de 6 filas × 6 columnas; selección y permutación de piezas hasta ordenación completa.
    - **Sopa de letras (`.wsg` / `wordsearchgametiles`):** matriz de 8 filas × 12 columnas; búsqueda y bloqueo de términos.
    - **Puzle de piezas (`.jsw` / `jswgamepuzzle`):** 24 piezas de mosaico colocadas en sus huecos correspondientes.
-   - **Recompensa original:** 25.000 puntos (`ID_YESWIN = "25000"`, `ID_BTN_SOLVEPUZZLE = "RESOLVER PUZLE"`).
+    - **Recompensa original:** 25.000 puntos por resolución natural (`ID_YESWIN = "25000"`).
+    - **Acción «Resolver puzle» (`0045b150.c`):** saltarse el minijuego mediante el botón «Resolver puzle» penaliza al jugador con **0 puntos** de recompensa (`uVar8 = -(uint)(cVar1 != '\0') & 25000`), mientras que la resolución interactiva natural concede los 25.000 puntos íntegros.
 
 2. **Flujo de finalización y transición de nivel (`campaign.py`):**
    - Al encontrar todos los objetos del nivel (`remaining == 0`), el estado pasa a `objects_complete`.
    - `start_bonus()` instancia el minijuego indicado en `level.bonus` y entra en fase `bonus`.
-   - `solve_bonus()` completa el minijuego, suma los 25.000 puntos y transiciona a `level_complete`.
+   - `solve_bonus()` resuelve el puzle sin otorgar puntos (0 pts), mientras `bonus_click()` suma los 25.000 puntos al completarlo de forma natural.
    - `level_summary()` calcula bonificación de velocidad (`speed_bonus = int(remaining_seconds) * 10`), tiempo transcurrido y rango de investigación (de `Sabueso novato` hasta `P.I. Maestro`).
    - `confirm_level_complete()` añade la bonificación, incrementa `total_elapsed`, avanza a `level_index + 1`, restablece el temporizador al tiempo del nuevo nivel (`level.time`), limpia contadores de escena y regresa al mapa del nuevo nivel con los puntos y el perfil intactos.
 
-3. **Último nivel y colofón (`Level 25`):**
+3. **Colofón final de tres fases (`Level 25` / `ENVS.MSE` / `00404220.c`):**
    - El nivel final de la campaña principal es el Nivel 25 (`clue="25"`, 90 objetos, 3120 s, 9 escenas, bonus `tilerotgame01.trg`).
-   - Al completar los 90 objetos y el minijuego final, `confirm_level_complete()` detecta `level_index == 24` y transiciona a `campaign_complete`, con rango `P.I. Maestro` (`ID_RANK15`), emulando `finaleendtotaldialog` / `gamefinish` (estado 4 en `00405080.c`).
-   - Todo el estado final se persiste y restaura verificablemente mediante JSON con hash de integridad.
+   - Al completar el bonus del Nivel 25, `confirm_level_complete()` activa la secuencia auténtica de desenlace de 3 fases:
+     - **Fase 1 (`FirstRiddleGame` / `finale_1`):** 8 adivinanzas de `STRINGS.TXT` (`@ID_RIDDLE_11` a `@ID_RIDDLE_18`) asociadas a los 8 objetos clave recogidos (`clock`, `slotarm`, `coin`, `cup`, `hourglass`, `card`, `lever`, `reader`).
+     - **Fase 2 (`SecondRiddleGame` / `finale_2`):** colocación de los 8 objetos en sus ranuras y mecanismos de la pared/báscula (`00451360.c`).
+     - **Fase 3 (`ThirdRiddleGame` / `finale_3`):** secuencia interactiva de la cerradura de la bóveda (tirar del brazo de la tragaperras, manecillas del reloj a las 9, palanca de corriente, moneda, escáner de huellas y teclado de código).
+   - Al resolver la Fase 3, la bóveda se abre revelando la sala del dinero (`FINALE_MONEYROOM.JPG`), transiciona a `campaign_complete` y corona al jugador como `P.I. Maestro`.
+   - Todas las fases del colofón admiten guardado, reanudación y serialización determinista.
 
 4. **Auditoría e interactividad jugable real:**
    - **Eliminación de fallbacks silenciosos:** `load_bonus_game` y `start_bonus` rechazan recursos inválidos o no soportados con `ValueError` explícito, sin sustituciones genéricas.
    - **Sopa de letras auténtica (`WordSearchGame`):** palabras leídas directamente de `WORDSEARCH.TXT` (`@ID_testAM1` .. `@ID_testAM7`); ajustado a las 6 etiquetas activas de la PDA (`wslabel0` a `wslabel5` en `ENVS.MSE`); selección real mediante dos clics (inicio y fin) en coordenadas de píxeles del canvas, validación de líneas rectas en 8 direcciones y rechazo de trayectorias no alineadas o palabras no coincidentes.
-   - **Rompecabezas con coordenadas reales (`JigsawGame`):** las 24 piezas de `JIGSAW01.JSW` validan proximidad a sus coordenadas destino `(x, y)` reales con tolerancia estricta de 25 píxeles; colocaciones fuera de posición son rechazadas; selección activa de piezas mediante `select_piece`.
+   - **Rompecabezas con coordenadas reales (`JigsawGame`):** las 24 piezas de `JIGSAW01.JSW` validan proximidad a sus coordenadas destino `(x, y)` reales con tolerancia estricta de 20 píxeles según `FUN_004382d0.c`; colocaciones fuera de posición son rechazadas; selección activa de piezas mediante `select_piece` obligatoria; se prohíbe colocar piezas haciendo clic directamente en el tablero sin pieza seleccionada.
    - **Rotación y permuta con coordenadas reales:** `click_pixel` mapea clics dentro del marco del tablero (172, 95/96) a celdas individuales y rechaza clics fuera del área interactiva; `TileSwapGame` soporta selección y permuta natural de fichas.
-   - **Recorridos jugables reales verificados de principio a fin:**
-     - **Nivel 1 (`TileRotGame`):** escenas $\rightarrow$ bonus de rotación resuelto celda a celda mediante `bonus_click` $\rightarrow$ cálculo de bonificación por velocidad $\rightarrow$ transición al Nivel 2 con guardado y restauración verificados (`test_level1_playable_progression_natural_solve_and_transition`).
-     - **Nivel 2 (`WordSearchGame`):** escenas $\rightarrow$ sopa de letras resuelta mediante dos clics por término en coordenadas de píxel $\rightarrow$ verificación de palabras auténticas $\rightarrow$ transición al Nivel 3 (`test_level2_playable_progression_wordsearch_solve_and_transition`).
-     - **Nivel 3 (`JigsawGame`):** escenas $\rightarrow$ 24 piezas de `JIGSAW01.JSW` colocadas con verificación geométrica de tolerancia $\rightarrow$ rechazo de posiciones erróneas $\rightarrow$ transición al Nivel 4 (`test_level3_playable_progression_jigsaw_solve_and_transition`).
-     - **Nivel 4 (`TileSwapGame`):** escenas $\rightarrow$ 36 fichas de `TILEGAME_01.TGL` ordenadas mediante permutas sucesivas por píxeles $\rightarrow$ transición al Nivel 5 (`test_level4_playable_progression_tileswap_solve_and_transition`).
-     - **Nivel 25 y colofón (`campaign_complete`):** 90 objetos $\rightarrow$ bonus de rotación resuelto naturalmente $\rightarrow$ transición a `campaign_complete` con rango `P.I. Maestro`, tiempo acumulado y conservación estricta de puntuaciones (`test_campaign_level25_finale_progression_and_completion`).
-   - Las 66 pruebas unitarias y el smoke test de campaña se ejecutan de forma determinista y satisfactoria.
+   - **Pruebas sin trampas de estado:** Nivel 1 se ejecuta de principio a fin interactuando con `session.click(x, y)` en píxeles alfa reales expuestos y avanzando el reloj para jubilación natural de filas, sin modificar atributos internos (`obj.found = True`).
+   - **Compatibilidad CI:** pruebas sintéticas añadidas (`test_synthetic_bonus_and_progression_without_private_dll`) que validan la suite sin requerir `Resources.dll` privado.
+   - Las 69 pruebas unitarias y el smoke test de campaña se ejecutan de forma determinista y satisfactoria.
 
 

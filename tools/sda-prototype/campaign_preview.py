@@ -83,10 +83,17 @@ def main():
         elif session.phase == "objects_complete":
             tk.Label(controls, text=f"Objetivos del nivel {session.level.clue} completados").pack(side=tk.LEFT)
             tk.Button(controls, text="Jugar bonus", command=start_bonus).pack(side=tk.LEFT)
-        elif session.phase == "bonus":
-            bonus_info = f"Bonus: {session.bonus_game.kind} ({session.level.bonus})" if session.bonus_game else "Bonus"
-            tk.Label(controls, text=bonus_info).pack(side=tk.LEFT)
-            tk.Button(controls, text="Resolver puzle (25.000 pts)", command=solve_bonus).pack(side=tk.LEFT)
+        elif session.phase in ("bonus", "finale_1", "finale_2", "finale_3"):
+            if session.phase == "bonus":
+                phase_info = f"Bonus: {session.bonus_game.kind} ({session.level.bonus})" if session.bonus_game else "Bonus"
+            elif session.phase == "finale_1":
+                phase_info = f"Colofón Fase 1 (8 Adivinanzas) - {session.bonus_game.current_riddle + 1}/8"
+            elif session.phase == "finale_2":
+                phase_info = f"Colofón Fase 2 (Mecanismos) - {len(session.bonus_game.placed_items)}/8"
+            else:
+                phase_info = f"Colofón Fase 3 (Cerradura de la Bóveda) - {len(session.bonus_game.completed_steps)}/6"
+            tk.Label(controls, text=phase_info).pack(side=tk.LEFT)
+            tk.Button(controls, text="Resolver puzle (0 pts)", command=solve_bonus).pack(side=tk.LEFT)
         elif session.phase == "level_complete":
             summary = session.level_summary()
             tk.Label(controls, text=f"Pista #{summary['clue']} encontrada | Bonif. tiempo: {summary['speed_bonus']}").pack(side=tk.LEFT)
@@ -174,7 +181,7 @@ def main():
             previous = session.phase
             session.advance(now - last)
             last = now
-            if session.phase == "bonus":
+            if session.phase in ("bonus", "finale_1", "finale_2", "finale_3"):
                 session.bonus_click(event.x, event.y)
             else:
                 session.click(event.x, event.y)
@@ -217,7 +224,7 @@ def main():
                 action = map_view.consume_activation()
                 if action:
                     enter(action["scene"])
-            elif session.phase == "bonus" and session.bonus_game is not None:
+            elif session.phase in ("bonus", "finale_1", "finale_2", "finale_3") and session.bonus_game is not None:
                 photo = ImageTk.PhotoImage(pda_view.render(session.bonus_game.render(), session))
                 canvas.itemconfigure(image_id, image=photo)
             elif session.scene is not None:

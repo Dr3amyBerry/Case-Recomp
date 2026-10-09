@@ -92,6 +92,12 @@ class BonusGame:
             return WordSearchGame.restore(state)
         elif kind == "jigsaw":
             return JigsawGame.restore(state)
+        elif kind == "firstriddle":
+            return FirstRiddleGame.restore(state)
+        elif kind == "secondriddle":
+            return SecondRiddleGame.restore(state)
+        elif kind == "thirdriddle":
+            return ThirdRiddleGame.restore(state)
         raise ValueError(f"Unknown bonus game kind in state: {kind}")
 
 
@@ -469,13 +475,16 @@ class JigsawGame(BonusGame):
         return False
 
     def place(self, piece_id, target_x, target_y):
-        """Place a piece onto the board with coordinate tolerance validation."""
+        """Place a piece onto the board with coordinate tolerance validation.
+
+        Boundary tolerance check derived from native FUN_004382d0.c slot hit-test:
+        piece center/boundary must align within 20px tolerance of authentic target slot.
+        """
         if piece_id not in self.pieces or piece_id in self.placed:
             return False
         true_x = self.pieces[piece_id]["x"]
         true_y = self.pieces[piece_id]["y"]
-        # Allow tolerance of 25 pixels around target coordinate
-        if abs(target_x - true_x) <= 25 and abs(target_y - true_y) <= 25:
+        if abs(target_x - true_x) <= 20 and abs(target_y - true_y) <= 20:
             self.placed.add(piece_id)
             if self.selected_piece == piece_id:
                 self.selected_piece = None
@@ -486,18 +495,28 @@ class JigsawGame(BonusGame):
     def click_pixel(self, x, y):
         """Handle canvas pixel click.
 
-        If a piece is selected, tests placement at canvas offset.
-        If no piece is selected, checks if an unplaced piece target matches (x, y) within tolerance.
+        Pieces must be selected first from the tray (x < BOARD_X) or via select_piece.
+        Clicking directly on the board without holding a piece is strictly rejected.
+        Auto-placement on empty slot clicks is forbidden.
         """
+        if x < BOARD_X:
+            # Clicked tray area: select unplaced piece by vertical slot
+            unplaced = [pid for pid in sorted(self.pieces.keys()) if pid not in self.placed]
+            tray_y = y - 88
+            if 0 <= tray_y < len(unplaced) * 32:
+                idx = tray_y // 32
+                if idx < len(unplaced):
+                    self.selected_piece = unplaced[idx]
+                    return True
+            return False
+
+        # Clicked on board area: requires selected piece
+        if self.selected_piece is None:
+            return False
+
         local_x = x - BOARD_X
         local_y = y - BOARD_Y_SWAP
-        if self.selected_piece is not None:
-            return self.place(self.selected_piece, local_x, local_y)
-        for pid in sorted(self.pieces.keys()):
-            if pid not in self.placed:
-                if self.place(pid, local_x, local_y):
-                    return True
-        return False
+        return self.place(self.selected_piece, local_x, local_y)
 
     def _check_solved(self):
         if len(self.placed) == len(self.pieces):
@@ -542,6 +561,282 @@ class JigsawGame(BonusGame):
                    seed=state["seed"], placed=state.get("placed"),
                    bonusimage=state.get("bonusimage", ""),
                    selected_piece=state.get("selected_piece"))
+        game.solved = bool(state["solved"])
+        game.points = int(state.get("points", BONUS_REWARD))
+        return game
+
+
+class FirstRiddleGame(BonusGame):
+    """Finale Phase 1 (firstriddle): 8 riddles from ENVS.MSE matching STRINGS.TXT.
+
+    Authentic riddle mappings from ENVS.MSE:
+      0: clock     (@ID_RIDDLE_11: "Dos manos y una esfera... apunta a las nueve") -> finale1clock
+      1: slotarm   (@ID_RIDDLE_12: "Tira de mí... Tu suerte futura...")            -> finale1slotarm
+      2: coin      (@ID_RIDDLE_13: "No tengo cuerpo sólo cara y cruz...")           -> finale1coin
+      3: cup       (@ID_RIDDLE_14: "Aunque tengo varias formas contengo un líquido") -> finale1cup
+      4: hourglass (@ID_RIDDLE_15: "Tengo dos cuerpos unidos en uno...")           -> finale1hourglass
+      5: card      (@ID_RIDDLE_16: "Visto de rojo o de negro...")                  -> finale1card
+      6: lever     (@ID_RIDDLE_17: "Muéveme de arriba a abajo...")                 -> finale1lever
+      7: reader    (@ID_RIDDLE_18: "¿Atascado en esta adivinanza?... tu huella...") -> finale1reader
+    """
+    RIDDLE_TARGETS = (
+        ("clock", "@ID_RIDDLE_11", "finale1clock"),
+        ("slotarm", "@ID_RIDDLE_12", "finale1slotarm"),
+        ("coin", "@ID_RIDDLE_13", "finale1coin"),
+        ("cup", "@ID_RIDDLE_14", "finale1cup"),
+        ("hourglass", "@ID_RIDDLE_15", "finale1hourglass"),
+        ("card", "@ID_RIDDLE_16", "finale1card"),
+        ("lever", "@ID_RIDDLE_17", "finale1lever"),
+        ("reader", "@ID_RIDDLE_18", "finale1reader"),
+    )
+
+    def __init__(self, resource_name="ENVS.MSE", seed=0, solved_riddles=None,
+                 selected_item=None, bonusimage=""):
+        super().__init__("firstriddle", resource_name, 1, 8, seed, bonusimage)
+        self.solved_riddles = set(solved_riddles) if solved_riddles is not None else set()
+        self.selected_item = selected_item
+        self._check_solved()
+
+    @property
+    def current_riddle(self):
+        return len(self.solved_riddles)
+
+    def select_item(self, item_name):
+        self.selected_item = item_name
+        return True
+
+    def click_pixel(self, x, y):
+        # Tray area is on the PDA (x < 144)
+        if x < 144:
+            items = [t[0] for t in self.RIDDLE_TARGETS if t[0] not in [self.RIDDLE_TARGETS[idx][0] for idx in self.solved_riddles]]
+            idx = (y - 88) // 32
+            if 0 <= idx < len(items):
+                self.selected_item = items[idx]
+                return True
+            return False
+
+        # Photo area (x >= 144): place selected item onto current riddle
+        if self.selected_item is None or self.is_solved():
+            return False
+
+        expected = self.RIDDLE_TARGETS[self.current_riddle][0]
+        if self.selected_item == expected:
+            self.solved_riddles.add(self.current_riddle)
+            self.selected_item = None
+            self._check_solved()
+            return True
+        else:
+            self.selected_item = None
+            return False
+
+    def _check_solved(self):
+        if len(self.solved_riddles) >= len(self.RIDDLE_TARGETS):
+            self.solved = True
+
+    def solve(self):
+        self.solved_riddles = set(range(len(self.RIDDLE_TARGETS)))
+        self.selected_item = None
+        self.solved = True
+
+    def render(self, base_image=None):
+        im = Image.new("RGBA", (800, 600), (28, 32, 42, 255))
+        draw = ImageDraw.Draw(im)
+        draw.rectangle([0, 0, 144, 600], fill=(20, 24, 32, 255), outline=(60, 70, 85, 255))
+        draw.text((10, 20), "PISTAS (PDA)", fill=(200, 220, 240, 255))
+        unsolved = [t[0] for idx, t in enumerate(self.RIDDLE_TARGETS) if idx not in self.solved_riddles]
+        for i, item in enumerate(unsolved):
+            iy = 88 + i * 32
+            is_sel = (self.selected_item == item)
+            border = (255, 230, 40, 255) if is_sel else (70, 85, 100, 255)
+            draw.rectangle([10, iy, 134, iy + 28], fill=(35, 42, 54, 255), outline=border)
+            draw.text((18, iy + 7), item, fill=border)
+        draw.rectangle([160, 40, 780, 560], fill=(15, 18, 24, 255), outline=(120, 140, 160, 255), width=2)
+        if not self.is_solved():
+            curr = self.current_riddle
+            riddle_id = self.RIDDLE_TARGETS[curr][1]
+            draw.text((180, 60), f"Adivinanza {curr + 1} de 8 ({riddle_id})", fill=(255, 215, 0, 255))
+            draw.text((180, 100), "Coloca el objeto correcto para resolverla", fill=(180, 200, 220, 255))
+        else:
+            draw.text((180, 60), "Todas las adivinanzas resueltas!", fill=(60, 220, 90, 255))
+        return im
+
+    def state(self):
+        s = super().state()
+        s["solved_riddles"] = sorted(self.solved_riddles)
+        s["selected_item"] = self.selected_item
+        return s
+
+    @classmethod
+    def restore(cls, state):
+        game = cls(state["resource_name"], state["seed"],
+                   solved_riddles=state.get("solved_riddles"),
+                   selected_item=state.get("selected_item"),
+                   bonusimage=state.get("bonusimage", ""))
+        game.solved = bool(state["solved"])
+        game.points = int(state.get("points", BONUS_REWARD))
+        return game
+
+
+class SecondRiddleGame(BonusGame):
+    """Finale Phase 2 (secondriddle): Place 8 clue items into wall/scale mechanisms (00451360.c)."""
+    MECHANISMS = {
+        "cup": (240, 324),        # Left tray of scale
+        "hourglass": (350, 200),  # Wall bracket
+        "slotarm": (550, 280),    # Slot arm socket
+        "clock": (200, 50),       # Top wall clock
+        "lever": (160, 400),      # Power switch
+        "coin": (480, 324),       # Right tray of scale
+        "card": (620, 350),       # Keycard slot
+        "reader": (420, 420),     # Scanner
+    }
+
+    def __init__(self, resource_name="ENVS.MSE", seed=0, placed_items=None,
+                 selected_item=None, bonusimage=""):
+        super().__init__("secondriddle", resource_name, 1, 8, seed, bonusimage)
+        self.placed_items = set(placed_items) if placed_items is not None else set()
+        self.selected_item = selected_item
+        self._check_solved()
+
+    def select_item(self, item_name):
+        if item_name in self.MECHANISMS and item_name not in self.placed_items:
+            self.selected_item = item_name
+            return True
+        return False
+
+    def place_item(self, item_name, x, y):
+        if item_name not in self.MECHANISMS or item_name in self.placed_items:
+            return False
+        tx, ty = self.MECHANISMS[item_name]
+        if abs(x - tx) <= 30 and abs(y - ty) <= 30:
+            self.placed_items.add(item_name)
+            if self.selected_item == item_name:
+                self.selected_item = None
+            self._check_solved()
+            return True
+        return False
+
+    def click_pixel(self, x, y):
+        if x < 144:
+            unplaced = [k for k in sorted(self.MECHANISMS.keys()) if k not in self.placed_items]
+            idx = (y - 88) // 32
+            if 0 <= idx < len(unplaced):
+                self.selected_item = unplaced[idx]
+                return True
+            return False
+
+        if self.selected_item is None:
+            return False
+        return self.place_item(self.selected_item, x, y)
+
+    def _check_solved(self):
+        if len(self.placed_items) >= len(self.MECHANISMS):
+            self.solved = True
+
+    def solve(self):
+        self.placed_items = set(self.MECHANISMS.keys())
+        self.selected_item = None
+        self.solved = True
+
+    def render(self, base_image=None):
+        im = Image.new("RGBA", (800, 600), (28, 32, 42, 255))
+        draw = ImageDraw.Draw(im)
+        draw.rectangle([0, 0, 144, 600], fill=(20, 24, 32, 255), outline=(60, 70, 85, 255))
+        draw.text((10, 20), "OBJETOS", fill=(200, 220, 240, 255))
+        unplaced = [k for k in sorted(self.MECHANISMS.keys()) if k not in self.placed_items]
+        for i, item in enumerate(unplaced):
+            iy = 88 + i * 32
+            is_sel = (self.selected_item == item)
+            border = (255, 230, 40, 255) if is_sel else (70, 85, 100, 255)
+            draw.rectangle([10, iy, 134, iy + 28], fill=(35, 42, 54, 255), outline=border)
+            draw.text((18, iy + 7), item, fill=border)
+        draw.rectangle([160, 40, 780, 560], fill=(15, 18, 24, 255), outline=(120, 140, 160, 255), width=2)
+        for name, (tx, ty) in self.MECHANISMS.items():
+            placed = name in self.placed_items
+            color = (60, 220, 90, 255) if placed else (160, 170, 180, 255)
+            draw.rectangle([tx - 25, ty - 25, tx + 25, ty + 25], outline=color, width=2)
+            draw.text((tx - 20, ty - 8), name, fill=color)
+        draw.text((180, 530), f"Mecanismos activados: {len(self.placed_items)} / {len(self.MECHANISMS)}", fill=(180, 220, 140, 255))
+        return im
+
+    def state(self):
+        s = super().state()
+        s["placed_items"] = sorted(self.placed_items)
+        s["selected_item"] = self.selected_item
+        return s
+
+    @classmethod
+    def restore(cls, state):
+        game = cls(state["resource_name"], state["seed"],
+                   placed_items=state.get("placed_items"),
+                   selected_item=state.get("selected_item"),
+                   bonusimage=state.get("bonusimage", ""))
+        game.solved = bool(state["solved"])
+        game.points = int(state.get("points", BONUS_REWARD))
+        return game
+
+
+class ThirdRiddleGame(BonusGame):
+    """Finale Phase 3 (thirdriddle): Interactive vault lock mechanisms (ENVS.MSE)."""
+    STEPS = (
+        ("pull_slot_arm", 550, 280),
+        ("set_clock", 200, 50),
+        ("switch_lever", 160, 400),
+        ("insert_coin", 480, 324),
+        ("scan_fingerprint", 420, 420),
+        ("enter_code", 300, 300),
+    )
+
+    def __init__(self, resource_name="ENVS.MSE", seed=0, completed_steps=None, bonusimage=""):
+        super().__init__("thirdriddle", resource_name, 1, 6, seed, bonusimage)
+        self.completed_steps = list(completed_steps) if completed_steps is not None else []
+        self._check_solved()
+
+    def interact_step(self, step_name):
+        if step_name not in [s[0] for s in self.STEPS]:
+            return False
+        if step_name not in self.completed_steps:
+            self.completed_steps.append(step_name)
+            self._check_solved()
+            return True
+        return False
+
+    def click_pixel(self, x, y):
+        for name, sx, sy in self.STEPS:
+            if abs(x - sx) <= 40 and abs(y - sy) <= 40:
+                return self.interact_step(name)
+        return False
+
+    def _check_solved(self):
+        if len(self.completed_steps) >= len(self.STEPS):
+            self.solved = True
+
+    def solve(self):
+        self.completed_steps = [s[0] for s in self.STEPS]
+        self.solved = True
+
+    def render(self, base_image=None):
+        im = Image.new("RGBA", (800, 600), (28, 32, 42, 255))
+        draw = ImageDraw.Draw(im)
+        draw.rectangle([100, 30, 750, 570], fill=(18, 22, 30, 255), outline=(120, 140, 160, 255), width=2)
+        draw.text((120, 45), "BÓVEDA PRINCIPAL - CERRADURA FINAL", fill=(255, 215, 0, 255))
+        for name, sx, sy in self.STEPS:
+            done = name in self.completed_steps
+            color = (60, 220, 90, 255) if done else (200, 140, 40, 255)
+            draw.rectangle([sx - 35, sy - 35, sx + 35, sy + 35], fill=(30, 36, 48, 255), outline=color, width=2)
+            draw.text((sx - 30, sy - 8), name, fill=color)
+        draw.text((120, 540), f"Pasos completados: {len(self.completed_steps)} / {len(self.STEPS)}", fill=(180, 220, 140, 255))
+        return im
+
+    def state(self):
+        s = super().state()
+        s["completed_steps"] = list(self.completed_steps)
+        return s
+
+    @classmethod
+    def restore(cls, state):
+        game = cls(state["resource_name"], state["seed"],
+                   completed_steps=state.get("completed_steps"),
+                   bonusimage=state.get("bonusimage", ""))
         game.solved = bool(state["solved"])
         game.points = int(state.get("points", BONUS_REWARD))
         return game

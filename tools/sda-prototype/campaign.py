@@ -7,7 +7,10 @@ from dataclasses import asdict, dataclass
 from clock import LevelClock
 from runtime import Scene, parse_xui, local_name
 from progress import snapshot as scene_snapshot, restore as scene_restore, number, boolean, resource_hash
-from bonus import load_bonus_game, BonusGame, TileRotGame
+from bonus import (
+    load_bonus_game, BonusGame, TileRotGame,
+    FirstRiddleGame, SecondRiddleGame, ThirdRiddleGame, BONUS_REWARD
+)
 
 SCHEMA = "case-recomp-sda-campaign/1"
 
@@ -145,7 +148,7 @@ class Session:
                 self.phase = "timeout"
             elif self._scene_retired():
                 self.phase = "scene_complete"
-        elif self.phase == "bonus":
+        elif self.phase in ("bonus", "finale_1", "finale_2", "finale_3"):
             self.events.extend(self.clock.advance(seconds))
             if "timeout" in self.events:
                 self.phase = "timeout"
@@ -171,22 +174,48 @@ class Session:
 
     def bonus_click(self, x, y):
         """Interact with active bonus game via canvas pixel coordinates."""
-        if self.phase != "bonus" or self.bonus_game is None:
+        if self.phase not in ("bonus", "finale_1", "finale_2", "finale_3") or self.bonus_game is None:
             return {"kind": "inactive"}
         moved = self.bonus_game.click_pixel(x, y)
         if self.bonus_game.is_solved():
             self.points += self.bonus_game.points
-            self.phase = "level_complete"
-            return {"kind": "solved", "bonus": self.bonus_game.kind, "points": self.bonus_game.points}
+            if self.phase == "bonus":
+                self.phase = "level_complete"
+                return {"kind": "solved", "bonus": self.bonus_game.kind, "points": self.bonus_game.points}
+            elif self.phase == "finale_1":
+                self.phase = "finale_2"
+                self.bonus_game = SecondRiddleGame(seed=self.seed)
+                return {"kind": "solved", "phase": "finale_2", "points": BONUS_REWARD}
+            elif self.phase == "finale_2":
+                self.phase = "finale_3"
+                self.bonus_game = ThirdRiddleGame(seed=self.seed)
+                return {"kind": "solved", "phase": "finale_3", "points": BONUS_REWARD}
+            elif self.phase == "finale_3":
+                self.phase = "campaign_complete"
+                self.bonus_game = None
+                return {"kind": "solved", "phase": "campaign_complete", "points": BONUS_REWARD}
         return {"kind": "moved" if moved else "miss"}
 
     def solve_bonus(self):
-        """Native action matching 'Resolver puzle' dialog button."""
-        if self.phase != "bonus" or self.bonus_game is None:
+        """Native action matching 'Resolver puzle' dialog button (0045b150.c).
+
+        Skipping forfeits the 25,000 bonus reward (0 points awarded).
+        """
+        if self.phase not in ("bonus", "finale_1", "finale_2", "finale_3") or self.bonus_game is None:
             raise ValueError("not in an active bonus round")
         self.bonus_game.solve()
-        self.points += self.bonus_game.points
-        self.phase = "level_complete"
+        self.bonus_game.points = 0
+        if self.phase == "bonus":
+            self.phase = "level_complete"
+        elif self.phase == "finale_1":
+            self.phase = "finale_2"
+            self.bonus_game = SecondRiddleGame(seed=self.seed)
+        elif self.phase == "finale_2":
+            self.phase = "finale_3"
+            self.bonus_game = ThirdRiddleGame(seed=self.seed)
+        elif self.phase == "finale_3":
+            self.phase = "campaign_complete"
+            self.bonus_game = None
 
     def complete_bonus(self):
         return self.solve_bonus()
@@ -213,9 +242,10 @@ class Session:
         self.total_elapsed += self.clock.elapsed
 
         if self.level_index >= len(self.levels) - 1:
-            self.phase = "campaign_complete"
+            # Reached Level 25 completion: transition to authentic 3-stage Master Riddle finale
+            self.phase = "finale_1"
             self.current = None
-            self.bonus_game = None
+            self.bonus_game = FirstRiddleGame(seed=self.seed)
         else:
             self.level_index += 1
             self.level = self.levels[self.level_index]
@@ -255,7 +285,11 @@ class Session:
             raise ValueError("saved clock differs from original level")
         value.clock = LevelClock(c["limit"], number(c["elapsed"], low=0), boolean(c["paused"]))
         value.phase, value.current = state["phase"], state["current"]
-        valid_phases = ("map", "scene", "scene_complete", "objects_complete", "bonus", "level_complete", "campaign_complete", "timeout")
+        valid_phases = (
+            "map", "scene", "scene_complete", "objects_complete", "bonus",
+            "level_complete", "campaign_complete", "timeout",
+            "finale_1", "finale_2", "finale_3"
+        )
         if value.phase not in valid_phases:
             raise ValueError("invalid campaign phase")
         if set(state["scenes"]) != set(state["counted"]) or not set(state["scenes"]).issubset(value.level.scenes):
@@ -273,12 +307,12 @@ class Session:
             value.counted[name] = set(ids)
         if value.completed != sum(len(ids) for ids in value.counted.values()):
             raise ValueError("completed count differs from scene events")
-        if value.phase in ("map", "bonus", "level_complete", "campaign_complete"):
+        if value.phase in ("map", "bonus", "level_complete", "campaign_complete", "finale_1", "finale_2", "finale_3"):
             if value.current is not None:
                 raise ValueError("invalid active campaign scene")
         elif value.current not in value.scenes:
             raise ValueError("invalid active campaign scene")
-        if value.phase in ("objects_complete", "bonus", "level_complete", "campaign_complete"):
+        if value.phase in ("objects_complete", "bonus", "level_complete", "campaign_complete", "finale_1", "finale_2", "finale_3"):
             if value.remaining != 0:
                 raise ValueError("inconsistent completion boundary")
         elif value.remaining == 0:

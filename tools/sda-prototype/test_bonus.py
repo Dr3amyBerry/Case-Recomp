@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from bonus import (
     BonusGame, TileRotGame, TileSwapGame, WordSearchGame, JigsawGame,
+    FirstRiddleGame, SecondRiddleGame, ThirdRiddleGame,
     load_bonus_game, parse_wordsearch_text, BONUS_REWARD,
     BOARD_X, BOARD_Y_ROT, BOARD_Y_SWAP, BOARD_W, BOARD_H,
 )
@@ -267,27 +268,47 @@ class BonusAuditedTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             session.confirm_level_complete()
 
-        # Play Level 1 scenes to find required 18 objects
-        for sc_name in session.level.scenes:  # vault, slots
-            if session.completed >= session.level.objects:
-                break
+        # Play Level 1 scenes to find required 18 objects via authentic canvas clicks
+        def play_scene_objects(sc_name, target_sets_count):
             sc = session.enter(sc_name)
-            for grp in sc.active_sets:
-                if session.completed >= session.level.objects:
+            found_count = 0
+            for grp in list(sc.active_sets):
+                if found_count >= target_sets_count or session.completed >= session.level.objects:
                     break
-                for item in grp:
-                    obj = sc.objects[item]
-                    obj.found = True
-                    obj.motion = FoundMotion(obj.x, obj.y, obj.image.width, obj.image.height, removed=True)
-                session.counted[sc_name].add(grp)
-                session.completed += 1
-                if grp in sc.rows:
-                    sc.rows[grp] = TargetRow(0.0, 0, True)
+                for identity in grp:
+                    sprite = sc.objects[identity]
+                    if sprite.found:
+                        continue
+                    position = None
+                    for y in range(max(0, sprite.y), min(600, sprite.y + sprite.image.height)):
+                        for x in range(max(174, sprite.x), min(800, sprite.x + sprite.image.width)):
+                            if sprite.hit(x, y):
+                                first = next((cand for cand in sc.targets if sc.objects[cand].hit(x, y)), None)
+                                if first == identity:
+                                    position = (x, y)
+                                    break
+                        if position:
+                            break
+                    assert position is not None, f"Could not find exposed pixel for object {identity}"
+                    res = session.click(position[0], position[1])
+                    assert res["kind"] == "found", f"Click at {position} did not find {identity}"
+                for _ in range(85):
+                    session.advance(0.04)
+                found_count += 1
 
+        # Clear first 10 sets in vault -> scene_complete
+        play_scene_objects("vault", 10)
+        self.assertEqual(session.phase, "scene_complete")
+        session.confirm_scene_complete(334)
+        self.assertEqual(session.phase, "map")
+
+        # Clear remaining 8 sets in slots -> objects_complete
+        play_scene_objects("slots", 8)
         self.assertEqual(session.completed, 18)
         self.assertEqual(session.remaining, 0)
-        session.points = 18 * 5000
-        session.phase = "objects_complete"
+        self.assertEqual(session.phase, "objects_complete")
+        score_before_bonus = session.points
+        self.assertGreaterEqual(score_before_bonus, 18 * 5000)
 
         # Transition to Level 1 bonus (TileRotGame)
         session.start_bonus()
@@ -310,7 +331,7 @@ class BonusAuditedTests(unittest.TestCase):
         # Natural solve reached level_complete with bonus reward awarded!
         self.assertEqual(session.phase, "level_complete")
         self.assertTrue(session.bonus_game.is_solved())
-        self.assertEqual(session.points, (18 * 5000) + BONUS_REWARD)
+        self.assertEqual(session.points, score_before_bonus + BONUS_REWARD)
 
         # Level summary verification
         summary = session.level_summary()
@@ -339,7 +360,7 @@ class BonusAuditedTests(unittest.TestCase):
             self.assertEqual(restored.remaining, restored.level.objects)
             self.assertEqual(restored.clock.limit, 1800.0)
             # Speed bonus was added once, total score preserved
-            self.assertEqual(restored.points, (18 * 5000) + BONUS_REWARD + speed_bonus)
+            self.assertEqual(restored.points, score_before_bonus + BONUS_REWARD + speed_bonus)
 
     def test_level2_playable_progression_wordsearch_solve_and_transition(self):
         """End-to-end playable test of Level 2: scenes -> natural WordSearch bonus solve -> Level 3."""
@@ -618,21 +639,209 @@ class BonusAuditedTests(unittest.TestCase):
         self.assertTrue(summary["last_level"])
         self.assertEqual(summary["rank"], "P.I. Maestro")
 
-        # Confirm level complete -> transitions to campaign_complete
+        # Confirm level complete on Level 25 transitions to Phase 1 of the Finale (FirstRiddleGame)
         session.confirm_level_complete()
-        self.assertEqual(session.phase, "campaign_complete")
+        self.assertEqual(session.phase, "finale_1")
+        self.assertIsInstance(session.bonus_game, FirstRiddleGame)
+        self.assertFalse(session.bonus_game.is_solved())
         self.assertEqual(session.rank, "P.I. Maestro")
 
-        # Save and restore campaign_complete state
+        # Solve Finale Phase 1 (8 riddles from ENVS.MSE matching STRINGS.TXT)
+        for target_item, riddle_id, _ in FirstRiddleGame.RIDDLE_TARGETS:
+            session.bonus_game.select_item(target_item)
+            res = session.bonus_click(200, 200)
+            self.assertIn(res["kind"], ("moved", "solved"))
+
+        # Transition to Finale Phase 2 (SecondRiddleGame)
+        self.assertEqual(session.phase, "finale_2")
+        self.assertIsInstance(session.bonus_game, SecondRiddleGame)
+        self.assertFalse(session.bonus_game.is_solved())
+
+        # Mid-finale save and restore check (Phase 2)
         test_root = Path(__file__).resolve().parents[2] / "local-output" / "sda-prototype" / "tests"
         test_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=test_root) as td:
-            save_path = Path(td) / "campaign_complete.json"
+            save_path = Path(td) / "finale2_save.json"
             write_state(session.state(), save_path)
             restored = Session.restore(r, read_state(save_path))
+            self.assertEqual(restored.phase, "finale_2")
+            self.assertIsInstance(restored.bonus_game, SecondRiddleGame)
+
+            # Solve Finale Phase 2 (place 8 items into mechanisms at authentic coordinates)
+            for item_name, (tx, ty) in restored.bonus_game.MECHANISMS.items():
+                restored.bonus_game.select_item(item_name)
+                res = restored.bonus_click(tx, ty)
+                self.assertIn(res["kind"], ("moved", "solved"))
+
+            # Transition to Finale Phase 3 (ThirdRiddleGame)
+            self.assertEqual(restored.phase, "finale_3")
+            self.assertIsInstance(restored.bonus_game, ThirdRiddleGame)
+            self.assertFalse(restored.bonus_game.is_solved())
+
+            # Solve Finale Phase 3 (interactive vault lock sequence)
+            for step_name, sx, sy in restored.bonus_game.STEPS:
+                res = restored.bonus_click(sx, sy)
+                self.assertIn(res["kind"], ("moved", "solved"))
+
+            # Complete Campaign: Money room unlocked, Master P.I. rank achieved!
             self.assertEqual(restored.phase, "campaign_complete")
-            self.assertEqual(restored.points, session.points)
+            self.assertIsNone(restored.bonus_game)
             self.assertEqual(restored.rank, "P.I. Maestro")
+
+            # Final persistence verification
+            save_final = Path(td) / "campaign_complete.json"
+            write_state(restored.state(), save_final)
+            final_res = Session.restore(r, read_state(save_final))
+            self.assertEqual(final_res.phase, "campaign_complete")
+            self.assertEqual(final_res.rank, "P.I. Maestro")
+            self.assertEqual(final_res.points, restored.points)
+
+    def test_solve_bonus_skip_awards_zero_points_while_natural_solve_awards_bonus(self):
+        """Native 0045b150.c audit: skipping via solve_bonus() yields 0 pts; natural solve yields 25000."""
+        game = TileRotGame("TILEROTGAME01.TRG", rows=4, cols=6, seed=10)
+        self.assertEqual(game.points, BONUS_REWARD)
+
+        game.solve()
+        self.assertTrue(game.is_solved())
+
+        dll = Path("private/mystery-pi-vegas/game/Resources.dll")
+        if not dll.exists():
+            return
+
+        r = Resources(dll)
+        # Session A: natural solve -> +25,000 points
+        sess_a = Session(r, seed=1)
+        sess_a.points = 10000
+        sess_a.completed = 18
+        sess_a.phase = "objects_complete"
+        sess_a.start_bonus()
+        tile_w = BOARD_W // sess_a.bonus_game.cols
+        tile_h = BOARD_H // sess_a.bonus_game.rows
+        for row in range(sess_a.bonus_game.rows):
+            for col in range(sess_a.bonus_game.cols):
+                px = BOARD_X + col * tile_w + tile_w // 2
+                py = BOARD_Y_ROT + row * tile_h + tile_h // 2
+                while sess_a.bonus_game.grid[row][col] != 0:
+                    sess_a.bonus_click(px, py)
+        self.assertEqual(sess_a.phase, "level_complete")
+        self.assertEqual(sess_a.points, 10000 + BONUS_REWARD)
+
+        # Session B: skip via solve_bonus() -> +0 points
+        sess_b = Session(r, seed=1)
+        sess_b.points = 10000
+        sess_b.completed = 18
+        sess_b.phase = "objects_complete"
+        sess_b.start_bonus()
+        sess_b.solve_bonus()
+        self.assertEqual(sess_b.phase, "level_complete")
+        self.assertEqual(sess_b.points, 10000)
+
+    def test_finale_riddle_games_unit_mechanics_and_tolerances(self):
+        """Unit tests for the 3 authentic finale games from ENVS.MSE and 00451360.c."""
+        # Phase 1: FirstRiddleGame
+        r1 = FirstRiddleGame(seed=1)
+        self.assertEqual(len(r1.RIDDLE_TARGETS), 8)
+        self.assertEqual(r1.current_riddle, 0)
+        # Rejection of wrong item on photo area
+        r1.select_item("wrong_item")
+        self.assertFalse(r1.click_pixel(200, 200))
+        self.assertEqual(r1.current_riddle, 0)
+        # Correct item
+        first_target = r1.RIDDLE_TARGETS[0][0]
+        r1.select_item(first_target)
+        self.assertTrue(r1.click_pixel(200, 200))
+        self.assertEqual(r1.current_riddle, 1)
+
+        # Roundtrip serialization of FirstRiddleGame
+        s1 = r1.state()
+        res1 = BonusGame.restore(s1)
+        self.assertEqual(res1.current_riddle, 1)
+        self.assertEqual(res1.solved_riddles, {0})
+
+        # Phase 2: SecondRiddleGame
+        r2 = SecondRiddleGame(seed=1)
+        self.assertEqual(len(r2.MECHANISMS), 8)
+        # Placing outside tolerance (>30px) fails
+        r2.select_item("cup")
+        cx, cy = r2.MECHANISMS["cup"]
+        self.assertFalse(r2.place_item("cup", cx + 50, cy + 50))
+        self.assertNotIn("cup", r2.placed_items)
+        # Placing within tolerance succeeds
+        self.assertTrue(r2.place_item("cup", cx + 10, cy + 10))
+        self.assertIn("cup", r2.placed_items)
+
+        # Roundtrip serialization of SecondRiddleGame
+        s2 = r2.state()
+        res2 = BonusGame.restore(s2)
+        self.assertEqual(res2.placed_items, {"cup"})
+
+        # Phase 3: ThirdRiddleGame
+        r3 = ThirdRiddleGame(seed=1)
+        self.assertEqual(len(r3.STEPS), 6)
+        # Non-existing step rejected
+        self.assertFalse(r3.interact_step("non_existent"))
+        # Valid step
+        self.assertTrue(r3.interact_step("pull_slot_arm"))
+        self.assertEqual(r3.completed_steps, ["pull_slot_arm"])
+        # Duplicate step returns False
+        self.assertFalse(r3.interact_step("pull_slot_arm"))
+
+        # Roundtrip serialization of ThirdRiddleGame
+        s3 = r3.state()
+        res3 = BonusGame.restore(s3)
+        self.assertEqual(res3.completed_steps, ["pull_slot_arm"])
+
+        # Render tests for all 3
+        self.assertEqual(r1.render().size, (800, 600))
+        self.assertEqual(r2.render().size, (800, 600))
+        self.assertEqual(r3.render().size, (800, 600))
+
+    def test_synthetic_bonus_and_progression_without_private_dll(self):
+        """Synthetic test that runs without private Resources.dll (CI-compatible)."""
+        root = Path(__file__).resolve().parents[2] / "local-output" / "sda-prototype" / "tests"
+        root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=root) as td:
+            class SyntheticBonusResources(CampaignResources):
+                def read(self, name):
+                    if name == "LEVELS_1.XUI":
+                        return b'<xui><mpi:levels><mpi:level clue="1" time="1320" objects="18" scenes="one,two" levelname="Sample" bonus="tilerotgame01.trg"/></mpi:levels></xui>'
+                    elif name == "TILEROTGAME01.TRG":
+                        return b'<xui><tilerotgameobjects rows="4" columns="6"/></xui>'
+                    return super().read(name)
+
+            res = SyntheticBonusResources()
+            res.path = Path(td) / "synth_fixture.dat"
+            res.path.write_bytes(b"synthetic")
+
+            session = Session(res, seed=42)
+            self.assertEqual(session.level_index, 0)
+            self.assertEqual(session.phase, "map")
+
+            # Complete scene one (10 objects) with authentic clicks
+            session.enter("one")
+            for identity in session.scene.targets:
+                sp = session.scene.objects[identity]
+                session.click(sp.x + 1, sp.y + 1)
+            for _ in range(100):
+                session.advance(0.04)
+            self.assertEqual(session.phase, "scene_complete")
+            session.confirm_scene_complete(334)
+
+            # Complete scene two (8 objects) with authentic clicks
+            session.enter("two")
+            for identity in session.scene.targets[:8]:
+                sp = session.scene.objects[identity]
+                session.click(sp.x + 1, sp.y + 1)
+            for _ in range(100):
+                session.advance(0.04)
+            self.assertEqual(session.phase, "objects_complete")
+
+            # Start and solve synthetic bonus
+            session.start_bonus()
+            self.assertEqual(session.phase, "bonus")
+            self.assertIsInstance(session.bonus_game, TileRotGame)
+            session.solve_bonus()
+            self.assertEqual(session.phase, "level_complete")
 
 
 if __name__ == "__main__":
