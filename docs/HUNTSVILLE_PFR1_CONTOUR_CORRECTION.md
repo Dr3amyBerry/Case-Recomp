@@ -109,3 +109,36 @@ punto fijo/hinting y revisión visual/autorización humana. Este experimento per
 revisar la corrección sin alterar la referencia aprobada.
 
 Referencia de la APK experimental 0.2: SHA-256 `db66c1c41474f482b275352c517924e98aa0b1a68c97cee16f86d7b04ca33922`.
+
+## Dos builds jugables para comparación (2026-10-08)
+
+El usuario aclaró que quería dos versiones del **juego**, no dos ventanas del
+laboratorio de glifos. Esa petición autoriza las APK experimentales separadas;
+no constituye aprobación del nuevo renderer para la build de referencia.
+
+Se prepararon dos copias privadas del proyecto Android mediante
+`tools/font-experiment/prepare_game_comparison.py`. La APK Android conserva el
+renderer actual; la APK Tekton carga los OTF corregidos normal/itálica solo para
+caras `tekto`, con escala nominal de tamaño/anchura. Las demás caras mantienen
+su ruta actual. El ajuste de cajas y el paso de línea se conservan para esta prueba;
+no se han vuelto a calibrar posiciones o métricas. Los fuentes del motor y el
+archivo de perfil revisión 6 son idénticos en ambas copias y el proyecto principal
+no se modifica.
+
+Ambas compilaron, se instalaron y están abiertas en WSA con títulos distintos:
+`Huntsville - Android experimental` y `Huntsville - Tekton experimental`.
+Se importó el mismo `private/huntsville/huntsville-m3/huntsville.director.zip`
+por la ruta ADB existente. Se comprobó visualmente el caso 1 en las dos ventanas
+con texto Android/Tekton dentro de la escena del juego; sin errores AndroidRuntime
+observados. La captura conservó foco y puntero.
+
+La revisión automática rechazó exportar partidas/preferencias de la app aprobada.
+No se efectuó esa copia: cada experimento usa sus propios datos. Los paquetes son
+`org.rigorcore.caserecomp.huntsville.androidfonts.debug` y
+`org.rigorcore.caserecomp.huntsville.tektonfonts.debug`; no sustituyen la app aprobada.
+
+Artefactos privados en `local-output/huntsville-playable-font-comparison-2026-10-08/`:
+`huntsville-android-experimental-debug.apk`,
+`huntsville-tekton-experimental-debug.apk`, `android-game.png`, `tekton-game.png`
+y `reference.json` con hashes. Las dos APK aprobadas conservan sus hashes anteriores.
+La revisión visual humana y la decisión de adoptar Tekton siguen pendientes.

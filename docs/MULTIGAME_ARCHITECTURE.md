@@ -178,3 +178,9 @@ normal/itálica está disponible en el laboratorio independiente. Persisten pequ
 diferencias de punto fijo en compuestos; la adopción en Huntsville sigue pendiente.
 Motor, perfil y APK aprobada intactos. Véase
 [la comparación de contornos](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
+
+La comparación PFR1 dispone ahora de **dos APK jugables experimentales de Huntsville**,
+una Android y otra Tekton, con paquetes y datos propios. Se generan en copias privadas;
+no se cambian el motor, el perfil ni la APK aprobada. La incorporación definitiva
+sigue pendiente de revisión humana. Véase
+[la prueba de contornos y builds jugables](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).

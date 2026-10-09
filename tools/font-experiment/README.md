@@ -104,3 +104,26 @@ with reported differences does not assert bit-exact native equivalence.
 The image draws three outline sources directly with Matplotlib/Agg and rasterizes
 the final CFF with Pillow/FreeType. FreeType 2.13.3 rejected all six original PFR1
 payloads; it is not an independent original PFR1 decoder.
+
+## Two isolated playable Huntsville builds
+
+`prepare_game_comparison.py` creates two private copies of the Android project.
+It never edits the production player or the approved profile. The Android copy
+keeps the existing text renderer. Only the Tekton copy loads the corrected normal
+and italic private OTFs for face names containing `tekto`, using nominal size/width
+scales; other faces, box fitting, line pitch and the profile remain unchanged.
+
+```powershell
+python tools/font-experiment/prepare_game_comparison.py --output <new-private-output-directory> --fonts <private-directory-with-two-corrected-OTFs>
+gradle -p <new-private-output-directory>/android --no-daemon assembleDebug
+gradle -p <new-private-output-directory>/tekton --no-daemon assembleDebug
+```
+
+The APKs use separate packages:
+`org.rigorcore.caserecomp.huntsville.androidfonts.debug` and
+`org.rigorcore.caserecomp.huntsville.tektonfonts.debug`. Both have their own imports
+and saves. Their debug-only Director activity is exported for the existing ADB
+import/play route. Nothing is adopted in the approved game. The copied project
+includes the existing local legacy `DirectorAndroidPorts.kt`, which was already
+present in the approved build; this script does not stage it in the repository.
+Keep generated projects, APKs and recovered font assets private.
