@@ -482,3 +482,68 @@ El mapa actualizado tiene 112 raíces revisadas, 1.747 nodos y 5.822 aristas
 directas; continúa sin cierre de llamadas indirectas. Huntsville, Director y las
 APK aprobadas permanecen intactos. El objetivo sigue activo por las rutas y reglas
 nativas pendientes y la comparación diferencial todavía no realizada.
+
+
+### Selección de escena sobre las tarjetas recuperadas del mapa
+
+El export estático `map-button-slice` descubrió las entradas indirectas de la
+vtable 0050818c: 00452350 (tipo), 00452940 (update), 004528d0 (input), 00452de0
+(cursor) y 00452b40 (activación). Se completaron los nueve roots solicitados y
+600 funciones de slice. 00452de0 sólo solicita cursor hand; no es la acción de
+cargar escena. 00452b40 ajusta overlays y pasa el nombre de +0x114 a 00405b70,
+que lo guarda en app+0x5dc y solicita 302 mediante el control de transición.
+00414af0 recibe 302, toma ese nombre, llama 00405980 y cambia al estado 4 mediante
+00404220. Se conserva esta ruta explícita; no se asigna una acción distinta a
+cada ubicación ni se usa el valor ausente/por defecto de la declaración XUI.
+
+ENVS contiene dos componentes diferentes: `mapscreenlevels` con marcadores y
+`mapunderlay` con las tarjetas `scenebutton`. El análisis de la jerarquía real
+corrigió la selección inicial del contenedor; las tarjetas son hijos directos de
+mapunderlay. 0043e6d0 activa las ubicaciones presentes en el nivel y 0043eec0
+recorre los hijos en orden de declaración, excluye finalelevel, filtra flags y
+coloca de uno a nueve botones. El ensamblador confirma que los destinos del caso
+de dos son el primer y segundo puntero del array, a (278,211) y (477,211).
+En el primer nivel slots aparece antes que vault en ENVS, aunque LEVELS_1 enumera
+vault primero. La nueva selección mantiene ese orden y no reordena por nivel.
+
+004524d0 dibuja primero la miniatura a x+13,y+11; luego 004882e9 dibuja el marco.
+La etiqueta temporal de nombre usa x+19,y+115 y tamaño w−19,h−115, alineación
+izquierda/middle y fontidle; el contador usa x+160,y+97 y tamaño 22×20, centrado
+con fontitems. En pushed se suman dos píxeles a miniatura y etiquetas. Se revisó
+ensamblador porque el pseudocódigo confunde varios locales del rect. Los clips de
+las etiquetas, captions localizados y atlas originales se mantienen. 0048d003
+asigna texhover al estado 3 de arrastre exterior, no texnormal. El renderer usa el
+fondo inicial referido por el atributo background del mapa; estados gold/faders
+siguen pendientes de contexto nativo.
+
+00452220 inicializa el contador de tarjeta a diez. 0043e920 lo actualiza desde
+00448090; las listas visitadas también llegan por 0043e890. MapView muestra diez
+para una escena nueva y el tamaño de saved_captions para una visitada: un set
+compuesto parcialmente retirado sigue contando uno. 004884f9 gobierna hover,
+press, arrastre exterior, retorno interior, release y disabled. El adaptador del
+canvas usa esos estados y límites half-open; release válido marca activación,
+que se consume tras dibujar el frame y produce la ruta 302 con el nombre.
+El momento exacto de los pases del grafo y los overlays de transición aún no se
+ha contrastado; Session sigue entrando a una instancia cacheada experimental.
+
+`map_view.py` está conectado a campaign_preview: ya no aparecen botones Tk con
+nombres de escenas; el usuario elige las tarjetas recuperadas. Continúan propios
+los controles de Nueva partida experimental, regresar a selección y guardar.
+No se han reconstruido la creación de perfil, la columna PDA, los marcadores,
+audio, transiciones de faders, bonus ni la pantalla de victoria. Por tanto no se
+presenta como reproducción completa del mapa o menú original.
+
+Las vistas privadas `map-level-one-start.png` y `map-level-one-restored.png`
+confirman tarjetas/fuentes originales y contadores 10/10 → slots 10, vault 0 al
+cargar la prueba del nivel anterior. Se inspeccionó la segunda imagen. Los
+callbacks reales de Tk motion/down/up seleccionaron vault y slots, pasando por
+el mapa y guardando al cerrar; `map-gui-check.json` registra ambos, 0,453999996
+segundos conservados y ausencia de botones antiguos, con root withdrawn, sin
+interacción global ni EXE. No es una comparación visual con el original vivo.
+
+Pasaron 43 pruebas, incluyendo tres nuevas de orden del grafo y contador parcial,
+arrastre/cancelación/activación diferida y offsets/frame pushed/dragged. Tras
+corregir el contenedor con los recursos reales se repitieron esas tres y pasaron.
+El mapa de dependencias tiene ahora 123 raíces, 1.760 nodos y 5.883 aristas directas.
+El objetivo permanece activo con las rutas nativas pendientes. No se modificaron
+Huntsville, Director ni las APK aprobadas.

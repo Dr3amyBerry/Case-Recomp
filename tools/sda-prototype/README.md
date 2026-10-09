@@ -201,7 +201,7 @@ pending.
 ## First-level experimental campaign
 
 ```powershell
-# Open the shell, then click Nueva partida experimental and choose a scene.
+# Open the shell, click Nueva partida experimental, then a recovered map card.
 python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/campaign.json --seed 8
 # Resume the same campaign after closing.
 python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/campaign.json --resume
@@ -209,7 +209,9 @@ python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-ve
 
 `campaign.py` reads the original `LEVELS_1.XUI` rather than assigning an invented
 per-scene quota. The first level requires 18 completed sets across vault/slots,
-with a 1320-second clock. Each scene starts its recovered ten-set selection;
+with a 1320-second clock. The map now draws the original scene cards, arranged
+in declaration order with the native count-dependent layout. Each scene starts
+its recovered ten-set selection;
 compound targets can require multiple clicks, but count once after all components
 retire. Use `Elegir escena` to reach the other location. The shell stops at
 `objects_complete`, which is the object objective boundary, not the original
@@ -240,3 +242,38 @@ The actual Tk new-game, scene selection, map, save and close callbacks also pass
 with the window withdrawn. No original EXE or global mouse/keyboard input was used.
 The full synthetic suite now has 40 passing tests. The original menu remains a
 static preview; these buttons explicitly belong to an experimental campaign shell.
+
+
+## Recovered scene-selection cards
+
+`map_view.py` reads `mapunderlay` from ENVS, filters its scene buttons to the
+current level, and replays 0043eec0's layouts for one through nine visible cards.
+The circuit-map `mapscreenlevels` is a separate component and is not used as the
+scene-card container. In level one, declaration order places slots at (278,211)
+and vault at (477,211), independent of the level's scene-list order.
+
+The normal/hover/pushed textures and thumbnails come from the original resources.
+004524d0 draws thumbnails first at (13,11), then the button frame, then separate
+name/count labels at (19,115)/(160,97). Pushed state offsets the thumbnail and
+labels by two pixels, leaving the frame in place. The temporary labels retain
+their own clipping rectangles, original atlas fonts and localized captions.
+Unvisited cards show the native default ten; visited cards use remaining saved
+captions, which count retirement rather than click flags.
+
+The pointer model preserves idle/hover/pushed/dragged-outside/disabled states,
+half-open bounds, hover-before-press and release activation. Dragging away and
+releasing cancels; dragging back permits activation. State three uses the hover
+texture. Activations are consumed after a rendered frame and produce the reviewed
+302 scene-name route (00452b40 → 00405b70 → 00414af0). The prototype adapter then
+enters the cached scene; original transition overlays and deferred graph passes
+still require reconstruction.
+
+The campaign canvas uses these cards in place of the separate scene-name buttons.
+New-game, return-to-map and save remain experimental surrounding controls. PDA,
+player display, marker animations, audio and fade/background mode transitions
+are pending. The original EXE has not been used to approve visual equivalence.
+Private renders confirm initial counts 10/10 and restored counts slots=10,
+vault=0. Actual Tk motion/down/up callbacks selected vault, returned to the map,
+selected slots and saved on close with a hidden root and no global input.
+The suite has 43 passing tests; three new tests cover ordering/counts, pointer
+capture/cancellation/deferred activation, and pushed/dragged drawing behavior.

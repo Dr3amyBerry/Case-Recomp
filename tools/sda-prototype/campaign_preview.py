@@ -1,8 +1,8 @@
 """Playable experimental campaign shell; does not execute the original EXE."""
 import argparse
-from pathlib import Path
 import time
 from campaign import Session
+from map_view import MapView
 from runtime import Resources
 from progress import progress_path, write_state, read_state
 
@@ -17,6 +17,7 @@ def main():
     progress_path(args.save)
     resources = Resources(args.resources)
     session = Session.restore(resources, read_state(args.save)) if args.resume else None
+    map_view = MapView(resources, session.level) if session else None
     import tkinter as tk
     from PIL import ImageTk
     window = tk.Tk()
@@ -43,8 +44,7 @@ def main():
         if session is None:
             tk.Button(controls, text="Nueva partida experimental", command=start).pack(side=tk.LEFT)
         elif session.phase == "map":
-            for name in session.level.scenes:
-                tk.Button(controls, text=name, command=lambda scene=name: enter(scene)).pack(side=tk.LEFT)
+            tk.Label(controls, text="Elige una tarjeta del mapa").pack(side=tk.LEFT)
         elif session.phase == "scene":
             tk.Button(controls, text="Elegir escena", command=to_map).pack(side=tk.LEFT)
         else:
@@ -54,8 +54,9 @@ def main():
             tk.Button(controls, text="Guardar progreso", command=persist).pack(side=tk.LEFT)
 
     def start():
-        nonlocal session
+        nonlocal session, map_view
         session = Session(resources, args.seed)
+        map_view = MapView(resources, session.level)
         rebuild()
         persist()
 
@@ -69,11 +70,13 @@ def main():
     def to_map():
         session.to_map()
         rebuild()
-        canvas.itemconfigure(image_id, image="")
         persist()
 
     def click(event):
         nonlocal last
+        if session and session.phase == "map":
+            map_view.pointer("down", event.x, event.y)
+            return
         if session:
             now = time.monotonic()
             previous = session.phase
@@ -83,6 +86,10 @@ def main():
             if session.phase != previous:
                 rebuild()
             persist()
+
+    def pointer(event, kind):
+        if session and session.phase == "map":
+            map_view.pointer(kind, event.x, event.y, bool(event.state & 0x100))
 
     def draw():
         nonlocal last, photo
@@ -95,7 +102,13 @@ def main():
                 persist()
             status.set(f"Nivel {session.level.clue} | {session.clock.text()} | "
                        f"Objetivos: {session.remaining} | Puntos: {session.points} | {session.phase}")
-            if session.scene is not None:
+            if session.phase == "map":
+                photo = ImageTk.PhotoImage(map_view.render(session))
+                canvas.itemconfigure(image_id, image=photo)
+                action = map_view.consume_activation()
+                if action:
+                    enter(action["scene"])
+            elif session.scene is not None:
                 photo = ImageTk.PhotoImage(session.scene.render(True))
                 canvas.itemconfigure(image_id, image=photo)
             if now - last_save >= 5:
@@ -109,6 +122,9 @@ def main():
 
     window.protocol("WM_DELETE_WINDOW", close)
     canvas.bind("<Button-1>", click)
+    canvas.bind("<ButtonRelease-1>", lambda event: pointer(event, "up"))
+    canvas.bind("<Motion>", lambda event: pointer(event, "move"))
+    canvas.bind("<B1-Motion>", lambda event: pointer(event, "move"))
     rebuild()
     draw()
     window.mainloop()
