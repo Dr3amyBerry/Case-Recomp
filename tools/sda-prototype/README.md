@@ -392,3 +392,28 @@ checks. A private real-resource run saved and resumed mid-fade, completed vault
 and entered slots with profile, 175500 points and elapsed clock intact. Private
 renders show a fading first row followed by its removal and upward compaction.
 The original EXE remains unused, so native timing/visual equivalence is unapproved.
+
+
+## Reproducible end-to-end GUI smoke check
+
+```powershell
+python tools/sda-prototype/smoke_campaign.py --resources private/mystery-pi-vegas/game/Resources.dll --output local-output/sda-prototype/gui-end-to-end.json
+```
+
+This requires Tk but keeps every root withdrawn. It invokes the actual registered
+canvas/button/frame/close callbacks with a controlled Python clock, without OS
+input. Dedicated temporary saves avoid overwriting a manual player's progress.
+The source EXE is never launched, and original player files are not used.
+
+The run creates Dream through the experimental menu flow, finds all thirteen
+objects in vault's first ten sets through canvas callbacks, closes at the location
+notice, resumes, confirms OK, enters slots and completes its first set. It closes
+and resumes again to verify the complete snapshot remains identical. A separate
+save-restored geometry copy finds exposed target pixels; it never awards points
+or mutates the GUI session. It is not an independent native reference renderer.
+
+The real-resource run passed with eleven completed sets, 183000 points and
+9.159993172 stored seconds. All three GUI openings preserved the expected state.
+This supplements the 55 existing synthetic tests with a complete UI route; it does
+not approve native frame timing, profile dialogs, graph transitions or save-file
+compatibility. Those parts of the SDA reconstruction remain pending.

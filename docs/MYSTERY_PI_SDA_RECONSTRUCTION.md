@@ -1,7 +1,8 @@
 # Mystery P.I. — reconstrucción estática de SDA
 
-Fecha: 2026-10-08. Estado: prototipo experimental de interacción con una escena;
-compatibilidad de campaña y comparación con el original pendientes.
+Fecha de actualización: 2026-10-09. Estado: recorrido experimental de inicio,
+primera tanda, avance a otra ubicación y reanudación verificado por la interfaz.
+Reconstrucción del grafo nativo y comparación con el original pendientes.
 
 La instrucción vigente es dejar el original de lado. Este trabajo consume el
 pseudocódigo ya exportado y los recursos como datos. Ghidra analiza el PE sin
@@ -780,3 +781,49 @@ El mapa de ocho exports comprende 149 raíces, 1.797 nodos y 6.116 aristas direc
 Siguen pendientes propagación de eventos/alpha/clipping, reconstrucción nativa
 al reentrar, diálogos SDA, transiciones, bonus/avance y comparación diferencial.
 El objetivo continúa activo. Huntsville, Director y APK aprobadas intactos.
+
+
+### Comprobación integral por la interfaz del prototipo
+
+Las verificaciones anteriores combinaban callbacks de inicio/mapa/cierre con
+clics de objetos ejecutados directamente en el backend. No bastaban para probar
+que el recorrido entero funcionaba a través del canvas. smoke_campaign.py cierra
+esa diferencia: crea un root Tk withdrawn y llama a los comandos registrados de
+motion/down/up, botones, frame y cierre de campaign_preview, sin copiar su lógica.
+Para buscar píxeles expuestos restaura una instancia separada de geometría desde
+el save, pero todos los aciertos/puntos se generan en los callbacks reales de la
+interfaz. Esa instancia usa el mismo parser y no es una referencia nativa independiente.
+
+El driver controla únicamente el reloj Python del prototipo; cada frame incrementa
+0,04 segundos y ejecuta el wrapper after registrado. Cancela el timer a nivel Tcl
+sin borrar el comando antes de llamarlo. Usa saves temporales propios y elimina
+sólo ese directorio temporal al terminar. No lee perfiles originales ni sobrescribe
+el progreso de una prueba manual. El informe permanece en local-output/sda-prototype.
+
+La ejecución con Resources.dll real produjo:
+
+| Paso | Evidencia del recorrido |
+| --- | --- |
+| Inicio | Botón 299, nombre Dream, confirmar; regreso al menú sin campaña y segundo 299 al mapa. |
+| Primera tanda | Tarjeta vault y 13 clics del canvas para completar sus diez sets, incluidas variantes compuestas. |
+| Retirada | 107 frames en la primera ventana; llega a scene_complete con el fade de filas terminado. |
+| Cierre/reanudación | Se cierra mediante WM_DELETE_WINDOW y la segunda ventana carga un snapshot idéntico del aviso. |
+| Avance | OK del aviso vuelve al mapa; tarjeta slots conserva reloj/puntos y un clic completa su primer set. |
+| Continuación | El contador global llega a once; puntos suben a 183000 y reloj almacenado a 9,159993172 segundos. |
+| Segundo cierre | Una tercera ventana carga estado idéntico, jugador Dream, slots activa y once sets completos; cerrar tampoco altera el snapshot. |
+
+local-output/sda-prototype/gui-end-to-end.json registra esos datos y los tres
+runs: primera ventana 107 frames/16 clics del canvas; segunda 126 frames/2 clics;
+tercera sin avanzar frames. native_executed=false, window_withdrawn=true y las
+restauraciones son iguales. Ningún acierto se introdujo mediante Session.click
+desde el driver, ni se usó ratón/teclado global. No es una prueba de cadencia real,
+ABI, temporización del original ni equivalencia visual aprobada.
+
+Auditoría del objetivo: las funciones de escena/objetos/eventos/puntos están
+identificadas y documentadas; el mapa concreto contiene 149 raíces, 1.797 nodos y
+6.116 aristas directas. El primer prototipo ahora acredita inicio, tanda, avance
+y conservación por su interfaz, además de las 55 pruebas existentes. El mapa no
+cierra eventos/calls indirectos y el shell todavía usa controles modales propios,
+instancias cacheadas y transiciones simplificadas. La reconstrucción nativa y su
+contraste permanecen abiertos: no se declara el objetivo global completo ni se
+presenta la prueba como un motor SDA compatible. Huntsville y APK aprobadas intactos.
