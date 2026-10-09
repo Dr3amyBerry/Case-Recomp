@@ -26,11 +26,21 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   require(nodes.size in 1..9)
   return nodes.zip(layouts[nodes.size-1])
  }
+ override fun pauseRect(campaign:SdaCampaign):Rect? =
+  if(campaign.phase in setOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE)) ui.rect(doc.component("pdadownpausebutton")) else null
+ override fun drawPause(canvas:Canvas) {
+  val button=doc.component("pdadownpausebutton")
+  for(node in doc.component(button.attributes.getValue("overlay")).children) when(node.type) {
+   "frame" -> ui.frame(canvas,node)
+   "label" -> ui.label(canvas,node)
+  }
+ }
  private fun base(canvas:Canvas,c:SdaCampaign?,clock:SdaClock?) {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
   ui.label(canvas,timer,doc.caption(timer),width=35)
   ui.label(canvas,timer.copy(attributes=timer.attributes+mapOf("halign" to "left")),clock?.text().orEmpty(),x=timer.number("x")+35)
+  ui.button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")
   ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
  }

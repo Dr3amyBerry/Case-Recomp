@@ -82,6 +82,11 @@ class SdaGameView(
     var onNextLevelListener: (() -> Unit)? = null
     var onCampaignCompletedListener: (() -> Unit)? = null
 
+    var isPaused: Boolean = false
+        private set
+    var onPauseChangedListener: (() -> Unit)? = null
+    private var resumePointerId: Int? = null
+
     var onBonusInputListener: (() -> Unit)? = null
     private var wordPointerId: Int? = null
     private val wordLetterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -133,6 +138,7 @@ class SdaGameView(
             drawScene(canvas, null)
         }
 
+        if(isPaused) visuals?.drawPause(canvas)
         canvas.restore()
     }
 
@@ -481,6 +487,26 @@ class SdaGameView(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        // A resume click belongs to the overlay, including its release; never click through.
+        if(resumePointerId!=null) {
+            if(event.actionMasked==MotionEvent.ACTION_UP || event.actionMasked==MotionEvent.ACTION_CANCEL) resumePointerId=null
+            return true
+        }
+        if(isPaused) {
+            if(event.actionMasked==MotionEvent.ACTION_DOWN) {
+                isPaused=false;resumePointerId=event.getPointerId(event.actionIndex)
+                onPauseChangedListener?.invoke();invalidate()
+            }
+            return true
+        }
+        if(event.actionMasked==MotionEvent.ACTION_DOWN) {
+            val camp=campaign
+            val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
+            if(camp!=null && visuals?.pauseRect(camp)?.contains(x,y)==true) {
+                isPaused=true;onPauseChangedListener?.invoke();invalidate();return true
+            }
+        }
+
         val wordCamp = campaign
         if (wordPointerId != null && wordCamp?.phase != SdaCampaignPhase.BONUS) {
             wordCamp?.cancelBonusSelection(); wordPointerId = null
@@ -665,6 +691,7 @@ class SdaGameView(
     }
 
     fun step(seconds: Float) {
+        if(isPaused) { postInvalidateOnAnimation();return }
         val camp = campaign
         if (camp != null) {
             camp.advance(seconds)

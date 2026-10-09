@@ -211,6 +211,7 @@ class SdaLauncherActivity : Activity() {
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
+        view.onPauseChangedListener = { autoSave() }
         view.onBonusInputListener = { autoSave() }
         view.onSceneSelectedListener = { sceneName ->
             val camp = campaign

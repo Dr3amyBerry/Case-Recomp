@@ -147,6 +147,28 @@ class SdaPrivateVisualInstrumentationTest {
      scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
      SystemClock.sleep(500)
      val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     if(name=="scene-paused") {
+      val location=IntArray(2)
+      scenario.onActivity { shown.getLocationOnScreen(location) }
+      val scale=minOf(shown.width/800f,shown.height/600f)
+      val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
+      fun pixel(image:Bitmap,x:Int,y:Int)=image.getPixel((ox+(x+.5f)*scale).toInt(),(oy+(y+.5f)*scale).toInt())
+      val ink=(150 until 800).sumOf { x -> (250 until 305).count { y ->
+       val p=pixel(screenshot,x,y)
+       android.graphics.Color.red(p)>190 && android.graphics.Color.green(p)>190 && android.graphics.Color.blue(p)>190
+      } }
+      assertTrue("original pause title missing: $ink",ink>200)
+      val before=BitmapFactory.decodeFile(File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-scene.png").absolutePath)
+      try {
+       for((x,y) in listOf(750 to 50,600 to 100,200 to 450)) {
+        val a=pixel(before,x,y);val b=pixel(screenshot,x,y)
+        for(shift in listOf(16,8,0)) {
+         val expected=((a ushr shift) and 255)*90f/255f
+         assertTrue("pause RGBA frame alpha differs",kotlin.math.abs(((b ushr shift) and 255)-expected)<=3f)
+        }
+       }
+      } finally { before.recycle() }
+     }
      File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-$name.png").outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG,100,it) }
      screenshot.recycle()
     }
@@ -155,6 +177,22 @@ class SdaPrivateVisualInstrumentationTest {
     touch(MotionEvent.ACTION_DOWN,card.first+20,card.second+20)
     assertEquals(SdaCampaignPhase.SCENE,campaign.phase)
     display("scene")
+    val pauseElapsed=campaign.clock.elapsed
+    val pausePoints=campaign.points
+    val pauseSceneAge=campaign.currentScene!!.sinceFound
+    touch(MotionEvent.ACTION_DOWN,110,574)
+    scenario.onActivity { shown.step(5f) }
+    assertEquals("pause must freeze clock",pauseElapsed,campaign.clock.elapsed,0f)
+    assertEquals("pause must freeze scene",pauseSceneAge,campaign.currentScene!!.sinceFound,0f)
+    assertEquals(pausePoints,campaign.points)
+    touch(MotionEvent.ACTION_UP,110,574)
+    captureState("scene-paused")
+    touch(MotionEvent.ACTION_DOWN,475,326)
+    touch(MotionEvent.ACTION_UP,475,326)
+    scenario.onActivity { shown.step(1f) }
+    assertEquals("resume must advance clock",pauseElapsed+1f,campaign.clock.elapsed,0f)
+    assertEquals(pausePoints,campaign.points)
+    captureState("scene-resumed")
     val targetScene=campaign.currentScene!!
     val firstGroup=targetScene.activeSets.first()
     for(id in firstGroup) {

@@ -64,6 +64,15 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   }
   canvas.restore()
  }
+ /** Solid XUI frame; coordinates and RGBA are resource data. */
+ fun frame(canvas:Canvas,node:SdaUiNode) {
+  val rgba=Regex("rgba\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)").matchEntire(node.attributes.getValue("color"))
+   ?: error("unsupported frame color")
+  val c=rgba.groupValues.drop(1).map { it.toInt().also { n -> require(n in 0..255) } }
+  val paint=Paint().apply { color=Color.argb(c[3],c[0],c[1],c[2]) }
+  val x=node.number("x");val y=node.number("y")
+  canvas.drawRect(x.toFloat(),y.toFloat(),(x+node.number("w")).toFloat(),(y+node.number("h")).toFloat(),paint)
+ }
  fun button(canvas:Canvas,node:SdaUiNode,enabled:Boolean=true) {
   val texture=node.attributes[if(enabled) "texnormal" else "texdisabled"] ?: node.attributes.getValue("texnormal")
   val bitmap=bitmap(texture);val x=node.number("x");val y=node.number("y")
@@ -77,6 +86,8 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 }
 
 interface SdaVisualProfile {
+ fun pauseRect(campaign:SdaCampaign):Rect? = null
+ fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?)
  fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign)
