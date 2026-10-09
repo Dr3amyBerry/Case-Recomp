@@ -190,3 +190,52 @@ umbral, límite de entradas, charset duplicado, avance sin deformar píxeles,
 centrado/kerning, alineación vertical, escapes y localización. Son fixtures propios;
 la comparación diferencial con el original permanece pendiente de una hipótesis
 concreta y del acceso al escritorio autorizado por el usuario.
+
+
+## Selección nativa y sets compuestos
+
+Se siguió la ruta de entrada de escena sin ejecutar el original. 0040f680 carga
+la escena por 00405980/004157f0 y decide entre restauración del jugador o creación
+de una lista nueva. En la ruta nueva aparecen 00423000 (historial), 00423680
+(filtrado/colisiones) y 00421d90 → 00428d70 (tanda). Esto confirma que mezclar todos
+los sets no sustituye el estado persistente ni la asignación de la campaña.
+
+| Función | Dependencia recuperada |
+| --- | --- |
+| 004f0d25 / 004f0d32 | Semilla de 32 bits; estado = estado × 0x343fd + 0x269ec3, con wrap; salida = (estado >> 16) & 0x7fff. |
+| 004291c0 | Reseed con timeGetTime y mezcla hacia delante: intercambio i con i + rand() % (count − i). |
+| 00429210 | Coloca los sets activos al principio y mezcla el sufijo; no se implementa aún la restauración del prefijo. |
+| 00428d70 | Oculta/desactiva la tanda anterior, mezcla sólo si cursor +0x8c es cero y elige hasta diez sets. Coloca filas desde y=121; acumula su altura. |
+| 0042a040 | Sobrescribe el ancho del set con 146; confirmado con el push 0x92 en 0042a07b. |
+| 004657e0 | Resuelve objetos y separa itemnamelist por comas; se comprobó ',' en 005193bc. |
+| 0042a4f0 | Cuenta encontrados para elegir el siguiente caption del set. Los glifos se recuperan de los atlas propios de la escena. |
+| 00428540 | Busca captions guardados entre los variantes de cada set, restaura una lista y reordena el resto. Su contexto de guardado sigue pendiente. |
+
+`selection.py` reproduce RNG, mezcla y selección sobre un pool explícito. El
+prototipo admite `--seed` o sets explícitos; una expresión con + selecciona los
+componentes de un set compuesto. La ruta de clicks conserva el orden de sets y
+objetos, comprueba alfa y puntúa cada componente encontrado. Cambia el caption
+según el número encontrado, por ejemplo una lista de cuatro componentes pasa a
+tres, dos y uno antes de desaparecer de la lista diagnóstica.
+
+La comparación de wrap en 00428d70 es estricta: count < index, no count <= index.
+El bloque x86 en 00428e68–00428e6a usa cmp y jle para mantener el índice cuando
+ambos son iguales. 00476560 devuelve null fuera del rango semiabierto. Se añadió
+un diagnóstico en ese límite, sin afirmar que el original necesariamente lo
+alcanza durante una partida normal ni reemplazarlo por un modulo inventado. El
+contexto de transición entre tandas requiere continuar el análisis.
+
+La prueba privada con semilla 8 seleccionó diez sets de los 77 de la bóveda,
+incluido un set de cuatro objetos. Se completaron trece aciertos con píxeles alfa
+reales, captions decrecientes y 175.500 puntos; quedó vacía la lista diagnóstica.
+Los artefactos son `vault-compound-initial.png`, `vault-compound-cleared.png` y
+`compound-check.json` en research/prototype. Esta prueba no certifica victoria,
+cambio de escena, animación nativa ni restauración de una partida del original.
+
+Pasaron 20 pruebas en total. Las seis nuevas comprueban vectores conocidos de RNG,
+wrap, dirección de mezcla, prefijo preservado, avance de tanda sin nuevo shuffle,
+límite count==index, set compuesto, captions, score por componente y selección
+inválida. El mapa de dependencias se regeneró con 78 raíces de roles, 1.673 nodos
+y 5.432 aristas directas; sigue siendo un mapa de tres niveles, sin cierre de
+llamadas indirectas. Se añadieron roles de transiciones, selección, captions,
+atlas y localización. No se ejecutó el EXE ni se modificó Huntsville/Android.

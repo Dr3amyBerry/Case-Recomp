@@ -18,7 +18,8 @@ python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/gam
 `--render` does not open a window. `--interactive` explicitly opens the prototype
 window, not the original game. It draws original scene sprites and accepts clicks
 on the scene canvas. The text and hint-penalty button are research controls.
-Targets are explicit single-object sets, not the native campaign's random choices.
+Targets can be explicit single/compound sets or a recovered shuffle batch from a
+supplied clock seed. History/overlap filtering and campaign allocation are pending.
 The prototype does not read or write original player saves.
 
 Implemented primitives:
@@ -30,7 +31,7 @@ Implemented primitives:
 - Hint score subtraction and rapid-miss history from 00453950/00453830.
 
 Remaining dependencies include original menu routing, campaign selection,
-native graph/parent clipping, compound target sets, special collectibles, full text state,
+native graph/parent clipping, special collectibles, full text state,
 found/hint animations, audio, pause, original serialization and completion rules.
 Found sprites currently disappear immediately. The first miss-penalty explanation
 and its native gate are not wired to the diagnostic scene, which permits penalties.
@@ -53,7 +54,7 @@ inferred C prototypes. See `docs/MYSTERY_PI_SDA_RECONSTRUCTION.md` for evidence.
 UTF-16 character mapping, float spacing advances, original pixel crops, byte-pair
 kerning and escaped line breaks. It never substitutes a system font. The supported
 vertical advance escape has one or two digits; other style escapes fail explicitly.
-The independent text layer is not yet wired into the scene's diagnostic Tk controls.
+The scene can draw original target rows; the surrounding Tk controls remain diagnostic.
 
 ```powershell
 python tools/sda-prototype/font_probe.py --resources private/mystery-pi-vegas/game/Resources.dll --output private/mystery-pi-vegas/research/prototype/fonts
@@ -71,3 +72,30 @@ flags and captures button action values without dispatching them. It does not bi
 a player name, run logo/fader animations, simulate unlock state or start a campaign.
 Normal captions use only global offsets; pushed-only caption offsets are excluded.
 Label alignment follows 0048aad0, including the one-pixel anchor adjustment.
+
+## Target batches and compound sets
+
+```powershell
+python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/game/Resources.dll --scene SCENE_VAULT.MSL --seed 8 --target-list --render private/mystery-pi-vegas/research/prototype/vault-native-batch.png
+python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/game/Resources.dll --scene SCENE_VAULT.MSL --targets obj24+obj25+obj26+obj77 --target-list --interactive
+```
+
+The second command opens only the experimental window when explicitly run.
+`--seed` and `--targets` are mutually exclusive. `--seed` replays the native
+32-bit Visual C RNG and forward shuffle, then selects up to ten sets. The supplied
+pool currently includes all scene sets; native history/overlap filtering is not
+implemented. The pool does not imply a campaign assignment of ten required hits:
+a compound set has several objects, each with its own score and found state.
+Localized comma-separated captions change as objects are found.
+
+`--target-list` uses scene atlas fonts and recovered row positions (start y=121,
+width=146, per-set height), without a fabricated system font. It does not render
+the complete PDA, found-text animations or native completion effects. Clearing
+this diagnostic batch does not start a new scene or report a campaign victory.
+
+`selection.TargetDeck` exposes the recovered strict boundary comparison instead
+of silently substituting modulo wrapping. If a subsequent batch reaches a child
+index equal to the pool size, it stops with a diagnostic; native transition context
+at that boundary is unresolved. Restoring a saved prefix and choosing a seed from
+the original runtime clock are also pending. Tests use synthetic fixtures and
+known RNG vectors; no original game data is committed.

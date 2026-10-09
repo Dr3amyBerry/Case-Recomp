@@ -117,7 +117,7 @@ class Sprite:
 
 
 class Scene:
-    def __init__(self, resources, name, targets):
+    def __init__(self, resources, name, targets=None, seed=None):
         self.resources = resources
         self.name = name
         tree = parse_xui(resources.read(name))
@@ -126,6 +126,7 @@ class Scene:
         self.draw_order = []
         self.objects = {}
         self.target_sets = {}
+        self.set_definitions = {}
         for node in tree.iter():
             kind = local_name(node.tag)
             if kind in ("image", "eyespyimage"):
@@ -139,17 +140,60 @@ class Scene:
                     self.objects[sprite.identity] = sprite
             elif kind == "eyespyset":
                 ids = tuple(re.split(r"[\s,]+", node.attrib["objects"].strip()))
+                if ids in self.target_sets or any(identity not in self.objects for identity in ids):
+                    raise ValueError("invalid or duplicate target set")
                 self.target_sets[ids] = node.attrib["itemnamelist"]
-        # Explicit research selection, not yet native campaign randomization.
-        self.targets = tuple(targets)
-        if not self.targets or len(set(self.targets)) != len(self.targets):
-            raise ValueError("select distinct target objects")
-        for identity in self.targets:
-            if identity not in self.objects or (identity,) not in self.target_sets:
-                raise ValueError("this slice supports explicit single-object sets only")
+                self.set_definitions[ids] = dict(node.attrib)
+        from fonts import parse_strings, resolve_caption
+        self.strings = parse_strings(resources.read("STRINGS.TXT"))
+        self.strings.update(parse_strings(resources.read(name.rsplit(".", 1)[0] + ".TXT")))
+        self.captions = {ids: tuple(resolve_caption(value, self.strings).split(","))
+                         for ids, value in self.target_sets.items()}
+        for ids, captions in self.captions.items():
+            if len(captions) != len(ids) or any(caption.startswith("@") for caption in captions):
+                raise ValueError("unresolved or mismatched target captions")
+        if seed is not None:
+            if targets is not None:
+                raise ValueError("choose explicit sets or a native shuffle seed")
+            from selection import TargetDeck
+            # Full original history/overlap pool filtering is not yet implemented.
+            self.deck = TargetDeck(self.target_sets)
+            self.active_sets = self.deck.next_batch(seed)
+        else:
+            self.deck = None
+            self.active_sets = tuple((item,) if isinstance(item, str) else tuple(item) for item in (targets or ()))
+            if not self.active_sets or len(set(self.active_sets)) != len(self.active_sets):
+                raise ValueError("select distinct target sets")
+            if any(ids not in self.target_sets for ids in self.active_sets):
+                raise ValueError("unknown target set")
+        self.targets = tuple(identity for ids in self.active_sets for identity in ids)
         self.score = Score()
         self.elapsed = 0.0
         self.since_found = 0.0
+
+    def remaining_captions(self):
+        result = []
+        for ids in self.active_sets:
+            found = sum(self.objects[identity].found for identity in ids)
+            if found < len(ids):
+                result.append(self.captions[ids][found])
+        return result
+
+    def draw_target_list(self, stage):
+        from fonts import FontCatalog
+        if not hasattr(self, "fonts"):
+            self.fonts = FontCatalog(self.resources, self.name)
+        y = 121  # 00428d70 initial row position, not the authored y=120.
+        for ids in self.active_sets:
+            definition = self.set_definitions[ids]
+            height = int(definition.get("h", 20))
+            found = sum(self.objects[identity].found for identity in ids)
+            if found < len(ids):
+                font = self.fonts.get(definition["font"])
+                # 0042a040 overrides set width to 146; label center modes from 00429a30.
+                font.draw(stage, self.captions[ids][found], int(definition.get("x", 0)) + 72,
+                          y - 1 + height // 2, halign=1, valign=2)
+            y += height
 
     def advance(self, seconds):
         if not math.isfinite(seconds) or seconds < 0:
@@ -172,10 +216,12 @@ class Scene:
         penalty = self.score.miss(int(self.elapsed * 1000))
         return {"kind": "miss", "penalty": penalty}
 
-    def render(self):
+    def render(self, target_list=False):
         from PIL import Image
         stage = Image.new("RGBA", (800, 600), (0, 0, 0, 255))
         for sprite in self.draw_order:
             if not sprite.found:
                 stage.alpha_composite(sprite.image, (sprite.x, sprite.y))
+        if target_list:
+            self.draw_target_list(stage)
         return stage
