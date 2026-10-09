@@ -6,6 +6,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SdaBonusUnitTest {
+    @Test fun swap_native_forward_shuffle_seed_fixture() {
+        val game = SdaTileSwapGame("test.tgl", rows = 2, cols = 3, seed = 8)
+        assertEquals(listOf(4, 2, 5, 1, 3, 0), game.tilePositions.toList())
+    }
+
+    @Test fun swap_correct_tiles_retire_individually_and_award_base_score() {
+        val game = SdaTileSwapGame("test.tgl", rows = 2, cols = 2,
+            tiles = intArrayOf(1, 0, 3, 2))
+        assertTrue(game.clickPixel(180, 100))
+        assertTrue(game.clickPixel(500, 100))
+        assertEquals(listOf(0, 1, 3, 2), game.tilePositions.toList())
+        assertFalse(game.clickPixel(180, 100))
+        assertFalse(game.clickPixel(500, 100))
+        assertEquals(500, game.state()["placementPoints"])
+        assertFalse(game.isSolved)
+        assertTrue(game.clickPixel(180, 310))
+        assertFalse(game.clickPixel(180, 100)) // Retired tile must not change pending selection.
+        assertEquals(2, game.selectedIndex)
+        assertTrue(game.clickPixel(500, 310))
+        assertTrue(game.isSolved)
+        assertEquals(1000, game.state()["placementPoints"])
+    }
+
 
     @Test fun rotation_completed_row_becomes_immutable_and_awards_base_line_score() {
         val game = SdaTileRotGame("test.trg", rows = 2, cols = 2,

@@ -284,6 +284,7 @@ class SdaGameView(
             for (r in 0 until bonus.rows) {
                 for (c in 0 until bonus.cols) {
                     val idx = r * bonus.cols + c
+                    if (bonus.lockedTiles[idx]) continue
                     val tileVal = bonus.tilePositions[idx]
                     val isSel = (bonus.selectedIndex == idx)
                     val rx = bx + c * tw

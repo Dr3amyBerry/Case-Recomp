@@ -173,6 +173,41 @@ class SdaCampaignUnitTest {
         assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
     }
 
+    @Test fun swap_bonus_retires_tiles_resumes_and_transitions_once() = withContent { content ->
+        val swapLevels = levels().map { it.copy(bonus = "test.tgl") }
+        val camp = SdaCampaign(swapLevels, seed = 8)
+        reachBonus(camp, content)
+        val before = camp.points
+        fun tap(index: Int): Boolean {
+            val game = camp.bonusGame as SdaTileSwapGame
+            return camp.clickBonus(172 + index % game.cols * 612 / game.cols + 1,
+                96 + index / game.cols * 408 / game.rows + 1)
+        }
+        var resumed = false
+        for (index in 0 until 4) {
+            val game = camp.bonusGame as SdaTileSwapGame
+            if (game.lockedTiles[index]) continue
+            assertTrue(tap(index))
+            assertTrue(tap(game.tilePositions.indexOf(index)))
+            if (camp.phase == SdaCampaignPhase.BONUS && !resumed) {
+                val saved = camp.snapshot().toJson()
+                camp.restore(SdaCampaignState.fromJson(saved), content)
+                assertEquals(saved, camp.snapshot().toJson())
+                assertFalse(tap(index))
+                assertEquals(saved, camp.snapshot().toJson())
+                resumed = true
+            }
+        }
+        assertTrue(resumed)
+        assertEquals(SdaCampaignPhase.LEVEL_COMPLETE, camp.phase)
+        assertEquals(before + 1000 + SDA_BONUS_REWARD, camp.points)
+        assertFalse(tap(0))
+        assertEquals(before + 1000 + SDA_BONUS_REWARD, camp.points)
+        camp.confirmLevelComplete()
+        assertEquals(1, camp.levelIndex)
+        assertEquals(SdaCampaignPhase.MAP, camp.phase)
+    }
+
     @Test fun invalid_bonus_checkpoint_is_rejected_without_mutating_session() = withContent { content ->
         val camp = SdaCampaign(levels(), seed = 8)
         reachBonus(camp, content)

@@ -3,12 +3,55 @@ package org.rigorcore.caserecomp.sda
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.rigorcore.caserecomp.MiniJson
 import java.io.ByteArrayInputStream
 import java.io.File
 import javax.imageio.ImageIO
 
 /** Optional private-resource JVM journey. Never replaces missing media with synthetic data. */
 class SdaPrivateLevelJourneyUnitTest {
+    @Test fun private_level_four_swap_bonus_solves_through_inputs_and_resumes() {
+        val packageFile = listOf(File("../../local-output/vegas_full.zip"),
+            File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
+            .firstOrNull { it.isFile }
+        assumeTrue("local private Vegas package is required", packageFile != null)
+        SdaContent.open(packageFile!!, SdaImageDecoder { null }).use { content ->
+            val level = SdaLevels.parse(content.read("LEVELS_1.XUI")!!)[3]
+            var game = SdaBonusLoader.load(content, level.bonus, 8, level.bonusImage) as SdaTileSwapGame
+            assertEquals(6, game.rows); assertEquals(6, game.cols)
+            fun tap(index: Int) = game.clickPixel(172 + index % game.cols * 612 / game.cols + 1,
+                96 + index / game.cols * 408 / game.rows + 1)
+            // Native shuffle may leave the last identity correct but not yet retired.
+            // Move such initial tiles out by legitimate swaps before retiring the rest.
+            for (index in game.tilePositions.indices) {
+                if (game.tilePositions[index] != index || game.lockedTiles[index]) continue
+                val other = game.tilePositions.indices.first { it != index && !game.lockedTiles[it] }
+                assertTrue(tap(index)); assertTrue(tap(other))
+            }
+            var resumed = false
+            for (index in game.tilePositions.indices) {
+                if (game.lockedTiles[index]) continue
+                assertTrue(tap(index))
+                assertTrue(tap(game.tilePositions.indexOf(index)))
+                if (!resumed && !game.isSolved) {
+                    val saved = MiniJson.canonical(game.state())
+                    @Suppress("UNCHECKED_CAST")
+                    val state = MiniJson.parse(saved) as Map<String, Any?>
+                    game = SdaBonusLoader.restore(content, state, level.bonus, 8, level.bonusImage) as SdaTileSwapGame
+                    assertEquals(saved, MiniJson.canonical(game.state()))
+                    assertFalse(tap(index))
+                    assertEquals(saved, MiniJson.canonical(game.state()))
+                    resumed = true
+                }
+            }
+            assertTrue(resumed)
+            assertTrue(game.isSolved)
+            assertEquals(9000, game.placementPoints)
+            println("PRIVATE BONUS: level 4 resource, 36 tiles retired through coordinate inputs, exact partial resume; base placement points=9000")
+            // Bonus-only probe: this does not claim levels 2/3 or native timing/fast scoring.
+        }
+    }
+
     @Test fun private_first_level_solves_rotation_resumes_and_advances_to_level_two() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))

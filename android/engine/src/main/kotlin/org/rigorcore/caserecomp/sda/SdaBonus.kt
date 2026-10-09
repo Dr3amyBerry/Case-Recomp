@@ -129,27 +129,30 @@ class SdaTileSwapGame(
     override var points: Int = SDA_BONUS_REWARD
     val tilePositions: IntArray = tiles?.copyOf() ?: IntArray(rows * cols) { it }
 
+    val lockedTiles = BooleanArray(rows * cols)
+    var placementPoints: Int = 0
+        private set
+
     init {
+        require(rows in 1..32 && cols in 1..32 && rows * cols >= 2) { "invalid swap dimensions" }
+        require(tilePositions.sorted() == tilePositions.indices.toList()) { "invalid tile permutation" }
         if (tiles == null) {
+            // 00457500: forward suffix shuffle, rejecting self and fixed identities.
             val rng = SdaRng(seed and 0xFFFFFFFFL)
-            // Shuffle tiles
-            for (i in tilePositions.size - 1 downTo 1) {
-                val j = rng.next() % (i + 1)
-                val tmp = tilePositions[i]
-                tilePositions[i] = tilePositions[j]
-                tilePositions[j] = tmp
-            }
-            // Ensure not accidentally already solved
-            if (tilePositions.indices.all { tilePositions[it] == it }) {
-                val tmp = tilePositions[0]
-                tilePositions[0] = tilePositions[1]
-                tilePositions[1] = tmp
+            for (index in 0 until tilePositions.size - 1) {
+                do {
+                    var other: Int
+                    do { other = index + rng.next() % (tilePositions.size - index) } while (other == index)
+                    val previous = tilePositions[index]
+                    tilePositions[index] = tilePositions[other]
+                    tilePositions[other] = previous
+                } while (tilePositions[index] == index)
             }
         }
     }
 
     override val isSolved: Boolean
-        get() = tilePositions.indices.all { tilePositions[it] == it }
+        get() = lockedTiles.all { it }
 
     override fun clickPixel(x: Int, y: Int): Boolean {
         if (isSolved) return false
@@ -164,6 +167,7 @@ class SdaTileSwapGame(
         val row = ((y - boardY) * rows) / boardH
         if (row in 0 until rows && col in 0 until cols) {
             val idx = row * cols + col
+            if (lockedTiles[idx]) return false
             val sel = selectedIndex
             if (sel == null) {
                 selectedIndex = idx
@@ -176,6 +180,13 @@ class SdaTileSwapGame(
                 tilePositions[sel] = tilePositions[idx]
                 tilePositions[idx] = tmp
                 selectedIndex = null
+                // 00457ed0/00458e30: retire each newly correct tile, not whole lines.
+                for (position in listOf(sel, idx)) {
+                    if (tilePositions[position] == position) {
+                        lockedTiles[position] = true
+                        placementPoints += 250
+                    }
+                }
                 return true
             }
         }
@@ -186,8 +197,20 @@ class SdaTileSwapGame(
         for (i in tilePositions.indices) {
             tilePositions[i] = i
         }
+        lockedTiles.fill(true)
         selectedIndex = null
         points = 0
+    }
+
+    internal fun restoreLocks(locks: List<Boolean>?, score: Int) {
+        val values = locks ?: tilePositions.indices.map { tilePositions[it] == it && selectedIndex != it }
+        require(values.size == lockedTiles.size && values.indices.all {
+            !values[it] || tilePositions[it] == it
+        }) { "invalid retired swap tiles" }
+        require(selectedIndex == null || !values[selectedIndex!!]) { "selected swap tile is retired" }
+        require(score >= 0 && score % 250 == 0 && score <= values.count { it } * 250) { "invalid swap placement score" }
+        values.forEachIndexed { index, value -> lockedTiles[index] = value }
+        placementPoints = score
     }
 
     override fun state(): Map<String, Any?> = mapOf(
@@ -200,6 +223,8 @@ class SdaTileSwapGame(
         "points" to points,
         "tiles" to tilePositions.map { it.toLong() },
         "selectedIndex" to selectedIndex,
+        "lockedTiles" to lockedTiles.toList(),
+        "placementPoints" to placementPoints,
     )
 }
 
@@ -441,6 +466,14 @@ object SdaBonusLoader {
                     require(index in 0 until tiles.size.toLong()) { "invalid selected tile" }
                     index.toInt()
                 }
+                val locks = state["lockedTiles"]?.let { raw ->
+                    val values = raw as? List<*> ?: throw IllegalArgumentException("invalid swap locks")
+                    require(values.all { it is Boolean }) { "invalid swap locks" }
+                    values.map { it as Boolean }
+                }
+                val score = integer(state["placementPoints"] ?: 0)
+                require(score in 0..Int.MAX_VALUE.toLong()) { "invalid swap placement score" }
+                game.restoreLocks(locks, score.toInt())
             }
             is SdaWordSearchGame -> {
                 require(state["words"] == game.words) { "wordsearch list mismatch" }

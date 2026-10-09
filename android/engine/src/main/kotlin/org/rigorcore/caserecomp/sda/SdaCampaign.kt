@@ -241,9 +241,14 @@ class SdaCampaign(
         if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
-        val beforeLines = (bg as? SdaTileRotGame)?.linePoints ?: 0
+        fun placementScore() = when (bg) {
+            is SdaTileRotGame -> bg.linePoints
+            is SdaTileSwapGame -> bg.placementPoints
+            else -> 0
+        }
+        val beforeLines = placementScore()
         val moved = if (bg is SdaTileRotGame) bg.rotatePixel(x, y, clockwise) else bg.clickPixel(x, y)
-        points += ((bg as? SdaTileRotGame)?.linePoints ?: 0) - beforeLines
+        points += placementScore() - beforeLines
         if (bg.isSolved) {
             points += bg.points
             when (phase) {

@@ -98,3 +98,16 @@ Continuación exacta, en orden:
 4. `android/engine/src/test/kotlin/org/rigorcore/caserecomp/sda/SdaPrivateLevelJourneyUnitTest.kt`: ampliar el recorrido con inputs reales a los bonus siguientes y al desenlace; conservar la distinción entre fixture, JVM privado y APK. `SdaCampaignUnitTest.kt`: guardado y puntuación en cada nueva mecánica.
 
 No se ejecutó el original ni se controló mouse/teclado del usuario. El objetivo global sigue pendiente.
+
+
+## Bloque siguiente: intercambio de fichas
+
+`SdaTileSwapGame` ahora usa el shuffle de sufijos recuperado de `00457500`: rechaza intercambio consigo mismo y repite si deja la identidad actual correcta. La semilla de la prueba representa un estado RNG explícito; la continuidad global del RNG nativo entre fases todavía debe verificarse. `00457ed0` y `00458e30` confirman que **se retira cada ficha correcta individualmente**, a diferencia de las líneas de rotación. El modelo bloquea esa ficha, impide seleccionarla/moverla y suma 250 puntos base por colocación. El componente de velocidad nativo de 150 puntos aún no se aplica ni se certifica. El render diagnóstico deja de dibujar fichas retiradas.
+
+`SdaTileSwapGame.restoreLocks` y `SdaBonusLoader.restore` conservan locks, selección, permutación y puntos de colocación; rechazan locks sobre identidades incorrectas, selección retirada y puntajes incompatibles. La migración de checkpoints anteriores infiere posiciones correctas retiradas excepto la selección activa, conservando puntos sin crédito retroactivo. `SdaCampaign.clickBonus` acredita diferencias de puntaje de colocación una sola vez y mantiene las fases de resultado/siguiente nivel.
+
+Pruebas: dos reproducciones RED (mezcla nativa y retiro individual) → GREEN. Fixture de campaña completa el intercambio por inputs, reanuda un tablero parcial, verifica recompensa única y llega al siguiente nivel. Prueba privada independiente carga **el bonus del nivel 4**, resuelve sus 36 fichas exclusivamente con coordenadas y verifica checkpoint/reanudación exactos: 9000 puntos base de colocación. **No** constituye un recorrido de los niveles 2/3/4 ni confirma la puntuación total nativa. Las dos pruebas privadas se ejecutaron sin omisiones. Cierre local: engine **138**, app **23**, cero fallos/errores/omitidas, APK debug compilada y `git diff --check` limpio.
+
+Estado actualizado: rotación e intercambio tienen entradas, retiro y guardado funcionales en pruebas JVM; ambos siguen parciales en fidelidad/render/timing. WordSearch, Jigsaw, final y campaña 1–25 siguen incompletos. No se tocó Director/Huntsville, recursos privados ni cambios ajenos; no se ejecutó el original ni se usó input del escritorio.
+
+Continuación inmediata: `SdaBonus.kt` (`SdaWordSearchGame.clickPixel`, generación de tablero desde `0045c0e0`, `SdaJigsawGame.clickPixel`, scoring/timing y `SdaMasterRiddleGame`); `SdaCampaign.kt` (`levelSummary`, `confirmLevelComplete`, `rank`, `advance`); `SdaGameView.kt` (`drawBonus`, gestos/render originales). `SdaPrivateLevelJourneyUnitTest.private_level_four_swap_bonus_solves_through_inputs_and_resumes` es el probe independiente de intercambio; conservar su alcance explícito al ampliar el recorrido real. Objetivo global pendiente.
