@@ -3,6 +3,7 @@ import argparse
 import time
 from campaign import Session
 from map_view import MapView
+from pda_view import PdaView
 from runtime import Resources
 from progress import progress_path, write_state, read_state
 
@@ -18,6 +19,7 @@ def main():
     resources = Resources(args.resources)
     session = Session.restore(resources, read_state(args.save)) if args.resume else None
     map_view = MapView(resources, session.level) if session else None
+    pda_view = PdaView(resources)
     import tkinter as tk
     from PIL import ImageTk
     window = tk.Tk()
@@ -46,7 +48,7 @@ def main():
         elif session.phase == "map":
             tk.Label(controls, text="Elige una tarjeta del mapa").pack(side=tk.LEFT)
         elif session.phase == "scene":
-            tk.Button(controls, text="Elegir escena", command=to_map).pack(side=tk.LEFT)
+            tk.Label(controls, text="Usa el botón del PDA para volver al mapa").pack(side=tk.LEFT)
         else:
             tk.Label(controls, text="Objetivos completados; bonus pendiente" if session.phase == "objects_complete"
                      else "Tiempo agotado").pack(side=tk.LEFT)
@@ -74,6 +76,10 @@ def main():
 
     def click(event):
         nonlocal last
+        if session:
+            pda_view.pointer("down", event.x, event.y)
+            if pda_view.owns(event.x, event.y):
+                return
         if session and session.phase == "map":
             map_view.pointer("down", event.x, event.y)
             return
@@ -88,6 +94,8 @@ def main():
             persist()
 
     def pointer(event, kind):
+        if session:
+            pda_view.pointer(kind, event.x, event.y, bool(event.state & 0x100))
         if session and session.phase == "map":
             map_view.pointer(kind, event.x, event.y, bool(event.state & 0x100))
 
@@ -103,14 +111,19 @@ def main():
             status.set(f"Nivel {session.level.clue} | {session.clock.text()} | "
                        f"Objetivos: {session.remaining} | Puntos: {session.points} | {session.phase}")
             if session.phase == "map":
-                photo = ImageTk.PhotoImage(map_view.render(session))
+                photo = ImageTk.PhotoImage(pda_view.render(map_view.render(session), session))
                 canvas.itemconfigure(image_id, image=photo)
                 action = map_view.consume_activation()
                 if action:
                     enter(action["scene"])
             elif session.scene is not None:
-                photo = ImageTk.PhotoImage(session.scene.render(True))
+                stage = pda_view.render(session.scene.render(False), session)
+                session.scene.draw_target_list(stage)
+                photo = ImageTk.PhotoImage(stage)
                 canvas.itemconfigure(image_id, image=photo)
+            action = pda_view.consume_activation()
+            if action == 301 and session.phase == "scene":
+                to_map()
             if now - last_save >= 5:
                 persist()
         last = now

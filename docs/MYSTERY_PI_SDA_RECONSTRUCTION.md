@@ -547,3 +547,53 @@ corregir el contenedor con los recursos reales se repitieron esas tres y pasaron
 El mapa de dependencias tiene ahora 123 raíces, 1.760 nodos y 5.883 aristas directas.
 El objetivo permanece activo con las rutas nativas pendientes. No se modificaron
 Huntsville, Director ni las APK aprobadas.
+
+
+### PDA parcial: reloj, puntos y regreso al mapa
+
+El slice estático `pda-display-slice` completó once raíces y 600 funciones sin
+abrir el ejecutable. 0046ac50 enlaza los controles del PDA; 00443bc0 selecciona
+maptext/eyespytext y 00443c20 cambia flags de etiquetas. ENVS proporciona fondos,
+texturas, posiciones, fuentes y captions. `pda_view.py` dibuja ese subconjunto,
+el reloj, puntos, contador de objetos y número de nivel. Las filas originales de
+objetos se dibujan después del fondo para conservar su visibilidad.
+
+El ensamblador de 0041dca0 divide el reloj en una etiqueta de ancho 35 y un valor
+que comienza en x+35, conservando el ancho original del control. 0041db00 aplica
+la alineación declarada únicamente al caption; el valor mantiene la alineación
+izquierda del constructor 0048a4e0. La cadena recuperada en 0051a1c8 es
+`%.02d:%.02d:%.02d`. 00453ee0 y 0045ba20 forman los puntos con comas cada tres
+cifras y los añaden al caption. 004433d0 forma las etiquetas de nivel y total.
+Se preservan estas reglas sin sustituir sus fuentes ni inventar posiciones.
+
+El botón mapbutton usa las texturas, estados, offsets y valor 301 declarados.
+00412300 recibe 301 y solicita el regreso mediante estados y overlays. El
+adaptador experimental consume la activación después del dibujo y llama a
+Session.to_map; todavía no reproduce esos overlays ni sus pases del grafo.
+Se retiró el botón Tk «Elegir escena». La columna visible del PDA intercepta los
+clics para evitar penalizarlos como fallos en la escena: es una política explícita
+del prototipo, pendiente de reconstruir el clipping/input de los padres nativos.
+Nueva partida experimental y guardar siguen siendo controles propios.
+
+Las vistas privadas `pda-map-restored.png` y `pda-slots-start.png` muestran
+175.500 puntos conservados, reloj 00:21:51 y ocho sets pendientes en slots.
+Se inspeccionaron ambas. El caption español «TIEMPO» aparece recortado con el
+ancho recuperado de 35: queda registrado para una comparación concreta con el
+original antes de ajustar el layout. 0048aad0 confirma los anchors y 00475a05
+intersecta regiones; la propagación completa del clip aún no está cerrada.
+Por tanto estas imágenes no constituyen aprobación de equivalencia visual.
+
+`pda-gui-check.json` comprobó los callbacks reales de motion/down/up de Tk:
+carga del mapa, entrada a slots y regreso mediante el botón del PDA; puntos
+175500 intactos, tiempo almacenado de 9,29999256 a 9,54999256 segundos y cero
+fallos por el clic en el PDA. El callback de cierre guardó el estado. Root estuvo
+withdrawn; no hubo entrada global, ventana visible ni ejecución del original.
+
+Pasaron 45 pruebas sintéticas. Las dos nuevas cubren separación/alineación del
+reloj, agrupación de puntos, contadores, límites del PDA, botón deshabilitado en
+mapa y activación 301 consumida una sola vez. El mapa de dependencias reúne
+132 raíces revisadas, 1.762 nodos y 5.894 aristas directas con los cinco exports;
+no afirma cierre de llamadas indirectas. Siguen pendientes inicio/perfil nativos,
+jerarquía de escenas y transiciones, hints/coleccionables/audio, bonus, victoria,
+avance de nivel y comparación diferencial. Huntsville, Director y las APK
+aprobadas no se modificaron en este trabajo. El objetivo permanece activo.

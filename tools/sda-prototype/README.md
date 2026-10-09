@@ -213,7 +213,7 @@ with a 1320-second clock. The map now draws the original scene cards, arranged
 in declaration order with the native count-dependent layout. Each scene starts
 its recovered ten-set selection;
 compound targets can require multiple clicks, but count once after all components
-retire. Use `Elegir escena` to reach the other location. The shell stops at
+retire. Use the original PDA map button to reach the other location. The shell stops at
 `objects_complete`, which is the object objective boundary, not the original
 bonus round, clue collection, victory screen or next-level progression.
 
@@ -269,11 +269,36 @@ enters the cached scene; original transition overlays and deferred graph passes
 still require reconstruction.
 
 The campaign canvas uses these cards in place of the separate scene-name buttons.
-New-game, return-to-map and save remain experimental surrounding controls. PDA,
-player display, marker animations, audio and fade/background mode transitions
-are pending. The original EXE has not been used to approve visual equivalence.
+New-game and save remain experimental surrounding controls. The partial PDA
+below supplies return-to-map. Player display, marker animations, audio and
+fade/background mode transitions remain pending. The original EXE has not been used to approve visual equivalence.
 Private renders confirm initial counts 10/10 and restored counts slots=10,
 vault=0. Actual Tk motion/down/up callbacks selected vault, returned to the map,
 selected slots and saved on close with a hidden root and no global input.
 The suite has 43 passing tests; three new tests cover ordering/counts, pointer
 capture/cancellation/deferred activation, and pushed/dragged drawing behavior.
+
+
+## Partial PDA and native map action
+
+`pda_view.py` renders the recovered PDA backgrounds and atlas labels, with the
+campaign clock, grouped score, level number and remaining target count. Scene
+rows render above the PDA background. Clock captions retain the recovered
+35-pixel width; the value starts at x+35 and retains its default left alignment.
+Score formatting inserts literal commas in groups of three digits.
+
+The original mapbutton uses its declared textures, fonts, offsets and pointer
+states. Its action 301 is consumed after rendering to return to the experimental
+map, preserving progress. It replaces the surrounding Tk return button. The
+visible PDA column blocks scene clicks as an explicit experimental input policy;
+native parent clipping and transition overlays are not yet reproduced.
+
+Private renders show the Spanish clock caption clipping within the recovered
+width. This is recorded for comparison with the original, not corrected through
+an unverified layout change. Other PDA controls, hints, collectibles, native
+profile startup and campaign completion remain pending. No original EXE was run.
+
+The hidden-root GUI check loaded 175500 points, entered slots through a map card,
+returned using the PDA and saved on close without adding a miss or resetting the
+clock. Two synthetic PDA tests bring the suite to 45 passing tests. All captures
+and real-resource observations remain private.
