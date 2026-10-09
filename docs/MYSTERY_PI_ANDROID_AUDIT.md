@@ -204,3 +204,21 @@ Continuación exacta:
 3. Proyecto/listados privados: `00436780` dispatcher completo, `00439160` inserción inicial, `00439090` retorno, `00439890`/`004399c0` geometría, `004394a0` scroll; estudiar solamente esos componentes imprescindibles antes de inventar posiciones. `00435f60` genera piezas mediante máscaras y emboss/shadow; renderer original pendiente.
 4. `android/app/src/main/kotlin/org/rigorcore/caserecomp/app/SdaGameView.kt` y `SdaCampaign.kt`: recoger/mover/girar/colocar, render alfa y transición de resultado. `SdaPrivateLevelJourneyUnitTest` debe ampliar recorrido normal desde mapa del 3 cuando esta integración exista.
 5. `tools/sda-prototype/bonus.py::JigsawGame.place/click_pixel/load`: retirar la aproximación de 20px/bandeja fija con evidencia y crear referencia ejecutable independiente. El comentario corregido no cambia esas reglas.
+
+
+## Jigsaw: bandeja y coordinación de entradas, integración pendiente
+
+Referencia privada del proyecto Ghidra en lectura: `00439320`/`00439580` calculan separación mediante división entera altura/cantidad, centrado con dimensiones de imagen transformada y viewport acotado. El único caller recuperado (`00467000`) pasa padding 31; ENVS declara x=10,y=88,w=130,h=269,cuatro casillas. `00439230` retira la pieza y `00439090` la devuelve al índice anterior, ajustando la última página. `00436780` recorre componentes en orden inverso y exige canal alfa >0. Se verificó el exportador genérico `refs:` en Ghidra; listados y recursos permanecen privados.
+
+`SdaJigsawTray.rectangles/hitTest/take/returnPiece/state` implementan esos mecanismos y guardan orden/viewport. El llamador debe proporcionar dimensiones y píxeles transformados reales: no se inventa el redondeo del escalado nativo 0.45. `SdaJigsawInteraction.pickPixel/dropHeld/rotateHeld/state` conecta bandeja y núcleo, conserva índice de devolución, selección, ángulos y posición, y rechaza checkpoints inconsistentes. Giro representa únicamente la rotación completada; animación nativa de 0.25 s pendiente. Ninguna clase nueva sustituye aún `SdaJigsawGame` en la campaña.
+
+Verificación RED → GREEN: **155 engine + 23 app**, cero fallos/errores/omitidas; `:app:assembleDebug` correcto. Tres tests nuevos con imágenes alfa propias verifican geometría, transparencia, paginación, devolución, colocación y checkpoint a mitad de selección restaurado con otra semilla. No constituyen validación Android del rompecabezas ni comparación dinámica con el original. EXE, escritorio, Director, Huntsville y APK aprobada intactos.
+
+Continuación exacta:
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaJigsawTray.kt`: conectar dimensiones/píxeles después del escalado y giro nativos; comprobar orden real de componentes.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaJigsawInteraction.kt`: adaptar movimiento centrado y bloqueo durante animación; mantener checkpoint coordinado.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaBonus.kt`: reemplazar clic artificial de `SdaJigsawGame`, cargar JSW/ENVS y restaurar interacción completa en `SdaBonusLoader`.
+- `android/app/src/main/kotlin/org/rigorcore/caserecomp/app/SdaGameView.kt`: composición original máscara/emboss/sombra, bandeja, giro y gestos; luego conectar campaña y guardado.
+- `android/engine/src/test/kotlin/org/rigorcore/caserecomp/sda/SdaPrivateLevelJourneyUnitTest.kt`: extender recorrido privado al bonus del nivel 3 solamente después de integración auténtica.
+
+Estado vigente: niveles 1→2→mapa del 3 probados en JVM, WordSearch Android sintético probado anteriormente; bonus Jigsaw de nivel 3, campaña posterior y desenlace del nivel 25 siguen incompletos. Task 3 y objetivo global abiertos.

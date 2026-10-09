@@ -15,6 +15,19 @@ public class ExportStoredInstructions extends GhidraScript {
   String[] roots=String.join(",", Arrays.copyOfRange(args,1,args.length)).split(",");
   if(roots.length>12) throw new IllegalArgumentException("root budget exceeded");
   for(String root:roots) {
+   if(root.startsWith("refs:")) {
+    String address=root.substring(5); int count=0;
+    if(!address.matches("[0-9a-fA-F]{8,16}")) throw new IllegalArgumentException("hex address required");
+    try(PrintWriter w=new PrintWriter(new OutputStreamWriter(new FileOutputStream(new File(out,"refs-"+address+".txt")),StandardCharsets.UTF_8))) {
+     for(Reference ref:getReferencesTo(toAddr(address))) {
+      if(++count>100) throw new IllegalArgumentException("reference budget exceeded");
+      Function caller=currentProgram.getFunctionManager().getFunctionContaining(ref.getFromAddress());
+      w.println(ref.getFromAddress()+"\t"+ref.getReferenceType()+"\t"+(caller==null?"unrecognized":caller.getEntryPoint()));
+     }
+    }
+    println("exported stored references: "+address+" count="+count);
+    continue;
+   }
    if(root.startsWith("bytes:")) {
     String[] parts=root.split(":");
     if(parts.length!=3) throw new IllegalArgumentException("bytes:address:length required");
