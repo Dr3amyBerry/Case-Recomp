@@ -109,16 +109,17 @@ class Sprite:
     image: object
     found: bool = False
     motion: object = None
+    hidden: bool = False
 
     def hit(self, x, y):
         # 004251f0 / 00473e0e: half-open rectangle, then nonzero alpha channel.
         px, py = x - self.x, y - self.y
-        return (not self.found and 0 <= px < self.image.width and
+        return (not self.found and not self.hidden and 0 <= px < self.image.width and
                 0 <= py < self.image.height and self.image.getpixel((px, py))[3] != 0)
 
 
 class Scene:
-    def __init__(self, resources, name, targets=None, seed=None):
+    def __init__(self, resources, name, targets=None, seed=None, history=(), history_variant=None, saved_captions=None, prune_previous_history=False):
         self.resources = resources
         self.name = name
         tree = parse_xui(resources.read(name))
@@ -153,25 +154,69 @@ class Scene:
         for ids, captions in self.captions.items():
             if len(captions) != len(ids) or any(caption.startswith("@") for caption in captions):
                 raise ValueError("unresolved or mismatched target captions")
+        self.scene_identity = name.rsplit(".", 1)[0].removeprefix("SCENE_").lower()
+        self.history = list(history)
+        self.history_variant = history_variant
+        self.candidate_sets = tuple(self.target_sets)
+        self.history_pruned = False
+        if prune_previous_history:
+            if saved_captions is not None:
+                raise ValueError("history pruning belongs to a fresh campaign, not saved-list restoration")
+            from history import prune_scene_history
+            self.history, self.history_pruned = prune_scene_history(
+                self.candidate_sets, self.captions, self.history, self.scene_identity)
+            self.history = list(self.history)
+        if self.history:
+            if history_variant is None:
+                raise ValueError("history replay requires an explicit current scene variant")
+            from history import replay_history
+            from motion import FoundMotion
+            rectangles = {identity: (sprite.x, sprite.y, sprite.image.width, sprite.image.height)
+                          for identity, sprite in self.objects.items()}
+            replay = replay_history(self.candidate_sets, self.captions, rectangles,
+                                    self.history, self.scene_identity, history_variant)
+            self.candidate_sets = replay.candidates
+            for identity in replay.hidden:
+                self.objects[identity].hidden = True
+            for identity in replay.retired:
+                sprite = self.objects[identity]
+                sprite.found = True
+                sprite.motion = FoundMotion(sprite.x, sprite.y, sprite.image.width, sprite.image.height)
+                sprite.motion.removed = True
+                sprite.motion.y = -sprite.image.height
+        if saved_captions is not None and (seed is None or targets is not None):
+            raise ValueError("saved captions require a seed and cannot use explicit targets")
         if seed is not None:
             if targets is not None:
                 raise ValueError("choose explicit sets or a native shuffle seed")
             from selection import TargetDeck
-            # Full original history/overlap pool filtering is not yet implemented.
-            self.deck = TargetDeck(self.target_sets)
-            self.active_sets = self.deck.next_batch(seed)
+            # 00423000 history pruning and campaign-context selection remain pending.
+            self.deck = TargetDeck(self.candidate_sets)
+            self.active_sets = (self.deck.restore_batch(self.captions, saved_captions, seed)
+                                if saved_captions is not None else self.deck.next_batch(seed))
         else:
             self.deck = None
             self.active_sets = tuple((item,) if isinstance(item, str) else tuple(item) for item in (targets or ()))
             if not self.active_sets or len(set(self.active_sets)) != len(self.active_sets):
                 raise ValueError("select distinct target sets")
-            if any(ids not in self.target_sets for ids in self.active_sets):
+            if any(ids not in self.candidate_sets for ids in self.active_sets):
                 raise ValueError("unknown target set")
         self.targets = tuple(identity for ids in self.active_sets for identity in ids)
         self.found_order = []
         self.score = Score()
         self.elapsed = 0.0
         self.since_found = 0.0
+
+    def next_batch(self, seed):
+        if self.deck is None:
+            raise ValueError("explicit diagnostic sets do not have a native selection deck")
+        if any(not (self.objects[item].motion and self.objects[item].motion.removed)
+               for item in self.targets):
+            raise ValueError("finish all active objects and their retirement animations first")
+        selected = self.deck.next_batch(seed)
+        self.active_sets = selected
+        self.targets = tuple(identity for ids in selected for identity in ids)
+        return selected
 
     def remaining_captions(self):
         result = []
@@ -224,6 +269,12 @@ class Scene:
             sprite = self.objects[identity]
             if sprite.hit(x, y):
                 from motion import FoundMotion
+                if self.history_variant is not None:
+                    from history import HistoryMark
+                    ids = next(ids for ids in self.active_sets if identity in ids)
+                    count = sum(self.objects[item].found for item in ids)
+                    self.history.append(HistoryMark.create(self.captions[ids][count],
+                                                          self.scene_identity, self.history_variant, x, y))
                 sprite.found = True
                 sprite.motion = FoundMotion(sprite.x, sprite.y, sprite.image.width, sprite.image.height)
                 self.found_order.append(identity)
@@ -237,7 +288,7 @@ class Scene:
         from PIL import Image
         stage = Image.new("RGBA", (800, 600), (0, 0, 0, 255))
         for sprite in self.draw_order:
-            if not sprite.found:
+            if not sprite.found and not sprite.hidden:
                 stage.alpha_composite(sprite.image, (sprite.x, sprite.y))
         # Found images leave their original container and continue in click order.
         # Pillow resampling is experimental; native surface filtering is unresolved.

@@ -19,7 +19,7 @@ python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/gam
 window, not the original game. It draws original scene sprites and accepts clicks
 on the scene canvas. The text and hint-penalty button are research controls.
 Targets can be explicit single/compound sets or a recovered shuffle batch from a
-supplied clock seed. History/overlap filtering and campaign allocation are pending.
+supplied clock seed. History replay is available through the Scene API; campaign allocation and native player files remain pending.
 The prototype does not read or write original player saves.
 
 Implemented primitives:
@@ -83,8 +83,8 @@ python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/gam
 The second command opens only the experimental window when explicitly run.
 `--seed` and `--targets` are mutually exclusive. `--seed` replays the native
 32-bit Visual C RNG and forward shuffle, then selects up to ten sets. The supplied
-pool currently includes all scene sets; native history/overlap filtering is not
-implemented. The pool does not imply a campaign assignment of ten required hits:
+CLI pool includes all scene sets because it supplies no original player history.
+The Scene API can replay scoped history marks before selecting or restoring sets. The pool does not imply a campaign assignment of ten required hits:
 a compound set has several objects, each with its own score and found state.
 Localized comma-separated captions change as objects are found.
 
@@ -97,7 +97,7 @@ this diagnostic batch does not start a new scene or report a campaign victory.
 of silently substituting modulo wrapping. If a subsequent batch reaches a child
 index equal to the pool size, it stops with a diagnostic; native transition context
 at that boundary is unresolved. Saved-prefix ordering is available independently through restore_batch; restoring
-original component history and sampling the original runtime clock remain pending. Tests use synthetic fixtures and
+the native player serializer and sampling the original runtime clock remain pending. Tests use synthetic fixtures and
 known RNG vectors; no original game data is committed.
 
 ## Found-object lifecycle and saved-list ordering
@@ -126,4 +126,72 @@ saved captions against set variants, ten-slot compaction, active-prefix ordering
 and native suffix shuffling. Later sets win a caption collision, as in the native
 outer loop; cursor advances ten regardless of the compacted count. This helper
 restores ordering only and is not yet exposed as original-save compatibility:
-original history rectangles are still needed to retire the correct components.
+the Scene API now replays typed history points to retire the correct components;
+loading the native player file and full campaign context remain pending.
+
+## History replay and fresh-campaign pruning
+
+`history.py` models typed in-memory `HistoryMark(text, x, y)` observations from
+00424740 and common filtering paths in 00423680. It retains original scoped
+captions and first-bracket variant parsing. Compound components use strict point
+interior tests; single sets take a separate path that can hide/remove them without
+that test. Nonzero variant mismatches remove matching sets; the zero-variant
+exceptions and shifted-child iteration are preserved.
+
+The Scene API accepts `history`, an explicit `history_variant`, and
+`saved_captions` along with a seed. After a diagnostic scene constructed with an
+explicit variant has retired its found-object animations, its observed list can
+be reconstructed in memory:
+
+```python
+restored = Scene(resources, scene.name, seed=1,
+                 history=scene.history, history_variant=scene.history_variant,
+                 saved_captions=scene.saved_captions())
+```
+
+This restores scene-object/list state only. It does not restore score, clock,
+player selection or campaign state, and does not read/write an original save.
+The CLI still starts a diagnostic selection; no native-save option is claimed.
+
+`prune_scene_history` recovers 00423000's freshness threshold: it counts affected
+sets using caption substrings in scoped history excluding the literal `[0]`.
+If fewer than ten sets are unaffected, it removes that scoped nonzero history.
+Exactly ten keeps it. `prune_previous_history=True` requests this fresh-campaign
+path explicitly; it cannot be combined with saved-list restoration. Correct route
+selection still depends on recovered player/campaign context.
+
+## Play another batch and preserve experimental progress
+
+```powershell
+# New diagnostic session, with original target rows and autosave.
+python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/game/Resources.dll --scene SCENE_VAULT.MSL --seed 8 --target-list --save local-output/sda-prototype/progress.json --interactive
+# Resume the same session after closing it.
+python tools/sda-prototype/prototype.py --resources private/mystery-pi-vegas/game/Resources.dll --scene SCENE_VAULT.MSL --resume --target-list --save local-output/sda-prototype/progress.json --interactive
+```
+
+`Siguiente tanda` enables after all active objects finish their retirement animations.
+It advances the recovered deck without resetting score, elapsed time or found state.
+Native boundary diagnostics still apply; full campaign routing and pool refresh at
+that boundary are not invented. The surrounding buttons are diagnostic controls;
+the original menu's player/map/dialog routing is not yet connected.
+
+`progress.py` writes the versioned `case-recomp-sda-prototype/1` format atomically.
+It preserves current sets, candidate/deck order and cursor, score/fast-chain/miss
+history, elapsed/since-found timers, history marks and each object's visibility
+and complete experimental motion state. The save binds to the original DLL hash.
+Loading different resources or an unsupported schema fails before returning a
+scene. Offline time is not added to gameplay timers.
+
+With `--save`, the window saves after clicks, hints, batch changes, every five
+seconds and on close. `Guardar progreso` also saves manually. The supported path
+is JSON under `local-output/sda-prototype/`; the approved APK and original player
+saves are outside this output directory. A new headless render with `--save` also
+writes its initial progress; a resumed headless render only reads that progress.
+
+Backend tests complete a first batch, enter a second, write/load a real JSON file
+and continue finding objects. Mid-animation restoration preserves the stored
+state. A private check also invoked the actual Tk next/save/close callbacks with
+the window withdrawn, without moving the mouse or opening the original game.
+This is an experimental playable loop, not native player-file or campaign
+compatibility; original startup UI, level clock, victory and differential visual
+comparison remain pending.

@@ -310,3 +310,109 @@ historial; continúa limitado a tres niveles y llamadas directas.
 Siguen pendientes las condiciones completas de filtrado de 00423000/00423680,
 serialización original, transición de menú/escena, reloj de campaña y victoria.
 El experimento no cambia Director, Huntsville ni Android y no abrió el original.
+
+
+## Historial de componentes y filtrado al restaurar una escena
+
+`history.py` y la API de Scene incorporan las rutas revisadas de 00424740,
+00423000 y 00423680. La implementación utiliza registros en memoria obtenidos por
+la prueba experimental; no sustituye el parser ni el serializer del jugador.
+
+00424740 construye un label histórico cuyo texto es caption + ` (escena)` y,
+cuando el contexto permite obtenerlo, espacio + `[variante]`. Se le asigna el
+punto del clic como esquina superior izquierda, con dimensiones 100×10. Las
+constantes se verificaron directamente: 005193c0 es espacio; 0051a208 es `[%d]`;
+0051a210 es `[`. La variante viene de 0043c760 (+0x80 de su contexto), o cero en
+la ruta cuyo flag consulta 00405b60; no se deduce del nombre del recurso.
+
+00423680 toma el primer `[`, recorta el carácter previo y lee un entero con
+sscanf; si no obtiene el contexto usa −1. Para cada set compara su caption actual
+(según componentes retirados) más la escena contra la parte anterior del registro.
+Las rutas implementadas conservan las siguientes condiciones:
+
+- Misma variante y varios componentes pendientes: retira cada componente cuyo rectángulo contiene estrictamente el punto histórico; marca encontrado/retirado y lo oculta.
+- Último componente pendiente: elimina el set; en un set simple puede ocultar su objeto sin probar el punto. En un compuesto usa el elemento cero como selección inicial y busca el primer pendiente que contiene el punto.
+- Variante distinta: elimina el set sólo cuando ambas variantes son distintas de cero. Si alguna vale cero, conserva esa excepción.
+- Al eliminar un hijo, el índice exterior sigue avanzando en esta pasada; el sucesor desplazado no se reevalúa. No se normaliza esa iteración ni se cambian sus límites geométricos.
+
+El interior usado por esta rutina excluye los cuatro bordes. No es el hit-test
+del clic normal, que admite los bordes izquierdo/superior antes de comprobar alfa.
+La salida distingue objetos retirados por 00427800 de objetos sólo ocultados al
+eliminar el set. Este replay no suma puntos ni reproduce el sonido de un acierto.
+La comparación de renders y el contexto completo de registros reales siguen
+pendientes; no se declara compatibilidad total con cualquier historial original.
+
+00423000 se recuperó como limpieza de historia en la ruta de campaña nueva:
+cuenta cuántos sets tienen alguna variante de caption como substring de registros
+que contienen ` (escena)` y no contienen el literal `[0]`. Si quedan menos de diez
+sets sin afectar, elimina esos registros del historial, conservando `[0]` y otras
+escenas. No se compara sólo el número de objetos retirados ni se sustituye el
+substring por igualdad exacta. Con diez sets sin afectar conserva el historial.
+La API exige solicitar esa ruta mediante `prune_previous_history`; no la aplica
+al restaurar una lista guardada. La decisión real de ruta pertenece al contexto
+revisado en 0040f680, que aún debe enlazarse al flujo del menú.
+
+La prueba privada de la bóveda encontró un componente de un set de cuatro,
+esperó su retirada y reconstruyó una nueva instancia desde el historial y caption
+pendiente. Recuperó el mismo set, retiró exactamente ese componente y conservó
+los otros tres como objetivos; volver a clicar el punto anterior ya no da acierto.
+El renderer produjo `vault-history-restored.png`; `history-replay-check.json`
+registra los textos/puntos, variante explícita, hash del DLL y límites. Sólo son
+observaciones del prototipo: no se leyó un save original ni se restauró score,
+reloj, jugador o campaña. No se abrió ni controló el EXE.
+
+Pasaron 36 pruebas. Las nueve nuevas comprueban el formato del registro,
+interior estricto, scope/variantes, retiro parcial, eliminación del último set,
+iteración tras borrar hijos, umbral de limpieza, matching por substrings y replay
+integrado con lista activa/click siguiente. Siguen pendientes la serialización
+original, reloj, selección del jugador y las transiciones de campaña/victoria.
+
+
+## Objetivo ampliado: tandas jugables y progreso persistente
+
+El usuario añadió poder iniciar una partida, completar una tanda, pasar a la
+siguiente y conservar el progreso. Se incorporó ese flujo al prototipo de escenas,
+sin dar por terminada la navegación original ni reemplazar el alcance del objetivo.
+
+Scene.next_batch exige que todos los componentes activos hayan terminado su
+retirada. Avanza mediante el deck recuperado y conserva score, acumuladores de
+tiempo y objetos encontrados. El botón experimental `Siguiente tanda` usa ese
+contrato. Los checks de límite estricto de 00428d70 permanecen; están pendientes
+las transiciones y renovación de pool de la campaña que contextualizan ese límite.
+
+`progress.py` serializa el estado del prototipo como `case-recomp-sda-prototype/1`:
+sets activos, candidatos, orden/cursor del deck, score y cadena, historial de
+fallos, elapsed/since_found, registros históricos, flags de visibilidad y toda la
+animación experimental de cada objeto. Se conserva la distinción de encontrado y
+retirado. El snapshot copia sus listas/estados para que avanzar luego no modifique
+la captura. La carga verifica schema, huella de Resources.dll y referencias/estados
+contra la escena original antes de devolver una instancia recuperada.
+
+El archivo se escribe mediante temporal + reemplazo atómico dentro de
+`local-output/sda-prototype/`. La ventana guarda tras clicks, pistas, avance de
+tanda, cada cinco segundos y al cerrar; dispone de botón manual y opción --resume.
+El tiempo offline no se añade. Es persistencia explícita del prototipo, no el
+formato de save original ni un savestate del EXE. No modifica archivos del jugador,
+Director, Huntsville o la APK aprobada. El renderer del menú original continúa
+como vista estática y sus rutas de jugador/mapa/diálogos deben enlazarse.
+
+La prueba con Resources.dll de la bóveda completó los 13 componentes de la primera
+tanda de diez sets, esperó la retirada, avanzó a otra tanda sin repetir sus sets y
+conservó 175.500 puntos. Guardó el estado, cargó otra instancia con los mismos
+recursos y verificó igualdad del snapshot, incluido cursor=20. Tras cargar encontró
+un objeto de la segunda tanda: sumó 5.000 y pasó a 180.500. Los registros privados
+son `session-progress-check.json`, `vault-second-batch-resumed.png` y los JSON de
+progreso en local-output/sda-prototype. Se probó también --resume desde el CLI.
+
+Se ejecutaron los callbacks reales de Tk de siguiente tanda, guardar y cerrar
+con el root withdrawn. La ventana no se mostró y no se usaron mouse, teclado ni
+el original. `gui-progress-check.json` registra cursor=20, score=175.500 y cierre
+con guardado. Esta verificación comprueba el flujo de controles del prototipo;
+no es una prueba manual del juego original ni de su menú.
+
+Pasaron 38 pruebas: las 36 anteriores más el recorrido de dos tandas con round
+trip de archivo y recuperación durante una animación, con rechazo de recursos
+distintos y tiempo no finito. El mapa actual tiene 92 raíces, 1.688 nodos y 5.486
+aristas directas. La persistencia del primer recorrido queda demostrada en el
+prototipo; el objetivo completo sigue abierto por inicio/navegación original,
+reloj de nivel, contexto de campaña/victoria y comparación diferencial pendiente.
