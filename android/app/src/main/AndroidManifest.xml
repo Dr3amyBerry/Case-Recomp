@@ -18,6 +18,10 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|smallestScreenSize|uiMode"
             android:screenOrientation="sensorLandscape" />
+        <activity android:name=".SdaLauncherActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|smallestScreenSize|uiMode"
+            android:screenOrientation="sensorLandscape" />
         <!-- Earlier synthetic shell (GameRuntime): kept for its tests and the adb debug route, no longer the launcher. -->
         <activity
             android:name=".MainActivity"

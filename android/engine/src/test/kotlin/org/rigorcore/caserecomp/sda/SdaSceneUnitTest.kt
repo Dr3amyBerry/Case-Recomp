@@ -67,14 +67,84 @@ class SdaSceneUnitTest {
     }
 
     @Test
-    fun xui_prefix_and_bom() {
+    fun xui_hardened_validations() {
         val xuiWithBom = "\uFEFF<xui><mpi:eyespyobjects/></xui>".toByteArray(Charsets.UTF_8)
         val doc = SdaXui.parse(xuiWithBom)
         assertTrue(doc.textures.isEmpty())
 
+        // DTD declaration rejected
         val xuiDoctype = "<!DOCTYPE xui><xui/>".toByteArray(Charsets.UTF_8)
         assertThrows(IllegalArgumentException::class.java) {
             SdaXui.parse(xuiDoctype)
         }
+
+        // Malformed coordinate rejected (no silent 0 fallback)
+        val malformedCoord = """
+            <xui>
+              <texture id="t" uri="u"/>
+              <eyespyimage id="i" x="abc" y="10" tex="t"/>
+            </xui>
+        """.trimIndent().toByteArray(Charsets.UTF_8)
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaXui.parse(malformedCoord)
+        }
+
+        // Unknown texture reference rejected
+        val unknownTexture = """
+            <xui>
+              <eyespyimage id="i" x="10" y="10" tex="missing_tex"/>
+            </xui>
+        """.trimIndent().toByteArray(Charsets.UTF_8)
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaXui.parse(unknownTexture)
+        }
+
+        // Unknown object in eyespyset rejected
+        val unknownObjectInSet = """
+            <xui>
+              <texture id="t" uri="u"/>
+              <eyespyimage id="i" x="10" y="10" tex="t"/>
+              <eyespyset objects="missing_obj" itemnamelist="name"/>
+            </xui>
+        """.trimIndent().toByteArray(Charsets.UTF_8)
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaXui.parse(unknownObjectInSet)
+        }
+
+        // Duplicate eyespyset rejected
+        val duplicateSet = """
+            <xui>
+              <texture id="t" uri="u"/>
+              <eyespyimage id="i" x="10" y="10" tex="t"/>
+              <eyespyset objects="i" itemnamelist="name1"/>
+              <eyespyset objects="i" itemnamelist="name2"/>
+            </xui>
+        """.trimIndent().toByteArray(Charsets.UTF_8)
+        assertThrows(IllegalArgumentException::class.java) {
+            SdaXui.parse(duplicateSet)
+        }
+    }
+
+    @Test
+    fun history_marks_split_variant_and_pruning() {
+        val mark1 = HistoryMark.create("Safe", "vault", 1, 100, 200)
+        assertEquals("Safe (vault) [1]", mark1.text)
+        val (base, variant) = mark1.splitVariant()
+        assertEquals("Safe (vault)", base)
+        assertEquals(1, variant)
+
+        val marks = listOf(
+            HistoryMark.create("Item1", "vault", 1, 10, 10),
+            HistoryMark.create("Item2", "vault", 0, 10, 10),
+            HistoryMark.create("Item3", "vault", 2, 10, 10),
+        )
+        val sets = listOf(listOf("Item1"), listOf("Item2"), listOf("Item3"))
+        val variants = sets.associateWith { it }
+
+        // Fewer than 10 sets remain fresh -> prune non-[0] marks
+        val (pruned, wasPruned) = pruneSceneHistory(sets, variants, marks, "vault")
+        assertTrue(wasPruned)
+        assertEquals(1, pruned.size)
+        assertTrue(pruned[0].text.contains("[0]"))
     }
 }

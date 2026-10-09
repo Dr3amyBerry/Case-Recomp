@@ -32,13 +32,16 @@ class HomeActivity : Activity() {
     private data class Game(val title: String, val ready: Boolean)
 
     private lateinit var repository: PrivateDirectorRepository
+    private lateinit var sdaRepository: PrivateSdaRepository
     private lateinit var games: LinearLayout
     private var importing = false
+    private var importingSda = false
     private var workerToken = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = PrivateDirectorRepository(this)
+        sdaRepository = PrivateSdaRepository(this)
         games = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -161,6 +164,8 @@ class HomeActivity : Activity() {
             val view = when {
                 game.engine == EngineFamily.DIRECTOR && game.status == CompatibilityStatus.VERIFIED ->
                     directorCard(game)
+                game.engine == EngineFamily.SDA ->
+                    sdaCard(game)
                 else ->
                     statusCard(game)
             }
@@ -169,6 +174,75 @@ class HomeActivity : Activity() {
                 marginEnd = dp(CARD_GAP / 2)
             })
         }
+    }
+
+    private fun sdaCard(game: GameEntry): View {
+        val imported = sdaRepository.hasActive()
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = rounded(CARD, dp(14).toFloat(), CARD_EDGE)
+        }
+        val cover = sdaRepository.activeCover().takeIf { imported }
+            ?.let { file -> runCatching { BitmapFactory.decodeFile(file.path) }.getOrNull() }
+        card.addView(FrameLayout(this).apply {
+            background = rounded(COVER_BACK, dp(10).toFloat(), 0)
+            if (cover != null) {
+                addView(ImageView(this@HomeActivity).apply {
+                    setImageBitmap(cover)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    contentDescription = game.title
+                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                })
+            } else {
+                addView(TextView(this@HomeActivity).apply {
+                    text = "🎰\n${game.title}"
+                    setTextColor(GOLD)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                    typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+                    gravity = Gravity.CENTER
+                })
+            }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(coverHeight())))
+        card.addView(TextView(this).apply {
+            text = game.title
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, dp(2))
+        })
+        card.addView(TextView(this).apply {
+            text = "${game.subtitle} · ${game.engine.displayName}"
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(8))
+        })
+        if (importingSda) {
+            card.addView(ProgressBar(this), LinearLayout.LayoutParams(dp(36), dp(36)))
+            card.addView(TextView(this).apply {
+                text = "Importando SDA…"
+                setTextColor(MUTED)
+                gravity = Gravity.CENTER
+            })
+            return card
+        }
+        card.addView(actionButton(if (imported) "Jugar (SDA)" else "Importar paquete SDA", primary = imported) {
+            if (imported) playSda() else selectSdaZip()
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
+        if (imported) {
+            card.addView(TextView(this).apply {
+                text = "Importar de nuevo"
+                setTextColor(MUTED)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(8), 0, 0)
+                setOnClickListener { selectSdaZip() }
+            })
+        }
+        return card
     }
 
     /** A title whose engine or runtime is in development: shown clearly, but not importable via Director. */
@@ -322,6 +396,10 @@ class HomeActivity : Activity() {
         startActivity(Intent(this, DirectorLauncherActivity::class.java).putExtra(DirectorLauncherActivity.EXTRA_PLAY, true))
     }
 
+    private fun playSda() {
+        startActivity(Intent(this, SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PLAY, true))
+    }
+
     private fun selectZip() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
@@ -331,27 +409,56 @@ class HomeActivity : Activity() {
             .onFailure { Toast.makeText(this, "No hay un selector de archivos disponible", Toast.LENGTH_LONG).show() }
     }
 
+    private fun selectSdaZip() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/zip"
+        }
+        runCatching { startActivityForResult(intent, REQUEST_SDA_ZIP) }
+            .onFailure { Toast.makeText(this, "No hay un selector de archivos disponible", Toast.LENGTH_LONG).show() }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != REQUEST_ZIP || resultCode != RESULT_OK) return
+        if (resultCode != RESULT_OK) return
         val uri = data?.data ?: return
         val token = ++workerToken
-        importing = true
-        refresh()
-        Thread {
-            val result = runCatching {
-                contentResolver.openInputStream(uri)?.use(repository::import) ?: error("no se pudo abrir el archivo")
-            }
-            runOnUiThread {
-                if (isDestroyed || token != workerToken) return@runOnUiThread
-                importing = false
-                result.exceptionOrNull()?.let {
-                    Log.e(TAG, "import failed", it)
-                    Toast.makeText(this, "Importación rechazada: " + (it.message ?: "paquete no válido"), Toast.LENGTH_LONG).show()
+
+        if (requestCode == REQUEST_ZIP) {
+            importing = true
+            refresh()
+            Thread {
+                val result = runCatching {
+                    contentResolver.openInputStream(uri)?.use(repository::import) ?: error("no se pudo abrir el archivo")
                 }
-                refresh()
-            }
-        }.start()
+                runOnUiThread {
+                    if (isDestroyed || token != workerToken) return@runOnUiThread
+                    importing = false
+                    result.exceptionOrNull()?.let {
+                        Log.e(TAG, "Director import failed", it)
+                        Toast.makeText(this, "Importación rechazada: " + (it.message ?: "paquete no válido"), Toast.LENGTH_LONG).show()
+                    }
+                    refresh()
+                }
+            }.start()
+        } else if (requestCode == REQUEST_SDA_ZIP) {
+            importingSda = true
+            refresh()
+            Thread {
+                val result = runCatching {
+                    contentResolver.openInputStream(uri)?.use(sdaRepository::import) ?: error("no se pudo abrir el archivo")
+                }
+                runOnUiThread {
+                    if (isDestroyed || token != workerToken) return@runOnUiThread
+                    importingSda = false
+                    result.exceptionOrNull()?.let {
+                        Log.e(TAG, "SDA import failed", it)
+                        Toast.makeText(this, "Importación SDA rechazada: " + (it.message ?: "paquete no válido"), Toast.LENGTH_LONG).show()
+                    }
+                    refresh()
+                }
+            }.start()
+        }
     }
 
     override fun onDestroy() {
@@ -382,6 +489,7 @@ class HomeActivity : Activity() {
         const val BETA_NOTICE = "Beta: puede tener errores. Si encuentras alguno, avísanos en GitHub (toca aquí). " +
             "Se entrega tal cual, sin garantías. No incluye ningún juego."
         const val REQUEST_ZIP = 7001
+        const val REQUEST_SDA_ZIP = 7002
         const val TAG = "CaseRecompHome"
         const val TOP = 0xFF1B2333.toInt()
         const val BOTTOM = 0xFF07090D.toInt()

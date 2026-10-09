@@ -1,0 +1,552 @@
+{
+  "rng": {
+    "1": [
+      41,
+      18467,
+      6334,
+      26500,
+      19169,
+      15724,
+      11478,
+      29358,
+      26962,
+      24464
+    ],
+    "42": [
+      175,
+      400,
+      17869,
+      30056,
+      16083,
+      12879,
+      8016,
+      7644,
+      15809,
+      1769
+    ],
+    "1337": [
+      4404,
+      25954,
+      17763,
+      29679,
+      4113,
+      18955,
+      8176,
+      17911,
+      814,
+      2645
+    ],
+    "2147483647": [
+      35,
+      29739,
+      3374,
+      11141,
+      31308,
+      7870,
+      5253,
+      2445,
+      26706,
+      3992
+    ],
+    "4294967295": [
+      35,
+      29739,
+      3374,
+      11141,
+      31308,
+      7870,
+      5253,
+      2445,
+      26706,
+      3992
+    ]
+  },
+  "shuffle": [
+    {
+      "seed": 1,
+      "start": 0,
+      "result": [
+        1,
+        19,
+        18,
+        17,
+        5,
+        9,
+        2,
+        11,
+        6,
+        4,
+        15,
+        13,
+        7,
+        0,
+        10,
+        16,
+        12,
+        14,
+        3,
+        8
+      ]
+    },
+    {
+      "seed": 1,
+      "start": 4,
+      "result": [
+        0,
+        1,
+        2,
+        3,
+        13,
+        7,
+        12,
+        4,
+        5,
+        14,
+        18,
+        11,
+        9,
+        19,
+        8,
+        15,
+        17,
+        16,
+        6,
+        10
+      ]
+    },
+    {
+      "seed": 1337,
+      "start": 0,
+      "result": [
+        4,
+        1,
+        17,
+        2,
+        5,
+        15,
+        6,
+        3,
+        18,
+        14,
+        11,
+        19,
+        0,
+        13,
+        16,
+        7,
+        12,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "seed": 1337,
+      "start": 5,
+      "result": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        14,
+        18,
+        12,
+        11,
+        19,
+        15,
+        10,
+        9,
+        8,
+        7,
+        16,
+        5,
+        13,
+        17,
+        6
+      ]
+    }
+  ],
+  "deck": {
+    "batch1": [
+      0,
+      17,
+      23,
+      7,
+      22,
+      24,
+      2,
+      19,
+      5,
+      18
+    ],
+    "cursor1": 10,
+    "batch2": [
+      3,
+      15,
+      11,
+      20,
+      9,
+      13,
+      14,
+      1,
+      10,
+      21
+    ],
+    "cursor2": 20,
+    "order": [
+      0,
+      17,
+      23,
+      7,
+      22,
+      24,
+      2,
+      19,
+      5,
+      18,
+      3,
+      15,
+      11,
+      20,
+      9,
+      13,
+      14,
+      1,
+      10,
+      21,
+      4,
+      6,
+      16,
+      8,
+      12
+    ]
+  },
+  "score": [
+    {
+      "action": "found",
+      "fast": true,
+      "gain": 7500,
+      "points": 17500
+    },
+    {
+      "action": "found",
+      "fast": true,
+      "gain": 8500,
+      "points": 26000
+    },
+    {
+      "action": "found",
+      "fast": true,
+      "gain": 9500,
+      "points": 35500
+    },
+    {
+      "action": "found",
+      "fast": false,
+      "gain": 5000,
+      "points": 40500
+    },
+    {
+      "action": "found",
+      "fast": true,
+      "gain": 7500,
+      "points": 48000
+    },
+    {
+      "action": "found",
+      "fast": true,
+      "gain": 8500,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 0,
+      "penalized": false,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 100,
+      "penalized": false,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 200,
+      "penalized": false,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 300,
+      "penalized": false,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 400,
+      "penalized": false,
+      "points": 56500
+    },
+    {
+      "action": "miss",
+      "ms": 500,
+      "penalized": true,
+      "points": 54000
+    },
+    {
+      "action": "miss",
+      "ms": 2600,
+      "penalized": false,
+      "points": 54000
+    },
+    {
+      "action": "miss",
+      "ms": 2700,
+      "penalized": false,
+      "points": 54000
+    },
+    {
+      "action": "hint",
+      "points": 46500
+    }
+  ],
+  "clock": [
+    {
+      "step": 5.0,
+      "events": [],
+      "displaySeconds": 185,
+      "text": "00:03:05",
+      "elapsed": 1135.0
+    },
+    {
+      "step": 4.0,
+      "events": [],
+      "displaySeconds": 181,
+      "text": "00:03:01",
+      "elapsed": 1139.0
+    },
+    {
+      "step": 1.0,
+      "events": [
+        3
+      ],
+      "displaySeconds": 180,
+      "text": "00:03:00",
+      "elapsed": 1140.0
+    },
+    {
+      "step": 60.0,
+      "events": [],
+      "displaySeconds": 120,
+      "text": "00:02:00",
+      "elapsed": 1200.0
+    },
+    {
+      "step": 110.0,
+      "events": [
+        2
+      ],
+      "displaySeconds": 10,
+      "text": "00:00:10",
+      "elapsed": 1310.0
+    },
+    {
+      "step": 10.0,
+      "events": [
+        4
+      ],
+      "displaySeconds": 0,
+      "text": "00:00:00",
+      "elapsed": 1320.0
+    }
+  ],
+  "motion": [
+    {
+      "frame": 0,
+      "x": 20,
+      "y": 200,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.05,
+      "phase": 1,
+      "pulses": 0,
+      "removed": false
+    },
+    {
+      "frame": 5,
+      "x": 19,
+      "y": 199,
+      "drawWidth": 10,
+      "drawHeight": 10,
+      "scale": 1.25,
+      "phase": 2,
+      "pulses": 0,
+      "removed": false
+    },
+    {
+      "frame": 10,
+      "x": 20,
+      "y": 200,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 2,
+      "pulses": 0,
+      "removed": false
+    },
+    {
+      "frame": 15,
+      "x": 19,
+      "y": 199,
+      "drawWidth": 10,
+      "drawHeight": 10,
+      "scale": 1.2,
+      "phase": 1,
+      "pulses": 1,
+      "removed": false
+    },
+    {
+      "frame": 20,
+      "x": 20,
+      "y": 200,
+      "drawWidth": 9,
+      "drawHeight": 9,
+      "scale": 1.1,
+      "phase": 2,
+      "pulses": 1,
+      "removed": false
+    },
+    {
+      "frame": 25,
+      "x": 20,
+      "y": 196,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": false
+    },
+    {
+      "frame": 30,
+      "x": 20,
+      "y": 177,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": false
+    },
+    {
+      "frame": 40,
+      "x": 20,
+      "y": 102,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": false
+    },
+    {
+      "frame": 50,
+      "x": 20,
+      "y": 2,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": false
+    },
+    {
+      "frame": 60,
+      "x": 20,
+      "y": -18,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": true
+    },
+    {
+      "frame": 80,
+      "x": 20,
+      "y": -18,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": true
+    },
+    {
+      "frame": 100,
+      "x": 20,
+      "y": -18,
+      "drawWidth": 8,
+      "drawHeight": 8,
+      "scale": 1.0,
+      "phase": 0,
+      "pulses": 2,
+      "removed": true
+    }
+  ],
+  "scene": [
+    {
+      "step": "initial",
+      "remaining": [
+        "Two samples"
+      ],
+      "saved": [
+        "Two samples"
+      ]
+    },
+    {
+      "step": "click_a",
+      "result": {
+        "kind": "found",
+        "id": "a",
+        "gain": 7500
+      },
+      "remaining": [
+        "One sample"
+      ],
+      "saved": [
+        "Two samples"
+      ]
+    },
+    {
+      "step": "advance_50",
+      "remaining": [
+        "One sample"
+      ],
+      "saved": [
+        "One sample"
+      ]
+    },
+    {
+      "step": "click_b",
+      "result": {
+        "kind": "found",
+        "id": "b",
+        "gain": 8500
+      },
+      "remaining": [],
+      "saved": [
+        "One sample"
+      ]
+    },
+    {
+      "step": "advance_end",
+      "remaining": [],
+      "saved": [],
+      "points": 16000,
+      "batch_retired": true
+    }
+  ]
+}
