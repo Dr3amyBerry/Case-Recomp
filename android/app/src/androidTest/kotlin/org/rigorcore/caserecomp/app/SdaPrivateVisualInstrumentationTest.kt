@@ -90,7 +90,34 @@ class SdaPrivateVisualInstrumentationTest {
      // WSA compositor and Android launch splash can outlive the UI idle queue.
      SystemClock.sleep(1000)
      instrumentation.waitForIdleSync()
-     val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     var viewport=Triple(0f,0f,1f)
+     scenario.onActivity {
+      val location=IntArray(2);shown.getLocationOnScreen(location)
+      val scale=minOf(shown.width/800f,shown.height/600f)
+      viewport=Triple(location[0]+(shown.width-800*scale)/2,location[1]+(shown.height-600*scale)/2,scale)
+     }
+     fun slots(bitmap:Bitmap):List<Int> =(0 until 10).map { row ->
+      (0 until 150*20).count { point ->
+       val x=(viewport.first+(point%150+.5f)*viewport.third).toInt()
+       val y=(viewport.second+(120+row*20+point/150+.5f)*viewport.third).toInt()
+       val argb=bitmap.getPixel(x,y)
+       android.graphics.Color.red(argb)>160 && android.graphics.Color.green(argb)>110 && android.graphics.Color.blue(argb)<130
+      }
+     }
+     var screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     if(name=="scene-row-retired") {
+      // Capture real compositor frames until remaining row ink is visible, or fail.
+      repeat(8) {
+       if(slots(screenshot).drop(1).any { it<=20 }) {
+        screenshot.recycle();SystemClock.sleep(150)
+        scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
+        screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+       }
+      }
+      val ink=slots(screenshot)
+      assertTrue("retired row still visible: $ink",ink.first()<5)
+      assertTrue("remaining row disappeared: $ink",ink.drop(1).all { it>20 })
+     }
      assertTrue(screenshot.width>0 && screenshot.height>0)
      File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-$name.png").outputStream().use { stream ->
       assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG,100,stream))
@@ -102,6 +129,28 @@ class SdaPrivateVisualInstrumentationTest {
     touch(MotionEvent.ACTION_DOWN,card.first+20,card.second+20)
     assertEquals(SdaCampaignPhase.SCENE,campaign.phase)
     display("scene")
+    val targetScene=campaign.currentScene!!
+    val firstGroup=targetScene.activeSets.first()
+    for(id in firstGroup) {
+     val sprite=targetScene.objects.getValue(id)
+     val input=(0 until sprite.image.width*sprite.image.height).asSequence().map {
+      sprite.x+it%sprite.image.width to sprite.y+it/sprite.image.width
+     }.first { (x,y) -> x>=174 && targetScene.targets.firstOrNull { targetScene.objects.getValue(it).hit(x,y) }==id }
+     touch(MotionEvent.ACTION_DOWN,input.first,input.second)
+     assertTrue(sprite.found)
+    }
+    repeat(100) { campaign.advance(.04f) } // component clock, not an E2E lifecycle claim
+    assertTrue(targetScene.rows.getValue(firstGroup).removed)
+    assertFalse(targetScene.targetPresentation().any { it.index==0 })
+    assertEquals(targetScene.activeSets.size-1,targetScene.targetPresentation().size)
+    display("scene-row-retired")
+    scenario.onActivity {
+     val software=Bitmap.createBitmap(shown.width,shown.height,Bitmap.Config.ARGB_8888)
+     shown.draw(Canvas(software))
+     File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-scene-row-retired-software.png").outputStream().use { software.compress(Bitmap.CompressFormat.PNG,100,it) }
+     software.recycle()
+    }
+
     touch(MotionEvent.ACTION_DOWN,profile.returnMapRect.centerX(),profile.returnMapRect.centerY())
     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
     repeat(4) { level ->

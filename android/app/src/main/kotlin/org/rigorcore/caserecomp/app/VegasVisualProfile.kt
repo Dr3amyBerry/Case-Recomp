@@ -4,10 +4,10 @@ import android.graphics.*
 import org.rigorcore.caserecomp.sda.*
 
 /** Vegas graph IDs and recovered 0043eec0 layouts belong to this title profile. */
-class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
+class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
- private val text=Paint(Paint.ANTI_ALIAS_FLAG).apply { color=Color.WHITE;textSize=12f }
+ private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
  private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
  private val selected=Paint().apply { color=Color.YELLOW;style=Paint.Style.STROKE;strokeWidth=2f }
  override val returnMapRect get()=ui.rect(doc.component("mapbutton"))
@@ -54,11 +54,16 @@ class VegasVisualProfile(content:SdaContent):SdaVisualProfile {
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?) {
   base(canvas,campaign,campaign?.clock ?: clock)
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
-  // Original atlas, but objective row font/geometry still require native-state comparison.
-  scene.remainingCaptions().forEachIndexed { i,caption ->
-   val template=doc.component("itemstofind")
-   ui.label(canvas,template,caption,x=10,y=130+i*18,width=132,height=20)
+  val definitions=sceneRows.getOrPut(scene.name) {
+   SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
+  for(row in scene.targetPresentation()) {
+   val attributes=definitions.getValue(row.objects).attributes
+   val label=SdaUiNode("label",attributes+mapOf("halign" to "center","valign" to "middle"),emptyList())
+   ui.label(canvas,label,row.caption,y=label.number("y")+row.index*label.number("h"),opacity=row.alpha)
+  }
+  val total=doc.component("totalitems")
+  ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
   ui.button(canvas,doc.component("mapbutton"))
  }
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {

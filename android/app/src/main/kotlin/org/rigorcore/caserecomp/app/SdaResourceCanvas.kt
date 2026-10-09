@@ -6,6 +6,7 @@ import org.rigorcore.caserecomp.sda.*
 class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaContent) {
  private val cache=mutableMapOf<String,Bitmap>()
  private val photographs=Paint(Paint.FILTER_BITMAP_FLAG)
+ private val glyphPaint=Paint().apply { isFilterBitmap=false }
  private val fonts=mutableMapOf<String,Pair<SdaAtlasFont,Bitmap>>()
  private fun font(name:String):Pair<SdaAtlasFont,Bitmap> = fonts.getOrPut(name) {
   val node=document.nodes("font").single { it.attributes["id"]==name };val a=node.attributes
@@ -35,8 +36,10 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val source=Rect(0,0,minOf(w,bitmap.width),minOf(h,bitmap.height))
   canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),if(photographic) photographs else null)
  }
- fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h")) {
-  if(width<=0 || height<=0) return
+ fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h"),opacity:Float=1f) {
+  require(opacity.isFinite() && opacity in 0f..1f)
+  if(width<=0 || height<=0 || opacity==0f) return
+  glyphPaint.alpha=(255*opacity).toInt()
   canvas.save();canvas.clipRect(x,y,x+width,y+height)
   val name=node.attributes["font"] ?: node.attributes["fontidle"]
   if(name!=null) {
@@ -46,7 +49,7 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
    val xx=x+when(ha) { 1 -> width/2-1;2 -> width-1;else -> 0 }
    val yy=y+when(va) { 2 -> height/2-1;0 -> height-1;else -> 0 }
    for(g in metrics.layout(text,xx,yy,ha,va)) canvas.drawBitmap(atlas,
-    Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),null)
+    Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),glyphPaint)
   } else {
    // Generic diagnostic labels without a declared atlas only.
    canvas.drawText(text,x.toFloat(),y+height/2f-(paint.ascent()+paint.descent())/2f,paint)
