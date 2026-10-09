@@ -15,9 +15,13 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import org.rigorcore.caserecomp.sda.SdaCampaign
+import org.rigorcore.caserecomp.sda.SdaCampaignPhase
+import org.rigorcore.caserecomp.sda.SdaCampaignState
 import org.rigorcore.caserecomp.sda.SdaClock
 import org.rigorcore.caserecomp.sda.SdaContent
 import org.rigorcore.caserecomp.sda.SdaImageDecoder
+import org.rigorcore.caserecomp.sda.SdaLevels
 import org.rigorcore.caserecomp.sda.SdaPixelSource
 import org.rigorcore.caserecomp.sda.SdaScene
 import java.io.File
@@ -25,17 +29,22 @@ import java.io.File
 /**
  * Launcher activity for SDA engine games (Mystery P.I.: The Vegas Heist).
  * Completely isolated from Director launcher and repositories.
- * Renders scenes with SdaGameView and handles touch interactions.
+ * Supports full campaign mode (levels, investigation map, scenes, bonus games, finale)
+ * as well as standalone scene execution.
  */
 class SdaLauncherActivity : Activity() {
 
     private lateinit var repository: PrivateSdaRepository
     private var content: SdaContent? = null
     private var scene: SdaScene? = null
+    private var campaign: SdaCampaign? = null
     private var gameView: SdaGameView? = null
     private var clock: SdaClock? = null
     private var isFrameLoopRunning = false
     private var lastFrameNanos: Long = 0L
+
+    private val bitmaps = mutableMapOf<String, Bitmap>()
+    private var bgBitmap: Bitmap? = null
 
     private val frameCallback = object : android.view.Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -92,7 +101,9 @@ class SdaLauncherActivity : Activity() {
 
     private fun launchSdaPackage(file: File) {
         try {
-            val bitmaps = mutableMapOf<String, Bitmap>()
+            bitmaps.clear()
+            bgBitmap = null
+
             val decoder = SdaImageDecoder { bytes ->
                 val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 if (bmp != null) {
@@ -111,76 +122,195 @@ class SdaLauncherActivity : Activity() {
             val sdaContent = SdaContent.open(file, decoder)
             content = sdaContent
 
-            // Load Vault scene by default or requested scene
-            val sceneResource = intent.getStringExtra(EXTRA_SCENE) ?: "SCENE_VAULT.MSL"
-            val loadedScene = sdaContent.loadScene(sceneResource, seed = System.currentTimeMillis() and 0xFFFFFFFFL)
-            scene = loadedScene
-            clock = SdaClock(limit = 1320f)
+            val levelsRaw = sdaContent.read("LEVELS_1.XUI")
+            if (levelsRaw != null && !intent.hasExtra(EXTRA_SCENE)) {
+                // Full campaign mode
+                val levels = SdaLevels.parse(levelsRaw)
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL)
+                campaign = camp
 
-            // Cache bitmaps for objects and backdrop
-            var bgBitmap: Bitmap? = null
-            for (sprite in loadedScene.drawOrder) {
-                val bmp = sprite.image.nativeImage as? Bitmap
-                if (bmp != null) {
-                    if (sprite.identity.isNotEmpty()) {
-                        bitmaps[sprite.identity] = bmp
-                    } else if (bgBitmap == null && bmp.width >= 600) {
-                        bgBitmap = bmp
+                // Restore campaign checkpoint if saved
+                val savedCampJson = repository.loadCampaignCheckpoint()
+                if (!savedCampJson.isNullOrBlank()) {
+                    try {
+                        val savedState = SdaCampaignState.fromJson(savedCampJson)
+                        camp.restore(savedState, sdaContent)
+                        Log.i(TAG, "Restored campaign checkpoint at level ${camp.levelIndex + 1}, phase ${camp.phase}")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to restore campaign checkpoint", e)
                     }
                 }
-            }
 
-            // Restore checkpoint if saved
-            val savedStateJson = repository.loadCheckpoint()
-            if (!savedStateJson.isNullOrBlank()) {
-                try {
-                    val savedState = org.rigorcore.caserecomp.sda.SdaSceneState.fromJson(savedStateJson)
-                    if (savedState.sceneName == loadedScene.name) {
-                        loadedScene.restore(savedState)
-                        clock?.elapsed = savedState.elapsed
-                        Log.i(TAG, "Restored SDA checkpoint for ${loadedScene.name}")
+                // Initial scene for view setup
+                val initialSceneName = camp.currentSceneName ?: camp.currentLevel.scenes.first()
+                val loadedScene = sdaContent.loadScene("SCENE_${initialSceneName.uppercase()}.MSL", seed = camp.seed)
+                scene = loadedScene
+                clock = camp.clock
+                cacheBitmaps(loadedScene)
+
+                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp)
+                wireViewCallbacks(view, sdaContent)
+                gameView = view
+                setContentView(view)
+
+            } else {
+                // Standalone scene mode
+                val sceneResource = intent.getStringExtra(EXTRA_SCENE) ?: "SCENE_VAULT.MSL"
+                val loadedScene = sdaContent.loadScene(sceneResource, seed = System.currentTimeMillis() and 0xFFFFFFFFL)
+                scene = loadedScene
+                clock = SdaClock(limit = 1320f)
+                cacheBitmaps(loadedScene)
+
+                // Restore standalone scene checkpoint if saved
+                val savedStateJson = repository.loadCheckpoint()
+                if (!savedStateJson.isNullOrBlank()) {
+                    try {
+                        val savedState = org.rigorcore.caserecomp.sda.SdaSceneState.fromJson(savedStateJson)
+                        if (savedState.sceneName == loadedScene.name) {
+                            loadedScene.restore(savedState)
+                            clock?.elapsed = savedState.elapsed
+                            Log.i(TAG, "Restored SDA checkpoint for ${loadedScene.name}")
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to restore SDA checkpoint", e)
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to restore SDA checkpoint", e)
                 }
+
+                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps)
+                wireStandaloneCallbacks(view)
+                gameView = view
+                setContentView(view)
             }
 
-            val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps)
-            Log.i(TAG, "Scene ${loadedScene.name} loaded. Targets: ${loadedScene.targets}")
-            for (t in loadedScene.targets) {
-                val s = loadedScene.objects[t]
-                if (s != null) {
-                    Log.i(TAG, "Target $t at (${s.x}, ${s.y}) size (${s.image.width}x${s.image.height})")
-                }
-            }
-
-            view.onObjectFoundListener = { id, gain ->
-                Log.i(TAG, "Object found: $id, +$gain pts, total: ${loadedScene.score.points}")
-                Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
-            }
-            view.onMissListener = { penalty ->
-                Log.i(TAG, "Miss clicked: penalty=$penalty, points: ${loadedScene.score.points}")
-            }
-            view.onSceneCompleteListener = {
-                val sc = scene
-                val deck = sc?.deck
-                if (sc != null && deck != null && deck.cursor < sc.candidateSets.size) {
-                    val nextBatch = sc.nextBatch(System.currentTimeMillis() and 0xFFFFFFFFL)
-                    Log.i(TAG, "Next batch unlocked: ${nextBatch.size} sets")
-                    Toast.makeText(this, "Siguiente lote de objetivos (${nextBatch.size})", Toast.LENGTH_SHORT).show()
-                } else {
-                    repository.clearCheckpoint()
-                    Log.i(TAG, "Scene completed! Final score: ${sc?.score?.points}")
-                    Toast.makeText(this, "¡Escena completada! Puntuación final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
-                }
-            }
-            gameView = view
-            setContentView(view)
             hideSystemBars()
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to launch SDA package", t)
             Toast.makeText(this, "Error al iniciar paquete SDA: ${t.message}", Toast.LENGTH_LONG).show()
             finish()
+        }
+    }
+
+    private fun cacheBitmaps(loadedScene: SdaScene) {
+        bitmaps.clear()
+        bgBitmap = null
+        for (sprite in loadedScene.drawOrder) {
+            val bmp = sprite.image.nativeImage as? Bitmap
+            if (bmp != null) {
+                if (sprite.identity.isNotEmpty()) {
+                    bitmaps[sprite.identity] = bmp
+                } else if (bgBitmap == null && bmp.width >= 600) {
+                    bgBitmap = bmp
+                }
+            }
+        }
+    }
+
+    private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
+        view.onSceneSelectedListener = { sceneName ->
+            val camp = campaign
+            if (camp != null) {
+                val sc = camp.enterScene(sceneName, sdaContent)
+                scene = sc
+                cacheBitmaps(sc)
+                view.scene = sc
+                view.backgroundBitmap = bgBitmap
+                view.spriteBitmaps = bitmaps
+                Log.i(TAG, "Entered scene $sceneName in campaign (level ${camp.levelIndex + 1})")
+                autoSave()
+            }
+        }
+
+        view.onReturnToMapListener = {
+            campaign?.toInvestigationMap()
+            autoSave()
+        }
+
+        view.onStartBonusListener = {
+            campaign?.startBonus(sdaContent)
+            Toast.makeText(this, "¡Minijuego de bonificación desbloqueado!", Toast.LENGTH_SHORT).show()
+            autoSave()
+        }
+
+        view.onNextLevelListener = {
+            val camp = campaign
+            if (camp != null) {
+                camp.confirmLevelComplete()
+                repository.clearCheckpoint()
+                if (camp.phase == SdaCampaignPhase.MAP) {
+                    Toast.makeText(this, "Nivel ${camp.levelIndex + 1}: ${camp.currentLevel.title}", Toast.LENGTH_SHORT).show()
+                }
+                autoSave()
+            }
+        }
+
+        view.onCampaignCompletedListener = {
+            repository.clearCampaignCheckpoint()
+            Toast.makeText(this, "¡Campaña finalizada con éxito! Caso 100% resuelto.", Toast.LENGTH_LONG).show()
+            finish()
+        }
+
+        view.onObjectFoundListener = { id, gain ->
+            Log.i(TAG, "Object found: $id, +$gain pts, total: ${campaign?.points ?: scene?.score?.points}")
+            Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
+            autoSave()
+        }
+
+        view.onMissListener = { penalty ->
+            Log.i(TAG, "Miss clicked: penalty=$penalty")
+        }
+
+        view.onSceneCompleteListener = {
+            val camp = campaign
+            if (camp != null) {
+                if (camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
+                    Toast.makeText(this, "¡Todos los objetos del nivel encontrados!", Toast.LENGTH_SHORT).show()
+                } else if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE) {
+                    Toast.makeText(this, "Lote de escena completado. Regresa al mapa.", Toast.LENGTH_SHORT).show()
+                }
+            }
+            autoSave()
+        }
+    }
+
+    private fun autoSave() {
+        val camp = campaign
+        if (camp != null) {
+            try {
+                repository.saveCampaignCheckpoint(camp.snapshot().toJson())
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to auto-save campaign checkpoint", e)
+            }
+        } else {
+            scene?.let { sc ->
+                try {
+                    repository.saveCheckpoint(sc.snapshot().toJson())
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to auto-save SDA checkpoint", e)
+                }
+            }
+        }
+    }
+
+    private fun wireStandaloneCallbacks(view: SdaGameView) {
+        view.onObjectFoundListener = { id, gain ->
+            Log.i(TAG, "Object found: $id, +$gain pts, total: ${scene?.score?.points}")
+            Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
+        }
+        view.onMissListener = { penalty ->
+            Log.i(TAG, "Miss clicked: penalty=$penalty, points: ${scene?.score?.points}")
+        }
+        view.onSceneCompleteListener = {
+            val sc = scene
+            val deck = sc?.deck
+            if (sc != null && deck != null && deck.cursor < sc.candidateSets.size) {
+                val nextBatch = sc.nextBatch(System.currentTimeMillis() and 0xFFFFFFFFL)
+                Log.i(TAG, "Next batch unlocked: ${nextBatch.size} sets")
+                Toast.makeText(this, "Siguiente lote de objetivos (${nextBatch.size})", Toast.LENGTH_SHORT).show()
+            } else {
+                repository.clearCheckpoint()
+                Log.i(TAG, "Scene completed! Final score: ${sc?.score?.points}")
+                Toast.makeText(this, "¡Escena completada! Puntuación final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -197,11 +327,20 @@ class SdaLauncherActivity : Activity() {
     override fun onPause() {
         isFrameLoopRunning = false
         android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
-        scene?.let { sc ->
+        val camp = campaign
+        if (camp != null) {
             try {
-                repository.saveCheckpoint(sc.snapshot().toJson())
+                repository.saveCampaignCheckpoint(camp.snapshot().toJson())
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to save SDA checkpoint", e)
+                Log.w(TAG, "Failed to save campaign checkpoint", e)
+            }
+        } else {
+            scene?.let { sc ->
+                try {
+                    repository.saveCheckpoint(sc.snapshot().toJson())
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to save SDA checkpoint", e)
+                }
             }
         }
         super.onPause()

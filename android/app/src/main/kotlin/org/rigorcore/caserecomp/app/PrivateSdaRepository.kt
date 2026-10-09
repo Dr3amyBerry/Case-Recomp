@@ -107,6 +107,23 @@ internal class PrivateSdaRepository internal constructor(
         return SdaInstall(file, sha)
     }
 
+    val profileStorage = org.rigorcore.caserecomp.sda.SdaProfileStorage(File(base, "profiles"))
+
+    fun getActiveProfile(): org.rigorcore.caserecomp.sda.SdaProfile {
+        val id = preferences.getString("active_profile_id", null)
+        val profile = id?.let { profileStorage.getProfile(it) }
+        if (profile != null) return profile
+        val defaultProfile = org.rigorcore.caserecomp.sda.SdaProfile("default_pi", "Detective Principal")
+        profileStorage.saveProfile(defaultProfile)
+        preferences.setString("active_profile_id", defaultProfile.id)
+        return defaultProfile
+    }
+
+    fun setActiveProfile(profile: org.rigorcore.caserecomp.sda.SdaProfile): Boolean {
+        profileStorage.saveProfile(profile)
+        return preferences.setString("active_profile_id", profile.id)
+    }
+
     fun saveCheckpoint(stateJson: String): Boolean =
         preferences.setString(CHECKPOINT, stateJson)
 
@@ -115,6 +132,15 @@ internal class PrivateSdaRepository internal constructor(
 
     fun clearCheckpoint(): Boolean =
         preferences.setString(CHECKPOINT, "")
+
+    fun saveCampaignCheckpoint(json: String): Boolean =
+        preferences.setString("active_campaign_checkpoint", json)
+
+    fun loadCampaignCheckpoint(): String? =
+        preferences.getString("active_campaign_checkpoint", null)
+
+    fun clearCampaignCheckpoint(): Boolean =
+        preferences.setString("active_campaign_checkpoint", "")
 
     private fun digest(file: File): String {
         val md = MessageDigest.getInstance("SHA-256")

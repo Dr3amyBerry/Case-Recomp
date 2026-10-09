@@ -42,6 +42,20 @@ class HomeActivity : Activity() {
         super.onCreate(savedInstanceState)
         repository = PrivateDirectorRepository(this)
         sdaRepository = PrivateSdaRepository(this)
+
+        val sdaImportPath = intent.getStringExtra(EXTRA_IMPORT_SDA_PATH)
+        if (!sdaImportPath.isNullOrBlank()) {
+            val importFile = java.io.File(sdaImportPath)
+            if (importFile.isFile) {
+                runCatching {
+                    importFile.inputStream().use(sdaRepository::import)
+                    Log.i(TAG, "Direct SDA import succeeded: $sdaImportPath")
+                }.onFailure {
+                    Log.e(TAG, "Direct SDA import failed: $sdaImportPath", it)
+                }
+            }
+        }
+
         games = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -490,6 +504,7 @@ class HomeActivity : Activity() {
             "Se entrega tal cual, sin garantías. No incluye ningún juego."
         const val REQUEST_ZIP = 7001
         const val REQUEST_SDA_ZIP = 7002
+        const val EXTRA_IMPORT_SDA_PATH = "import_sda_path"
         const val TAG = "CaseRecompHome"
         const val TOP = 0xFF1B2333.toInt()
         const val BOTTOM = 0xFF07090D.toInt()

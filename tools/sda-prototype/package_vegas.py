@@ -1,12 +1,12 @@
 """Package authentic Mystery P.I.: The Vegas Heist resources into case-recomp-sda-content ZIP."""
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import sys
 import zipfile
 from PIL import Image
-import io
 
 root = Path(__file__).resolve().parent
 sys.path.insert(0, str(root))
@@ -18,7 +18,7 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def build_package(resources_dll_path: Path, output_zip_path: Path, scene_name: str = "SCENE_VAULT.MSL"):
+def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign: bool = False):
     res = Resources(resources_dll_path)
     output_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -34,26 +34,57 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, scene_name: s
     if "STRINGS.TXT" in res.entries:
         files_data["STRINGS.TXT"] = res.read("STRINGS.TXT")
 
-    # Scene strings
-    scene_txt = scene_name.rsplit(".", 1)[0] + ".TXT"
-    if scene_txt in res.entries:
-        files_data[scene_txt] = res.read(scene_txt)
+    if full_campaign:
+        # Levels definition
+        if "LEVELS_1.XUI" in res.entries:
+            files_data["LEVELS_1.XUI"] = res.read("LEVELS_1.XUI")
 
-    # Scene XUI
-    scene_raw = res.read(scene_name)
-    files_data[scene_name] = scene_raw
+        # Wordsearch text
+        if "WORDSEARCH.TXT" in res.entries:
+            files_data["WORDSEARCH.TXT"] = res.read("WORDSEARCH.TXT")
 
-    # Parse XUI to find all textures
-    tree = parse_xui(scene_raw)
-    textures = {x.attrib["id"]: x.attrib["uri"] for x in tree.iter() if local_name(x.tag) == "texture"}
-    print(f"Found {len(textures)} textures declared in {scene_name}")
+        # All scenes
+        scenes = [k for k in res.entries if k.startswith("SCENE_") and k.endswith(".MSL")]
+        # All bonus definitions
+        bonuses = [k for k in res.entries if any(k.endswith(ext) for ext in (".TRG", ".TGL", ".WSG", ".JSW", ".MSE"))]
 
-    for tid, uri in textures.items():
-        entry_name = uri.upper()
-        if entry_name in res.entries:
-            files_data[uri] = res.read(entry_name)
-        else:
-            print(f"Warning: texture {uri} ({entry_name}) not found in Resources.dll")
+        xml_files_to_scan = scenes + bonuses
+        for xname in xml_files_to_scan:
+            raw = res.read(xname)
+            files_data[xname] = raw
+            txt_name = xname.rsplit(".", 1)[0] + ".TXT"
+            if txt_name in res.entries and txt_name not in files_data:
+                files_data[txt_name] = res.read(txt_name)
+
+            try:
+                tree = parse_xui(raw)
+                for x in tree.iter():
+                    if local_name(x.tag) == "texture":
+                        uri = x.attrib.get("uri")
+                        if uri and uri not in files_data:
+                            entry_name = uri.upper()
+                            if entry_name in res.entries:
+                                files_data[uri] = res.read(entry_name)
+            except Exception as e:
+                print(f"Error parsing textures in {xname}: {e}")
+
+        print(f"Full campaign: gathered {len(files_data)} files across {len(scenes)} scenes and {len(bonuses)} bonus games.")
+
+    else:
+        # Focused vault slice
+        scene_name = "SCENE_VAULT.MSL"
+        scene_txt = "SCENE_VAULT.TXT"
+        if scene_txt in res.entries:
+            files_data[scene_txt] = res.read(scene_txt)
+        scene_raw = res.read(scene_name)
+        files_data[scene_name] = scene_raw
+
+        tree = parse_xui(scene_raw)
+        textures = {x.attrib["id"]: x.attrib["uri"] for x in tree.iter() if local_name(x.tag) == "texture"}
+        for tid, uri in textures.items():
+            entry_name = uri.upper()
+            if entry_name in res.entries:
+                files_data[uri] = res.read(entry_name)
 
     # Build manifest
     files_meta = {}
@@ -80,5 +111,7 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, scene_name: s
 
 if __name__ == "__main__":
     dll_path = Path("private/mystery-pi-vegas/game/Resources.dll")
-    out_path = Path("local-output/vegas_vault.zip")
-    build_package(dll_path, out_path)
+    # Build focused vault package
+    build_package(dll_path, Path("local-output/vegas_vault.zip"), full_campaign=False)
+    # Build complete full campaign package
+    build_package(dll_path, Path("local-output/vegas_full.zip"), full_campaign=True)

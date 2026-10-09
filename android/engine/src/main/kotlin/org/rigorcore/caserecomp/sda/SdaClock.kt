@@ -50,6 +50,13 @@ class SdaClock(
     fun displaySeconds(unlimited: Boolean = false): Int =
         if (unlimited) elapsed.toInt() else maxOf(0, limit.toInt() - elapsed.toInt())
 
+    val isExpired: Boolean
+        get() = elapsed >= limit
+
+    fun reset() {
+        elapsed = 0f
+    }
+
     fun text(unlimited: Boolean = false): String {
         val total = displaySeconds(unlimited)
         val hours = total / 3600
