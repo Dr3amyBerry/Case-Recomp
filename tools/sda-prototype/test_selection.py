@@ -55,6 +55,24 @@ class SelectionTests(unittest.TestCase):
             deck.next_batch(2)
         self.assertEqual(deck.cursor, 10)
 
+    def test_restore_matches_variants_and_pins_prefix(self):
+        deck = TargetDeck(range(15))
+        variants = {identity: (str(identity), "part-" + str(identity)) for identity in range(15)}
+        restored = deck.restore_batch(variants, ["part-8", "not present", "2"], 1)
+        self.assertEqual(restored, (8, 2))
+        self.assertEqual(deck.order[:2], [8, 2])
+        self.assertEqual(sorted(deck.order[2:]), [i for i in range(15) if i not in (8, 2)])
+        self.assertEqual(deck.cursor, 10)
+
+    def test_restore_last_match_and_short_pool_cursor(self):
+        deck = TargetDeck(["first", "last", "other"])
+        variants = {"first": ("same",), "last": ("same",), "other": ("different",)}
+        self.assertEqual(deck.restore_batch(variants, ["same"], 1), ("last",))
+        self.assertEqual(deck.order[0], "last")
+        self.assertEqual(deck.cursor, 0)
+        with self.assertRaises(ValueError):
+            deck.restore_batch(variants, ["same"] * 11, 1)
+
     def test_compound_partial_and_complete_each_hit_scores(self):
         scene = Scene(FixtureResources(), "SCENE_FIXTURE.MSL", [("a", "b")])
         self.assertEqual(scene.remaining_captions(), ["Two samples"])

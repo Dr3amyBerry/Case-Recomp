@@ -239,3 +239,74 @@ inválida. El mapa de dependencias se regeneró con 78 raíces de roles, 1.673 n
 y 5.432 aristas directas; sigue siendo un mapa de tres niveles, sin cierre de
 llamadas indirectas. Se añadieron roles de transiciones, selección, captions,
 atlas y localización. No se ejecutó el EXE ni se modificó Huntsville/Android.
+
+
+## Ciclo de acierto, retirada y lista restaurada
+
+Se recuperó una separación que el primer experimento no modelaba. 004277e0 lee
+el flag encontrado +0xb8; 004277f0 lee el flag retirado +0xd4. Un clic establece
+el primero mediante 004278e0 y mueve el objeto de su contenedor al área para la
+animación. 00427bd0 establece el segundo tras retirar la imagen fuera de pantalla;
+00427800 puede completar esa retirada directamente durante restauración.
+
+```mermaid
+flowchart LR
+    Input["004251f0: clic + alfa"] --> Found["004278e0: encontrado +0xb8"]
+    Found --> Visible["0042a4f0: caption visible"]
+    Found --> Update["00427bd0: pulsos y subida"]
+    Update --> Retired["00427a80: detach; +0xd4=1"]
+    Retired --> Complete["0042a020 / 00429d80: set retirado"]
+    Retired --> Snapshot["00421350 / 0042a3e0: lista pendiente"]
+    Snapshot --> Restore["00428540: matching de captions"]
+    Restore --> Prefix["00429210: prefijo activo + shuffle del resto"]
+```
+
+Este diagrama describe dependencias revisadas, no cierre completo de callbacks.
+La tabla activa guardada omite sets completamente retirados; para el resto usa el
+caption correspondiente al número de componentes +0xd4, no al número de clicks.
+Por ello un acierto todavía animándose puede cambiar la lista visible sin cambiar
+aún el texto que aporta esta rutina al guardado. No se confunde esta lista con el
+formato completo del archivo del jugador ni con una implementación de savestate.
+
+`selection.TargetDeck.restore_batch` reproduce la búsqueda de captions de
+00428540. Crea diez slots, busca cada texto entre las variantes de cada set y
+elimina los slots sin matching. Si varios sets tienen el mismo texto, gana el
+último visitado. 00429210 mueve los sets seleccionados al prefijo mediante búsqueda
+e intercambio, luego reseed y shuffle sólo del sufijo. El cursor avanza diez,
+aunque sobrevivan menos captions. Esta lógica se implementó independientemente;
+no se restaura todavía una partida real porque los rectángulos del historial son
+necesarios para determinar qué componentes de un set parcial deben retirarse.
+
+La animación experimental sustituye la desaparición inmediata del primer
+prototipo. Las constantes se leyeron estáticamente del PE: 005075f8=1,25;
+005075fc≈0,04; 00507630≈0,20; 00507470=0,5; 00507560=−10. Constructor 00427630
+inicializa la espera a ≈0,85. El update suma/resta escala por frame, hace dos
+pulsos y resta tiempo a la espera; después acelera hacia arriba por frames hasta
+salir por el borde superior. No se transforma la velocidad en píxeles/segundo
+ni se presume que una actualización grande equivale a muchas pequeñas.
+
+La revisión del ensamblador evitó normalizar un detalle del original: tras guardar
+el rectángulo y empujar edi, 004279cd y 004279e1 cargan ambas veces [esp+0x24]
+(altura). Los offsets guardados x/y están entonces en [esp+0x18]/[esp+0x1c]. El
+centro horizontal inicial usa altura/2, pese a que el cálculo posterior de escala
+usa el ancho de textura obtenido en 00427f85 por 00473b8c. Se conserva ese anclaje
+peculiar; no se sustituyó por un centrado geométrico supuesto. La salida raster usa
+Pillow bilinear y queda pendiente compararla con la transformación nativa de
+00428080/0047406a, junto con cadence de render, clipping y alfa heredado.
+
+La prueba privada generó 89 frames a pasos de 0,04 segundos del prototipo. El
+objeto hizo dos pulsos, se retiró en el frame 88 y entonces cambió la lista para
+guardado. El caption visible cambió desde el clic. Artefactos en research/prototype:
+`vault-found-animation.gif`, `vault-found-pulse.png`, `vault-found-retired.png` y
+`found-motion-check.json`. Son resultados del prototipo; no del EXE ni una nueva
+comparación diferencial. Los inputs comerciales permanecen sin cambios.
+
+Pasaron 27 pruebas: las 20 anteriores más dos de restauración de prefix/matching
+y cinco de estados de animación, espera frente a pasos por frame, dos pulsos,
+retirada, redondeo y separación entre caption visible/guardado. El mapa quedó en
+89 raíces, 1.688 nodos y 5.486 aristas directas. Se añadieron roles de lifecycle e
+historial; continúa limitado a tres niveles y llamadas directas.
+
+Siguen pendientes las condiciones completas de filtrado de 00423000/00423680,
+serialización original, transición de menú/escena, reloj de campaña y victoria.
+El experimento no cambia Director, Huntsville ni Android y no abrió el original.

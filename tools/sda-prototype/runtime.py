@@ -108,6 +108,7 @@ class Sprite:
     y: int
     image: object
     found: bool = False
+    motion: object = None
 
     def hit(self, x, y):
         # 004251f0 / 00473e0e: half-open rectangle, then nonzero alpha channel.
@@ -167,6 +168,7 @@ class Scene:
             if any(ids not in self.target_sets for ids in self.active_sets):
                 raise ValueError("unknown target set")
         self.targets = tuple(identity for ids in self.active_sets for identity in ids)
+        self.found_order = []
         self.score = Score()
         self.elapsed = 0.0
         self.since_found = 0.0
@@ -178,6 +180,16 @@ class Scene:
             if found < len(ids):
                 result.append(self.captions[ids][found])
         return result
+
+    def saved_captions(self):
+        # 00421350 excludes fully retired sets; 0042a3e0 counts +0xd4, not +0xb8.
+        captions = []
+        for ids in self.active_sets:
+            removed = sum(bool(self.objects[identity].motion and self.objects[identity].motion.removed)
+                          for identity in ids)
+            if removed < len(ids):
+                captions.append(self.captions[ids][removed])
+        return captions
 
     def draw_target_list(self, stage):
         from fonts import FontCatalog
@@ -200,6 +212,8 @@ class Scene:
             raise ValueError("invalid frame duration")
         self.elapsed += seconds
         self.since_found += seconds
+        for identity in self.found_order:
+            self.objects[identity].motion.update(seconds)
 
     def click(self, x, y):
         # Diagnostic canvas bounds; native graph/parent clipping is not wired yet.
@@ -209,7 +223,10 @@ class Scene:
         for identity in self.targets:
             sprite = self.objects[identity]
             if sprite.hit(x, y):
+                from motion import FoundMotion
                 sprite.found = True
+                sprite.motion = FoundMotion(sprite.x, sprite.y, sprite.image.width, sprite.image.height)
+                self.found_order.append(identity)
                 gain = self.score.found(self.since_found < 3.0)
                 self.since_found = 0.0
                 return {"kind": "found", "id": identity, "gain": gain}
@@ -222,6 +239,16 @@ class Scene:
         for sprite in self.draw_order:
             if not sprite.found:
                 stage.alpha_composite(sprite.image, (sprite.x, sprite.y))
+        # Found images leave their original container and continue in click order.
+        # Pillow resampling is experimental; native surface filtering is unresolved.
+        for identity in self.found_order:
+            sprite = self.objects[identity]
+            motion = sprite.motion
+            if not motion.removed:
+                im = sprite.image
+                if im.size != (motion.draw_width, motion.draw_height):
+                    im = im.resize((motion.draw_width, motion.draw_height), Image.Resampling.BILINEAR)
+                stage.alpha_composite(im, (motion.x, motion.y))
         if target_list:
             self.draw_target_list(stage)
         return stage

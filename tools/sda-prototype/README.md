@@ -33,7 +33,7 @@ Implemented primitives:
 Remaining dependencies include original menu routing, campaign selection,
 native graph/parent clipping, special collectibles, full text state,
 found/hint animations, audio, pause, original serialization and completion rules.
-Found sprites currently disappear immediately. The first miss-penalty explanation
+Found sprites now follow a recovered two-pulse/upward lifecycle. The first miss-penalty explanation
 and its native gate are not wired to the diagnostic scene, which permits penalties.
 Native differential comparison is pending a specific hypothesis and user access.
 
@@ -90,12 +90,40 @@ Localized comma-separated captions change as objects are found.
 
 `--target-list` uses scene atlas fonts and recovered row positions (start y=121,
 width=146, per-set height), without a fabricated system font. It does not render
-the complete PDA, found-text animations or native completion effects. Clearing
+the complete PDA, found-text label animations or native completion effects. Clearing
 this diagnostic batch does not start a new scene or report a campaign victory.
 
 `selection.TargetDeck` exposes the recovered strict boundary comparison instead
 of silently substituting modulo wrapping. If a subsequent batch reaches a child
 index equal to the pool size, it stops with a diagnostic; native transition context
-at that boundary is unresolved. Restoring a saved prefix and choosing a seed from
-the original runtime clock are also pending. Tests use synthetic fixtures and
+at that boundary is unresolved. Saved-prefix ordering is available independently through restore_batch; restoring
+original component history and sampling the original runtime clock remain pending. Tests use synthetic fixtures and
 known RNG vectors; no original game data is committed.
+
+## Found-object lifecycle and saved-list ordering
+
+`motion.py` recovers the scalar lifecycle from 004278e0/00427bd0: two scale pulses
+between 1.0 and 1.25, initial 0.85-second delay, then upward velocity decrements
+of 0.5 per update capped at -10 until the image leaves the top of the scene.
+`advance(seconds)` represents one frame; movement/scale steps are per update,
+while the delay subtracts elapsed seconds. It must not be replaced by a single
+large elapsed-time update when reproducing a sequence of native frames.
+
+The native x86 initializer uses the saved rectangle height for both center axes
+(004279cd–004279ee); this unusual horizontal anchor is preserved. State calculations
+use stored float32 values. Pixel resizing currently uses Pillow bilinear filtering,
+which is experimental and has not been compared with SDA's native surface scaling.
+Native rendering cadence, inherited alpha, parent clipping and image-cache details
+remain unresolved; the animation is not a claim of native pixel equivalence.
+
+The scene tracks found objects separately from objects whose animation retired.
+`remaining_captions()` reflects clicks immediately. `saved_captions()` follows
+00421350/0042a3e0 and counts retirement flags instead. Neither writes original saves.
+Found images render after their original scene container images, in click order.
+
+`TargetDeck.restore_batch(variants, saved_captions, seed)` implements matching of
+saved captions against set variants, ten-slot compaction, active-prefix ordering
+and native suffix shuffling. Later sets win a caption collision, as in the native
+outer loop; cursor advances ten regardless of the compacted count. This helper
+restores ordering only and is not yet exposed as original-save compatibility:
+original history rectangles are still needed to retire the correct components.

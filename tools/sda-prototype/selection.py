@@ -55,3 +55,32 @@ class TargetDeck:
         if len(order) < self.cursor:
             self.cursor = 0
         return selected
+
+    def restore_batch(self, variants, saved_captions, seed):
+        """00428540/00429210: match captions, compact ten slots, pin active prefix.
+
+        This restores ordering only. Original object/history rectangles are needed
+        to determine which components of a partially completed set were removed.
+        """
+        if len(saved_captions) > 10:
+            raise ValueError("saved active list exceeds native ten slots")
+        slots = [None] * 10
+        for identity in self.order:
+            captions = variants[identity]
+            for index, saved in enumerate(saved_captions):
+                if saved in captions:
+                    # Native outer loop continues: later matching set wins.
+                    slots[index] = identity
+        selected = tuple(identity for identity in slots if identity is not None)
+        order = list(self.order)
+        for index, identity in enumerate(selected):
+            if index >= len(order):
+                raise ValueError("restored prefix exceeds candidate pool")
+            other = order.index(identity)
+            order[index], order[other] = order[other], order[index]
+        order = native_shuffle(order, seed, start=len(selected))
+        self.order = order
+        self.cursor += 10  # Independent of compacted active count in 00428540.
+        if len(order) < self.cursor:
+            self.cursor = 0
+        return selected
