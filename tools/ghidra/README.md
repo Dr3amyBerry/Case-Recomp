@@ -28,3 +28,27 @@ function at an executable address in the private project. Existing overlapping
 functions are rejected. This changes analysis metadata only, never the input PE.
 Review each discovered function and its decompilation warnings; an exported
 function count does not prove coverage of callbacks or indirect targets.
+
+
+## Bounded instruction recovery from the stored project
+
+`ExportStoredInstructions.java` exports only the specified functions (up to 12,
+3000 instructions each) and their referenced non-executable data (16 bytes per
+reference). It neither imports nor analyzes nor modifies the stored program.
+Keep all output private. Use absolute paths; Ghidra rejects project paths with
+`.` components. Pass roots as separate arguments to avoid Windows batch comma
+splitting. Example with an **existing stored program name**, not an input path:
+
+```powershell
+& <ghidra>/support/analyzeHeadless.bat <absolute-private-project-dir> <project> -process <stored-program-name> -readOnly -noanalysis -scriptPath <absolute-tools-ghidra-dir> -postScript ExportStoredInstructions.java <absolute-private-output> 0045c0e0 0046e990
+```
+
+The installed headless README defines `-process` as selecting programs already
+inside the project; `-import` reads an input file and must not be added here.
+Check the log for `Processing read-only project file`, each expected
+`exported stored instructions` record and absence of script errors. Headless can
+return zero after a failed script, so exit status alone is insufficient.
+
+Verified locally against the stored Vegas project: instruction counts 919
+(`0045c0e0`), 7 (`0046e990`) and 582 (`00459400`). These listings are private and
+are not included in Git. This is static evidence, not execution of the original.

@@ -39,9 +39,10 @@ class SdaTileRotGame(
         if (rotations == null) {
             val rng = SdaRng(seed and 0xFFFFFFFFL)
             for (i in tileRotations.indices) {
-                // Ensure at least non-zero initial rotation
-                val rot = (rng.next() % 3) + 1
-                tileRotations[i] = rot
+                // 00459400: floor(scaled rand * 4), rejecting angle zero.
+                var quarter: Int
+                do { quarter = (rng.nextScaled() * 4).toInt() } while (quarter == 0)
+                tileRotations[i] = quarter
             }
         }
     }

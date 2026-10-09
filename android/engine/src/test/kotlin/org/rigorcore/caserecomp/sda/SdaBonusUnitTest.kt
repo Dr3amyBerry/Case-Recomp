@@ -6,6 +6,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SdaBonusUnitTest {
+    @Test fun rotation_initial_angles_follow_native_scaled_draw_and_zero_rejection() {
+        val game = SdaTileRotGame("test.trg", seed = 8)
+        assertEquals(listOf(3, 3, 3, 1, 1, 1, 1, 3, 1, 2, 3, 1,
+            2, 1, 3, 1, 2, 2, 2, 3, 3, 1, 3, 3), game.tileRotations.toList())
+    }
+
+    @Test fun rotation_maximum_crt_sample_stays_below_full_turn_in_x87_precision() {
+        // This seed makes the first CRT sample 32767. Premature float rounding gives 4.
+        val game = SdaTileRotGame("test.trg", seed = 4028364353L)
+        assertEquals(3, game.tileRotations[0])
+        assertTrue(game.tileRotations.all { it in 1..3 })
+    }
+
     @Test fun swap_native_forward_shuffle_seed_fixture() {
         val game = SdaTileSwapGame("test.tgl", rows = 2, cols = 3, seed = 8)
         assertEquals(listOf(4, 2, 5, 1, 3, 0), game.tilePositions.toList())

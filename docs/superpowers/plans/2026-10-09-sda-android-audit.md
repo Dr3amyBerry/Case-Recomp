@@ -51,3 +51,6 @@
 
 - Task 5, bloque escalar: speedBonus compartido con fórmula 00418600 (módulo 3600×100) y timeout mediante evento previo al almacenamiento del reloj. RED 3/3 → GREEN, engine 141/app 23 y APK debug correctos; resultado reanudado acredita una vez. Puntuación total/gates/relojes originales siguen pendientes.
 - Ruling: no inventar generación WordSearch a partir de 0045c0e0 incompleta. Ocho direcciones/solapamientos recuperables no prueban RNG/tablero; recuperar FPU/parámetros desde proyecto existente antes de integrar. Coste: bonus nivel 2 sigue incompleto; se completa en cambio una corrección de progresión sustentada. Estado y continuación exacta en audit.
+
+- Task 3: usuario autorizó lectura del proyecto Ghidra existente. Revisión inicial confundió -process con abrir el EXE; se comprobó semántica del README instalado y se permitió readOnly/noanalysis. Exportador genérico verificado; listados privados de tres funciones recuperados sin importar/ejecutar original.
+- Ruling: consumo RNG por fuentes/case y reducción a 10 impiden portar generador Python de seis palabras. No se inventa tablero. Se corrige mezcla de rotación con constantes/instrucciones recién recuperadas, preservando tableros guardados. RED→GREEN, engine 143/app 23 y APK debug correctos; continuidad global RNG y WordSearch todavía pendientes. Continuación exacta en audit.

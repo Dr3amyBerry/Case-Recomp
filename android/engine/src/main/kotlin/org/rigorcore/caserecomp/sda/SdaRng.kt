@@ -12,6 +12,9 @@ class SdaRng(seed: Long) {
         require(seed in 0..0xFFFFFFFFL) { "seed must be an unsigned 32-bit clock sample" }
     }
 
+    /** 0046e990: x87 keeps the product wider than float after loading this float constant. */
+    fun nextScaled(): Double = next().toDouble() * Float.fromBits(0x38000100).toDouble()
+
     fun next(): Int {
         state = (state * 0x343fdL + 0x269ec3L) and 0xFFFFFFFFL
         return ((state ushr 16) and 0x7fffL).toInt()
