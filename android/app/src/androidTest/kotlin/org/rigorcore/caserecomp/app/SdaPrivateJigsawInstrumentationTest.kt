@@ -84,13 +84,14 @@ class SdaPrivateJigsawInstrumentationTest {
     assertEquals(3,campaign.currentLevel.clue)
     val displayScene = content.loadScene("SCENE_${campaign.currentLevel.scenes.first().uppercase()}.MSL",8)
     objectiveView=SdaGameView(context,displayScene,campaign=campaign)
+    activity.setContentView(objectiveView)
+    assertTrue(objectiveView.isAttachedToWindow)
     objectiveView.layout(0,0,800,600)
     objectiveView.draw(Canvas(Bitmap.createBitmap(800,600,Bitmap.Config.ARGB_8888)))
     finishObjects()
-    campaign.startBonus(content)
-    var game=campaign.bonusGame as SdaJigsawGame
-    val view=SdaGameView(context,displayScene,campaign=campaign)
-    activity.setContentView(view)
+    val view=objectiveView
+    var bonusStarts=0
+    view.onStartBonusListener={ bonusStarts++; campaign.startBonus(content) }
     assertTrue(view.isAttachedToWindow)
     view.layout(0,0,1000,600)
     val screen=Bitmap.createBitmap(1000,600,Bitmap.Config.ARGB_8888)
@@ -101,9 +102,15 @@ class SdaPrivateJigsawInstrumentationTest {
      val event=MotionEvent.obtain(0,SystemClock.uptimeMillis(),action,1,properties,coords,0,buttons,1f,1f,0,0,android.view.InputDevice.SOURCE_MOUSE,0)
      try { assertTrue(view.onTouchEvent(event)) } finally { event.recycle() }
     }
+    draw()
+    send(MotionEvent.ACTION_DOWN,470,370)
+    assertEquals(1,bonusStarts)
+    assertEquals(SdaCampaignPhase.BONUS,campaign.phase)
+    var game=campaign.bonusGame as SdaJigsawGame
     var saved=""
     view.onBonusInputListener={ saved=campaign.snapshot().toJson() }
     var resumed=false
+    var placements=0
     for(id in game.interaction.board.trayOrder) {
      val rect=game.trayRectangles().first { it.id==id }
      val pixels=game.image(id,true)
@@ -124,11 +131,20 @@ class SdaPrivateJigsawInstrumentationTest {
       game=campaign.bonusGame as SdaJigsawGame;resumed=true
      }
      send(MotionEvent.ACTION_DOWN,piece.x+piece.width/2,piece.y+piece.height/2)
+     placements++
+     assertEquals(placements,game.interaction.board.placed.size)
      assertEquals(campaign.snapshot().toJson(),saved)
      draw()
     }
-    assertTrue(resumed);assertEquals(6000,game.placementPoints)
+    assertTrue(resumed);assertEquals(24,placements);assertEquals(6000,game.placementPoints)
     assertEquals(SdaCampaignPhase.LEVEL_COMPLETE,campaign.phase)
+    fun capture(name:String) {
+     draw()
+     File(context.getExternalFilesDir(null),name).outputStream().use {
+      assertTrue(screen.compress(Bitmap.CompressFormat.PNG,100,it))
+     }
+    }
+    capture("jigsaw-level-three-result.png")
     val result=campaign.snapshot().toJson()
     campaign.restore(SdaCampaignState.fromJson(result),content)
     assertEquals(result,campaign.snapshot().toJson())
@@ -136,6 +152,7 @@ class SdaPrivateJigsawInstrumentationTest {
     send(MotionEvent.ACTION_DOWN,400,460)
     assertEquals(4,campaign.currentLevel.clue)
     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
+    capture("jigsaw-level-four-map.png")
     screen.recycle()
    }
   }

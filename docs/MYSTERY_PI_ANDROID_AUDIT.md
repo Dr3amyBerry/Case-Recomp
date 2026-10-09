@@ -321,3 +321,14 @@ Continuación concreta:
 - `SdaBonus.kt::SdaMasterRiddleGame`, `SdaCampaign.kt::confirmLevelComplete/restore/finishBonusInput`, `SdaGameView.kt::drawFinale/onTouchEvent`: siguen pendientes de sustituir el desenlace simulado por estos componentes y el resto de fases auténticas.
 
 Objetivo global y Task 3 abiertos. La progresión JVM hasta resultado 25 sigue siendo parcial; no se acredita campaña Android completa ni desenlace original.
+
+
+## Hito Android: Jigsaw del nivel 3 mediante pantalla (2026-10-09)
+
+Se amplió `SdaPrivateJigsawInstrumentationTest.real_first_three_levels_and_jigsaw_view_inputs_reach_four`: la vista de objetivos del nivel 3 está montada en HomeActivity; el botón de objetos completados abre Jigsaw mediante MotionEvent y su callback, sin llamar directamente a startBonus en ese nivel. Se comprueban una a una las 24 colocaciones, 6000 puntos base, checkpoint con pieza sostenida y resultado restaurados sin cambios, y botón de continuar que alcanza MAP con clue 4. No se escriben fases, índices, contadores, ni se llama solve. Se conservan las comprobaciones de píxeles de piezas reales. No se modificó lógica de producción ni Huntsville/Director.
+
+Verificación fresca: assembleDebug y assembleDebugAndroidTest correctos; instrumentación privada en WSA API 33 **OK (1 test), sin omisión**, con ZIP comercial local. Capturas revisadas de resultado del nivel 3 y mapa del nivel 4, guardadas exclusivamente en `local-output/jigsaw-level-three-result.png` y `local-output/jigsaw-level-four-map.png`. Log `local-output/sda-jigsaw-screen-android.log`. Capturas y paquete comercial no se incluyen en Git.
+
+Alcance: prueba automatizada de pantalla de objetivos/bonus/resultado, no revisión visual humana ni recorrido completo desde importación. Niveles 1/2, selección de escenas y avance temporal se preparan mediante APIs normales; no mediante estados forzados. La bandeja se resuelve con coordenadas obtenidas del modelo. Persistencia comprobada por serialización/restauración en memoria, no cierre y reapertura de proceso. Continúan pendientes fidelidad de transformación/sombra/animaciones, puntuación nativa completa y desenlace.
+
+Continuación: `SdaPrivateJigsawInstrumentationTest` para recorrer selección de escenas/importación y reanudación entre procesos; `SdaJigsawGame.rotateHeld`, `SdaJigsawRaster.transform` y `SdaGameView.drawBonus/onTouchEvent` para límites de fidelidad ya documentados. La integración auténtica de las adivinanzas sigue pendiente en SdaCampaign/SdaMasterRiddleGame; objetivo global abierto.
