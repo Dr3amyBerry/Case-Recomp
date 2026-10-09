@@ -1,5 +1,7 @@
 # Huntsville: fuentes originales y prueba experimental
 
+Registro de la prueba 0.1; diagn?stico actualizado en [correcci?n PFR1](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
+
 Fecha: 2026-10-08. Estado: **PFR1 EXTRAÍDO; CONVERSIÓN EXPERIMENTAL CON DEFECTOS VISUALES**.
 No se adoptó un renderer nuevo ni se reemplazó la build aprobada.
 
@@ -88,3 +90,12 @@ rechazo de sobrescritura y rechazo de contornos inválidos o glifos vacíos.
 
 La adopción queda fuera de este experimento: primero corregir las deformaciones,
 contrastar con el original y obtener la revisión visual solicitada por el usuario.
+
+## Corrección de contornos (prueba 0.2)
+
+El fallo de dirección implícita de ORU se corrigió únicamente en el parser de
+investigación. La comparación cubre los 450 registros de Tekton normal/itálica,
+con diferencias menores de una unidad en 21 compuestos y conservación de los
+contornos en CFF. Véanse los resultados, límites y nueva prueba independiente en
+[HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
+La prueba 0.1 anterior se conserva como evidencia; no se adopta la fuente en Huntsville.

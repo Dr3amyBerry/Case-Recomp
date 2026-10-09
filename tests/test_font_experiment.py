@@ -44,6 +44,33 @@ class FontExperimentTests(unittest.TestCase):
             font.getGlyphSet()[cmap[65]].draw(pen)
             self.assertIn(("curveTo", ((0, 700), (500, 700), (500, 0))), pen.value)
 
+    def test_fractional_component_coordinates_survive_cff(self):
+        from fontTools.ttLib import TTFont
+        from fontTools.pens.recordingPen import RecordingPen
+        record = next(g for g in self.data['glyphs'] if g['code'] == 65)
+        record['contours'] = [[[0, 0.25, 0.125, 0, 0, 0, 0],
+            [2, 500.75, 0.125, 0.25, 700.375, 500.75, 700.375]]]
+        self.convert()
+        with TTFont(self.output) as font:
+            pen = RecordingPen()
+            font.getGlyphSet()[font.getBestCmap()[65]].draw(pen)
+            self.assertIn(('moveTo', ((0.25, 0.125),)), pen.value)
+            self.assertIn(('curveTo', ((0.25, 700.375), (500.75, 700.375), (500.75, 0.125))), pen.value)
+
+    def test_comparison_rejects_changed_control_point(self):
+        spec = importlib.util.spec_from_file_location('comparison', Path(__file__).resolve().parents[1] / 'tools/font-experiment/compare_outlines.py')
+        comparison = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(comparison)
+        self.convert()
+        reference = json.loads(json.dumps(self.data))
+        next(g for g in reference['glyphs'] if g['code'] == 65)['contours'][0][1][3] += 80
+        reference_path = Path(self.directory.name) / 'reference.json'
+        reference_path.write_text(json.dumps(reference))
+        report = comparison.compare(self.source, reference_path, self.output)
+        self.assertFalse(report['passed_with_reported_fixed_point_differences'])
+        self.assertTrue(report['cff_passed'])
+        self.assertEqual(report['failures'][0]['stage'], 'PFR reference')
+
     def test_refuses_to_replace_existing_output(self):
         self.output.write_bytes(b"preserved")
         with self.assertRaisesRegex(ValueError, "already exists"):

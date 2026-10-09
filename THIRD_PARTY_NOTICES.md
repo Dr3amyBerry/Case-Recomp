@@ -11,7 +11,7 @@
 | **GitHub Pages / Actions / Releases** | Hospedaje, builds y APKs | Condiciones y privacidad de GitHub; no constituyen una licencia del juego |
 | **Android SDK / AndroidX / Gradle / Kotlin / JUnit** | Dependencias de compilación y pruebas | Inventariar artefactos/versiones y sus licencias en SBOM reproducible; no atribuir licencia única sin comprobación |
 | **ProjectorRays** | Herramienta externa de investigación, no incluida como dependencia de runtime en este repo | Documentación previa del proyecto indica MPL-2.0; verificar archivo LICENSE del commit exacto antes de distribuir/copiar derivados |
-| **LibreShockwave** | Parser externo usado localmente por `tools/font-experiment/pfr_convert.cpp`; ejecutable de investigación privado. No se enlaza en la APK principal ni en la app de glifos | AGPL-3.0; revisión de investigación `fca530f9ef388d7ff38fa6c7117feae5bb5411c6`. Fuentes upstream conservadas en `private/tools`; no se copiaron implementaciones al repo |
+| **LibreShockwave** | Parser externo usado localmente por `tools/font-experiment/pfr_convert.cpp`; ejecutable de investigación privado. No se enlaza en la APK principal ni en la app de glifos | AGPL-3.0; revisión de investigación `fca530f9ef388d7ff38fa6c7117feae5bb5411c6`. Fuentes upstream conservadas en `private/tools`; parche de investigaci?n AGPL-3.0 y aviso de licencia en `tools/font-experiment` |
 | **FontTools** | Extra Python opcional `font-research`; construye la fuente experimental desde contornos privados. No se empaqueta en Android | [MIT, fuente oficial](https://github.com/fonttools/fonttools/blob/main/LICENSE) |
 
 Los juegos, casts, música, sprites, Lingo y portadas **no son dependencias libres ni reciben una licencia por aparecer en esta lista**. No incorporar automáticamente archivos comerciales a paquetes o tests.
@@ -46,3 +46,20 @@ Las referencias enlazan a los titulares; **no se han importado textos jurídicos
 ## Licencia del código original de Case Recomp
 
 [PolyForm Noncommercial License 1.0.0](LICENSE) cubre únicamente las partes del proyecto cuyos respectivos titulares tienen derechos para licenciar. **No** sustituye las licencias MPL, MIT-CMU, GPL, AGPL u otras aplicables a herramientas, bibliotecas y dependencias externas. La descarga y uso gratuito de la APK no incluye derechos sobre recursos comerciales de videojuegos aportados por el usuario. Para el alcance y la reserva de explotación comercial, consulte [LICENSING_STATUS.md](LICENSING_STATUS.md).
+
+## External PFR1 reference and patch licensing
+
+`tools/font-experiment/pfr1-implicit-direction.patch` modifies LibreShockwave's
+AGPL-3.0 parser. The patch retains that license, separately from this repository's
+license; see `tools/font-experiment/LICENCE-LibreShockwave.txt` and the pinned upstream
+revision `fca530f9ef388d7ff38fa6c7117feae5bb5411c6`. The corresponding complete upstream
+source remains available from https://github.com/LibreShockwave/LibreShockwave.
+The prepared source and linked research binaries remain private; neither parser is
+linked into either Android APK.
+
+DirPlayer's GPL-3.0 PFR1 parser at `68376fbb4494a6bbad4c70081ecdcb99814a74c9`
+(https://github.com/igorlira/dirplayer-rs) is used as an external local reference via
+`pfr_reference.rs`; its implementation is not copied into this repository. Rust
+1.90.0 (MIT/Apache-2.0 compiler) was used privately to build that adapter. Matplotlib
+(PSF-based license) is an optional local comparison rasterizer; it is not packaged
+in Android. FreeType in Pillow rasterizes the resulting OpenType fonts, not PFR1.

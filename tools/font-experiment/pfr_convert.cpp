@@ -1,7 +1,9 @@
-﻿// Standalone adapter for an externally supplied LibreShockwave PFR1 parser.
+// Standalone adapter for an externally supplied LibreShockwave PFR1 parser.
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <limits>
 #include <iterator>
 #include <stdexcept>
 #include <vector>
@@ -19,6 +21,7 @@ int main(int argc, char** argv) {
         auto font = libreshockwave::font::Pfr1Font::parse(data);
         if (!font || font->glyphs.empty()) throw std::runtime_error("no outline glyphs parsed");
         std::ofstream output(argv[2]);
+        output << std::setprecision(std::numeric_limits<float>::max_digits10);
         const auto& metrics = font->metrics;
         output << "{\"units\":" << metrics.outlineResolution
                << ",\"metric_units\":" << metrics.metricsResolution

@@ -169,3 +169,12 @@ comparación de Tekton normal/itálica, independiente del player aprobado. La
 conversión tiene defectos visuales y no se adopta en Huntsville. Resultados,
 límites y protección de la referencia en
 [HUNTSVILLE_FONT_EXPERIMENT.md](HUNTSVILLE_FONT_EXPERIMENT.md).
+
+## Corrección experimental PFR1 (2026-10-08)
+
+Se corrigió la dirección implícita de ORU en la copia privada del parser y se
+compararon los 450 registros Tekton con otro lector y el CFF final. La prueba 0.2
+normal/itálica está disponible en el laboratorio independiente. Persisten pequeñas
+diferencias de punto fijo en compuestos; la adopción en Huntsville sigue pendiente.
+Motor, perfil y APK aprobada intactos. Véase
+[la comparación de contornos](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).

@@ -9,8 +9,8 @@ android {
         minSdk = 26
         targetSdk = 32
         testInstrumentationRunner = "org.rigorcore.caserecomp.fontlab.FontLabProbe"
-        versionCode = 1
-        versionName = "0.1-experimental"
+        versionCode = 2
+        versionName = "0.2-experimental"
     }
     sourceSets.getByName("main").assets.directories.add(recoveredFonts)
     compileOptions {

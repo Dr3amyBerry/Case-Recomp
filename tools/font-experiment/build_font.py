@@ -57,7 +57,7 @@ def build_font(source, output, family):
             pen.closePath()
         if not record['contours'] and code not in (32, 160):
             raise ValueError(f'empty non-space glyph {code}')
-        charstring_pen = T2CharStringPen(advance, None)
+        charstring_pen = T2CharStringPen(advance, None, roundTolerance=0)
         pen.replay(charstring_pen)
         charstring = charstring_pen.getCharString()
         bounds = BoundsPen(None)

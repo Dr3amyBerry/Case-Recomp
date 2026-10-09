@@ -1,0 +1,23 @@
+--- a/cpp/src/font/Pfr1Font.cpp
++++ b/cpp/src/font/Pfr1Font.cpp
+@@ -181,3 +181,5 @@
+-int orusLookup(const std::vector<int>& controlValues, int current, int direction) {
+-    if (controlValues.empty() || direction == 0) {
+-        return current;
++int orusLookup(const std::vector<int>& controlValues, int current, int direction, int previous = 0) {
++    if (controlValues.empty()) return current;
++    if (direction == 0) {
++        if (current == previous) return current;
++        direction = current < previous ? -1 : 1;
+@@ -740 +742 @@
+-                        control2X = orusLookup(controlX, currentX, 0);
++                        control2X = orusLookup(controlX, currentX, 0, previousX);
+@@ -760 +762 @@
+-                        endY = orusLookup(controlY, currentY, 0);
++                        endY = orusLookup(controlY, currentY, 0, previousY);
+@@ -796 +798 @@
+-                        control2Y = orusLookup(controlY, currentY, 0);
++                        control2Y = orusLookup(controlY, currentY, 0, previousY);
+@@ -814 +816 @@
+-                        endX = orusLookup(controlX, currentX, 0);
++                        endX = orusLookup(controlX, currentX, 0, previousX);

@@ -32,7 +32,7 @@ class FontLabActivity : Activity() {
         fun label(text: String) = TextView(this).apply { this.text = text; textSize = 16f }
             .also { column.addView(it) }
         label("Tekton: laboratorio experimental")
-        label("No modifica Huntsville. Fuente extraída del original; conversión aún sin aprobar. Hay glifos deformados. Sin hinting ni kerning originales verificados.")
+        label("No modifica Huntsville. Fuente extraída del original; conversión aún sin aprobar. Curvas corregidas y comparadas con un segundo lector. Compuestos: diferencia inferior a 1 unidad; pendiente contraste nativo. Sin hinting ni kerning originales verificados.")
         val input = EditText(this).apply {
             setText("Agente: Dream\nCaso N° 2: Dinero Fácil\nLímite de tiempo: 15 Minutos\nÁÉÍÓÚ áéíóú Ññü ¡¿ 0123456789")
             minLines = 4
