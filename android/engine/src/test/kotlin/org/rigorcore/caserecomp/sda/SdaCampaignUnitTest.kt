@@ -54,6 +54,57 @@ class SdaCampaignUnitTest {
         repeat(100) { camp.advance(.04f) }
     }
 
+    @Test fun speed_bonus_uses_native_minute_second_component_and_multiplier() {
+        for ((time, expected) in listOf(59.9f to 5900, 60f to 6000,
+                1320f to 132000, 3600f to 0, 3665f to 6500, 7200f to 0)) {
+            val camp = SdaCampaign(levels().map { it.copy(time = time) })
+            assertEquals("limit=$time", expected, camp.levelSummary().speedBonus)
+            assertEquals(0, camp.points)
+        }
+    }
+
+    @Test fun level_result_resume_credits_displayed_time_bonus_only_once() = withContent { content ->
+        val camp = SdaCampaign(levels(), seed = 8)
+        reachBonus(camp, content)
+        val bonus = camp.bonusGame as SdaTileRotGame
+        for (index in bonus.tileRotations.indices) {
+            val x = 172 + (index % bonus.cols) * 612 / bonus.cols + 1
+            val y = 95 + (index / bonus.cols) * 408 / bonus.rows + 1
+            repeat(bonus.tileRotations[index]) { assertTrue(camp.clickBonus(x, y)) }
+        }
+        assertEquals(SdaCampaignPhase.LEVEL_COMPLETE, camp.phase)
+        val before = camp.points
+        val elapsed = camp.clock.elapsed
+        val expectedBonus = (maxOf(0f, camp.clock.limit - elapsed).toInt() % 3600) * 100
+        assertEquals(expectedBonus, camp.levelSummary().speedBonus)
+        val saved = camp.snapshot().toJson()
+        camp.restore(SdaCampaignState.fromJson(saved), content)
+        assertEquals(saved, camp.snapshot().toJson())
+        camp.confirmLevelComplete()
+        assertEquals(before + expectedBonus, camp.points)
+        assertEquals(elapsed, camp.totalElapsed)
+        assertEquals(0f, camp.clock.elapsed)
+        val next = camp.snapshot().toJson()
+        assertThrows(IllegalArgumentException::class.java) { camp.confirmLevelComplete() }
+        assertEquals(next, camp.snapshot().toJson())
+    }
+
+    @Test fun campaign_timeout_waits_for_native_preupdate_event() = withContent { content ->
+        val camp = SdaCampaign(levels().map { it.copy(time = 1f) }, seed = 8)
+        camp.enterScene("one", content)
+        camp.advance(1.01f)
+        assertEquals(SdaCampaignPhase.SCENE, camp.phase)
+        camp.advance(.2f)
+        assertEquals(SdaCampaignPhase.SCENE, camp.phase)
+        camp.advance(1f)
+        assertEquals(SdaCampaignPhase.TIMEOUT, camp.phase)
+        val saved = camp.snapshot().toJson()
+        camp.restore(SdaCampaignState.fromJson(saved), content)
+        assertEquals(saved, camp.snapshot().toJson())
+        camp.advance(5f)
+        assertEquals(saved, camp.snapshot().toJson())
+    }
+
     @Test fun compound_objective_counts_once_after_all_components_retire() = withContent { content ->
         val camp = SdaCampaign(levels(), seed = 8)
         val scene = camp.enterScene("one", content)

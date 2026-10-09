@@ -48,3 +48,6 @@
 
 - Task 3, bloque intercambio: dos tests RED→GREEN; shuffle de sufijos 00457500, retiro individual y puntos base 00457ed0/00458e30. Checkpoint preserva locks/selección/puntos; fixture prueba progresión y bonus privado nivel 4 resuelve 36 fichas por inputs con reanudación exacta. Engine 138/app 23, APK debug y diff check correctos. Scoring rápido/RNG global/render original pendientes, Task 3 sigue abierto.
 - Ruling: no aplicar retiros de filas/columnas a intercambio; su exportación nativa retira identidades individuales. No portar reglas Python sin referencia independiente. Coste si incompleto: score base omite bonus rápido; audit lo identifica explícitamente y no acredita fidelidad total.
+
+- Task 5, bloque escalar: speedBonus compartido con fórmula 00418600 (módulo 3600×100) y timeout mediante evento previo al almacenamiento del reloj. RED 3/3 → GREEN, engine 141/app 23 y APK debug correctos; resultado reanudado acredita una vez. Puntuación total/gates/relojes originales siguen pendientes.
+- Ruling: no inventar generación WordSearch a partir de 0045c0e0 incompleta. Ocho direcciones/solapamientos recuperables no prueban RNG/tablero; recuperar FPU/parámetros desde proyecto existente antes de integrar. Coste: bonus nivel 2 sigue incompleto; se completa en cambio una corrección de progresión sustentada. Estado y continuación exacta en audit.

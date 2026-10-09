@@ -191,7 +191,7 @@ class SdaCampaign(
     fun advance(seconds: Float) {
         if (phase == SdaCampaignPhase.SCENE) {
             val sc = currentScene ?: return
-            clock.advance(seconds)
+            val clockEvents = clock.advance(seconds)
             sc.advance(seconds)
 
             // Check active sets retired
@@ -206,14 +206,14 @@ class SdaCampaign(
 
             if (remainingObjects == 0) {
                 phase = SdaCampaignPhase.OBJECTS_COMPLETE
-            } else if (clock.isExpired) {
+            } else if (SdaClockEvent.Timeout in clockEvents) {
                 phase = SdaCampaignPhase.TIMEOUT
             } else if (sc.batchRetired) {
                 phase = SdaCampaignPhase.SCENE_COMPLETE
             }
         } else if (phase in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1, SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) {
-            clock.advance(seconds)
-            if (clock.isExpired) {
+            val clockEvents = clock.advance(seconds)
+            if (SdaClockEvent.Timeout in clockEvents) {
                 phase = SdaCampaignPhase.TIMEOUT
             }
         }
@@ -292,9 +292,15 @@ class SdaCampaign(
         }
     }
 
+    /** 00418600 uses the remaining minute/second components, excluding whole hours. */
+    private fun speedBonus(): Int {
+        val seconds = maxOf(0f, clock.limit - clock.elapsed).toInt()
+        return (seconds % 3600) * 100
+    }
+
     fun levelSummary(): SdaLevelSummary {
         val remTime = maxOf(0f, clock.limit - clock.elapsed)
-        val speedBonus = (remTime.toInt()) * 10
+        val speedBonus = speedBonus()
         return SdaLevelSummary(
             clue = currentLevel.clue,
             levelIndex = levelIndex,
@@ -310,8 +316,7 @@ class SdaCampaign(
 
     fun confirmLevelComplete() {
         require(phase == SdaCampaignPhase.LEVEL_COMPLETE) { "cannot confirm level when not level complete" }
-        val remTime = maxOf(0f, clock.limit - clock.elapsed)
-        val speedBonus = (remTime.toInt()) * 10
+        val speedBonus = speedBonus()
         points += speedBonus
         totalElapsed += clock.elapsed
 
