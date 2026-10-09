@@ -21,6 +21,8 @@ Actúa como desarrollador principal autónomo. **La velocidad útil es el criter
 
 **Objetivo inmediato:** que los cuatro minijuegos se dibujen con sus fondos, marcos, tableros, overlays y controles originales completos; completar después PDA, pausa, menús y pantallas faltantes; aprovechar el pseudocódigo para las mecánicas pendientes; terminar y validar el desenlace y los 25 niveles.
 
+**Alcance inequívoco:** este Goal desarrolla **exclusivamente Mystery P.I.: The Vegas Heist**. La copia local de *Lost in Los Angeles* puede servir únicamente como referencia **estática, puntual y opcional** de ingeniería inversa del motor SDA. **PROHIBIDO** iniciar su juego/EXE, portarlo, implementarlo en Android, ampliar sus minijuegos, probarlo como segundo título o retrasar por él las mejoras de Vegas. La autorización de ejecución del juego original de la Parte II se refiere **únicamente a Vegas**.
+
 ## V3.1 — Estado previo y continuación segura
 
 Antes de editar, consulta una sola vez el HEAD actual de `origin/intento-geminis`, el último commit local, los archivos modificados/no seguidos y el estado de las pruebas pertinentes. Parte del HEAD real; **no hagas reset, checkout destructivo, borrado, limpieza indiscriminada ni sobrescritura de cambios ajenos**.
@@ -82,6 +84,24 @@ Evalúa de forma acotada, basada en evidencia:
 - Si una herramienta alternativa de decompilación o análisis de binarios mejora un bloqueo demostrable, valora una prueba limitada, con procedencia segura y sin instalaciones masivas.
 
 **Decisión obligatoria en tiempo acotado:** clasifica `traducción semiautomática útil`, `reconstrucción mediante datos XUI`, `emulación/reimplementación genérica`, `requiere contraste de ejecución`, o `no rentable por ahora`; usa de inmediato el método ganador.
+
+### A.1. Prueba opcional y acotada: RTTI de Los Angeles como mapa estático para funciones de Vegas
+
+**Único propósito autorizado: acelerar el desarrollo de Vegas.** Ya existe `docs/SDA_ACCELERATION_ANALYSIS.md` con un análisis preliminar: una copia posterior de SDA atribuida a *Lost in Los Angeles* exhibe 134 nombres de clases del namespace `sda`, 61 etiquetas XUI compartidas y 405 pares etiqueta-atributo comunes con Vegas. **Son candidatos de correlación, no equivalencia funcional ni transferencia automática demostrada.** La copia procede de un portable de terceros y puede estar modificada.
+
+**Ubicación local mostrada por el usuario:** `C:\Users\Admin\Desktop\new_togit\case-recomp\private\mystery-pi-angeles\` (carpetas `game/`, `extraccion/` y `extract_z.py`). Comprueba su existencia y contenido real mediante lectura, sin asumir que todos los ficheros estén íntegros. **No mover, borrar, reextraer ni modificar esos originales y derivados**; no es necesario iniciar ningún ejecutable. Mantener la ruta y sus datos fuera de Git y de la APK.
+
+**Evaluación rápida, sin port de Los Angeles:**
+
+1. Reutiliza `docs/SDA_ACCELERATION_ANALYSIS.md`, el proyecto Ghidra de Vegas y la evidencia estática existente; no repitas la extracción de 3.046 recursos ni el análisis completo de 5.906 funciones.
+2. Si la infraestructura está disponible, prueba una correlación **estática** entre los binarios mediante Ghidra Version Tracking (o herramienta equivalente ya disponible), comenzando por unas pocas clases de alto impacto compartidas: `mpiPda`, `mpiHint`, `mpiMap`, `mpiTileRotGame`, `mpiJigSawGame`, `xuiButton` y `xuiFont`.
+3. Contrasta candidatos con estructura de vtables, XREF, secuencias de código y llamadas, cadenas, firmas y diferencias de versión. Distingue coincidencias de alta confianza, ambiguas y rechazadas. Los nombres transferidos son **inferidos para Vegas**, no sus símbolos originales confirmados. Evita renombrados masivos o transferencia de tipos automática sin revisión; preserva el proyecto Ghidra original mediante copia o mecanismo no destructivo.
+4. Registra un resultado **compacto y reproducible** bajo `local-output/` (sin pseudocódigo comercial publicado): número de coincidencias verificadas, funciones de Vegas identificadas, contratos Kotlin o renderizadores desbloqueados y casos no confiables.
+5. **Límite de esfuerzo:** un piloto breve (orientativamente 60–90 minutos de trabajo efectivo, sin convertirlo en un bloqueo). Si no produce beneficios verificables para PDA, menús, fondos, composición de bonus o eventos **de Vegas**, ciérralo como no rentable por ahora y vuelve inmediatamente al Bloque 1 de Vegas. Si funciona, automatiza únicamente el subconjunto de transferencias confiables que facilite código útil inmediato.
+
+**Prohibiciones específicas:** no ejecutar `JUGAR.exe` ni otro EXE de Los Angeles; no abrir su interfaz, jugar, importar su `.z` en Case-Recomp, instalar una versión Android, crear perfil/adaptador/launcher de Los Angeles, desarrollar Match/Solitario/PlaceGame ni iniciar pruebas visuales o E2E de ese título. **Cero desarrollo funcional de Los Angeles.** Únicamente se permite lectura/análisis estático como referencia cruzada para Vegas. Tampoco ejecutar Windows/WSA de Los Angeles por conveniencia ni usar sus imágenes para sustituir recursos de Vegas.
+
+El resultado de esta evaluación **no es un nuevo hito independiente**: debe aprovecharse dentro de V3.4 y desembocar de inmediato en implementación de Vegas. Todo el resto de requisitos V3 conserva su prioridad y alcance.
 
 ### B. Scripts reutilizables, no pseudocódigo en el chat
 
@@ -258,7 +278,7 @@ Conserva exactitud de originales: no inventar fuentes, sprites, botones, audio, 
 ## V3.14 — Orden de inicio inmediato para Codex
 
 1. Verifica HEAD y **WIP local**; termina la regresión pendiente de objetivos ocultos en pausa solo si de verdad sigue incompleta, sin generar un informe gigante por ello.
-2. Construye un **índice mínimo de recursos/XUI y funciones Ghidra** usando scripts existentes, que informe fondos/capas/controles faltantes en las cuatro familias de bonus.
+2. Construye un **índice mínimo de recursos/XUI y funciones Ghidra** usando scripts existentes, que informe fondos/capas/controles faltantes en las cuatro familias de bonus. **Solo si desbloquea trabajo inmediato de Vegas**, realiza el piloto estático V3.4.A.1 con las referencias locales de Los Angeles; nunca ejecutes ni portes ese juego y abandona la correlación si no ofrece resultados confiables rápidamente.
 3. Implementa en un **bloque sustancial** fondos, tableros, marcos, overlays y elementos faltantes de TileRot/TileSwap/WordSearch/Jigsaw, reutilizando su lógica ya implementada y los bindings originales.
 4. Cierra ese bloque con pruebas Kotlin focalizadas, WSA agrupado, captura de las **cuatro** familias, comparación rápida con referencias Windows existentes y un commit/push coherente.
 5. Prosigue al bloque sustancial de PDA + pausa + menú/pistas, con la misma política de eficiencia.
