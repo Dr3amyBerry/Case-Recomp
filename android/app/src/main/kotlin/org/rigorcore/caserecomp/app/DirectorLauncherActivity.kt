@@ -46,7 +46,7 @@ class DirectorLauncherActivity : Activity() {
             openActive()
             return
         }
-        bridge = DirectorDebugBridge { runtime }.also { it.register(this) }
+        bridge = DirectorDebugBridge({ runtime }, { stage }).also { it.register(this) }
         showStartScreen("Director/Lingo private debug")
         if (savedInstanceState == null) pendingSave = intent.getStringExtra(EXTRA_IMPORT_SAVE)
         val external = intent.getStringExtra(EXTRA_IMPORT_EXTERNAL)
@@ -241,7 +241,17 @@ class DirectorLauncherActivity : Activity() {
         val newStage = DirectorStageView(this, session.runtime, session.renderer)
         stage = newStage
         newStage.onQuit = { exitWithSave() }
-        newStage.afterFrame = { checkpoint?.afterFrame() }
+        val options = if (session.profile == DirectorPresentationProfiles.HUNTSVILLE_ES)
+            HuntsvilleOptions(session.runtime) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HuntsvilleOptions.SUPPORT_URL)))
+                } catch (_: android.content.ActivityNotFoundException) {
+                    Toast.makeText(this, "No hay un navegador disponible", Toast.LENGTH_LONG).show()
+                }
+            } else null
+        newStage.drawStageOverlay = options?.let { adapter -> { canvas -> adapter.draw(canvas) } }
+        newStage.stageActionAt = options?.let { adapter -> { x, y -> adapter.actionAt(x, y) } }
+        newStage.afterFrame = { options?.afterFrame(); checkpoint?.afterFrame() }
         newStage.onRuntimeError = { error ->
             newStage.pauseFrames()
             Log.e(TAG, "Director runtime paused", error)

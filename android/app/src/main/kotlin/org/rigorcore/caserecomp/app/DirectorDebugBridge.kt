@@ -17,6 +17,7 @@ import org.rigorcore.caserecomp.lingo.asText
  *
  * `adb shell am broadcast -a org.rigorcore.caserecomp.DIRECTOR_DEBUG --es cmd 'label'`
  * replies in the broadcast result data. Arguments are separated by `|`:
+ * - `touch|down/move/up/cancel|stageX|stageY` sends input to the stage view without changing the desktop cursor
  * - `label` — frame number and label
  * - `sprites|from|to` — one line per on-stage sprite: number, member, type, rect, blend, scripted
  * - `hit|n` — a stage point where a click reaches sprite n, or `none`
@@ -26,7 +27,7 @@ import org.rigorcore.caserecomp.lingo.asText
  * - `callsprites|from|to|method|args…` — the method on each sprite with a member, `n=result` lines
  * - `flashbutton|n` —a stage point on the first button of sprite n's Flash movie, or `none`
  */
-internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?) : BroadcastReceiver() {
+internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, private val stage: () -> DirectorStageView? = { null }) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val rt = runtime() ?: run { resultData = "error: no stage"; return }
         val parts = intent.getStringExtra("cmd")?.split('|') ?: run { resultData = "error: no cmd"; return }
@@ -34,6 +35,16 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?) 
     }
 
     private fun answer(rt: DirectorRuntime, parts: List<String>): String = when (parts[0]) {
+        "touch" -> {
+            val action = when (parts[1]) {
+                "down" -> android.view.MotionEvent.ACTION_DOWN
+                "move" -> android.view.MotionEvent.ACTION_MOVE
+                "up" -> android.view.MotionEvent.ACTION_UP
+                "cancel" -> android.view.MotionEvent.ACTION_CANCEL
+                else -> error("unknown touch action")
+            }
+            stage()?.debugTouch(action, parts[2].toInt(), parts[3].toInt())?.toString() ?: "error: no view"
+        }
         "label" -> "${rt.frame} ${rt.getMovieProp("frameLabel")?.asText()}"
         "sprites" -> (parts[1].toInt()..parts[2].toInt()).mapNotNull { n ->
             val s = rt.sprite(n)

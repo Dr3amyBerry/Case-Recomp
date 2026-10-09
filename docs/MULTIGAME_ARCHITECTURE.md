@@ -184,3 +184,11 @@ una Android y otra Tekton, con paquetes y datos propios. Se generan en copias pr
 no se cambian el motor, el perfil ni la APK aprobada. La incorporación definitiva
 sigue pendiente de revisión humana. Véase
 [la prueba de contornos y builds jugables](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
+
+## Decisión de fuentes y ajustes de opciones (2026-10-08)
+
+Decisión humana: «nos quedamos con android, las letras de android son mejores».
+Se conserva el renderer Android; Tekton no se adopta. Se corrigen los volúmenes
+negativos en el adaptador de Huntsville y se reemplaza «Pantalla completa» por
+«Apoya al desarrollador», que abre el enlace PayPal indicado por el usuario.
+Validación y alcance en [HUNTSVILLE_OPTIONS.md](HUNTSVILLE_OPTIONS.md).

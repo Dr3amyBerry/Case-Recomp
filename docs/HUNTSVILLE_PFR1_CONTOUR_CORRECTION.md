@@ -142,3 +142,11 @@ Artefactos privados en `local-output/huntsville-playable-font-comparison-2026-10
 `huntsville-tekton-experimental-debug.apk`, `android-game.png`, `tekton-game.png`
 y `reference.json` con hashes. Las dos APK aprobadas conservan sus hashes anteriores.
 La revisión visual humana y la decisión de adoptar Tekton siguen pendientes.
+
+## Decisión humana tras probar el juego
+
+El 2026-10-08 el usuario eligió las letras Android: «nos quedamos con android,
+las letras de android son mejores». Tekton no se adopta en la versión actual.
+La investigación y sus artefactos se conservan; no hay autorización para sustituir
+el renderer Android por Tekton. Los posteriores ajustes de volumen y botón de apoyo
+se documentan en [HUNTSVILLE_OPTIONS.md](HUNTSVILLE_OPTIONS.md).

@@ -65,6 +65,9 @@ internal class DirectorStageView(
     /** Lingo `quit`/`halt`: the title asked to close. */
     var onQuit: (() -> Unit)? = null
     var afterFrame: (() -> Unit)? = null
+    var drawStageOverlay: ((Canvas) -> Unit)? = null
+    var stageActionAt: ((Int, Int) -> (() -> Unit)?)? = null
+    private var pendingStageAction: (() -> Unit)? = null
 
     /** Debug builds with the tag at DEBUG log ticks per second and the time spent per tick. */
     private fun logStats(start: Long) {
@@ -125,6 +128,11 @@ internal class DirectorStageView(
         val area = viewport.fit(width, height)
         destination.set(area.left, area.top, area.left + area.width, area.top + area.height)
         canvas.drawBitmap(bitmap, null, destination, drawPaint)
+        canvas.save()
+        canvas.translate(area.left, area.top)
+        canvas.scale(area.width / renderer.width, area.height / renderer.height)
+        drawStageOverlay?.invoke(canvas)
+        canvas.restore()
         drawTouchMark(canvas)
         drawWork += android.os.SystemClock.uptimeMillis() - drawStart
     }
@@ -177,6 +185,7 @@ internal class DirectorStageView(
     private inline fun input(action: () -> Unit): Boolean {
         try {
             action()
+            afterFrame?.invoke()
         } catch (e: Exception) {
             onRuntimeError?.invoke(e)
             return true
@@ -186,6 +195,17 @@ internal class DirectorStageView(
         return true
     }
 
+    /** Debug bridge only: exercises this view's real input route without global cursor/focus changes. */
+    fun debugTouch(action: Int, x: Int, y: Int): Boolean {
+        require(x in 0 until renderer.width && y in 0 until renderer.height)
+        val area = viewport.fit(width, height)
+        val now = android.os.SystemClock.uptimeMillis()
+        val event = MotionEvent.obtain(now, now, action,
+            area.left + (x + 0.5f) * area.width / renderer.width,
+            area.top + (y + 0.5f) * area.height / renderer.height, 0)
+        return try { onTouchEvent(event) } finally { event.recycle() }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val point = viewport.stagePoint(event.x, event.y, width, height)
         val mouse = event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE
@@ -193,6 +213,8 @@ internal class DirectorStageView(
             MotionEvent.ACTION_DOWN -> {
                 if (point == null) return false
                 down = true
+                pendingStageAction = stageActionAt?.invoke(point.first, point.second)
+                if (pendingStageAction != null) return true
                 requestFocus()
                 removeCallbacks(liftPointer)
                 if (!mouse) markTouch(event.x, event.y)
@@ -205,10 +227,16 @@ internal class DirectorStageView(
                     }
                 }
             }
-            MotionEvent.ACTION_MOVE -> input { point?.let { runtime.mouseMove(it.first, it.second) } }
+            MotionEvent.ACTION_MOVE -> if (pendingStageAction != null) true else input { point?.let { runtime.mouseMove(it.first, it.second) } }
             MotionEvent.ACTION_UP -> {
                 if (!down) return true
                 down = false
+                pendingStageAction?.let { action ->
+                    pendingStageAction = null
+                    if (point != null && stageActionAt?.invoke(point.first, point.second) != null) action()
+                    performClick()
+                    return true
+                }
                 removeCallbacks(deliverDown)
                 val handled = input {
                     pendingDown?.let { (x, y) -> pressAt(x, y) }
@@ -220,6 +248,7 @@ internal class DirectorStageView(
                 handled
             }
             MotionEvent.ACTION_CANCEL -> {
+                if (pendingStageAction != null) { pendingStageAction = null; down = false; return true }
                 removeCallbacks(deliverDown)
                 val pressed = down && pendingDown == null
                 pendingDown = null
