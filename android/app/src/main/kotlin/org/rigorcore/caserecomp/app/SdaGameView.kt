@@ -25,21 +25,26 @@ class SdaGameView(
     val spriteBitmaps: Map<String, Bitmap> = emptyMap(),
 ) : View(context) {
 
-    private val bgPaint = Paint().apply { color = 0xFF10151E.toInt() }
+    private val bgPaint = Paint().apply { color = 0xFF0D1117.toInt() }
+    private val sidebarPaint = Paint().apply { color = 0xFF161B22.toInt() }
+    private val dividerPaint = Paint().apply { color = 0xFF30363D.toInt(); strokeWidth = 2f }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 18f
+        textSize = 13f
         typeface = Typeface.DEFAULT_BOLD
     }
     private val hudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFE8B84A.toInt() // GOLD
-        textSize = 22f
+        textSize = 20f
         typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
     }
     private val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFAAB4C4.toInt() // MUTED
-        textSize = 15f
+        textSize = 11f
+        typeface = Typeface.DEFAULT_BOLD
     }
+    private val placeholderPaint = Paint().apply { color = 0xFF5588CC.toInt() }
+    private val animPlaceholderPaint = Paint().apply { color = 0xFFE8B84A.toInt() }
 
     var onObjectFoundListener: ((String, Int) -> Unit)? = null
     var onMissListener: ((Boolean) -> Unit)? = null
@@ -65,58 +70,63 @@ class SdaGameView(
         if (backgroundBitmap != null) {
             canvas.drawBitmap(backgroundBitmap, 0f, 0f, null)
         } else {
-            val panelPaint = Paint().apply { color = 0xFF1E2838.toInt() }
+            val panelPaint = Paint().apply { color = 0xFF10151E.toInt() }
             canvas.drawRect(0f, 0f, 800f, 600f, panelPaint)
         }
 
-        // Draw active un-found sprites
-        for (identity in scene.targets) {
-            val sprite = scene.objects[identity] ?: continue
+        // 1. Draw drawOrder (static backdrop layers, overlays, and unfound target sprites)
+        val renderList = if (scene.drawOrder.isNotEmpty()) scene.drawOrder else scene.objects.values.toList()
+        for (sprite in renderList) {
             if (!sprite.found && !sprite.hidden) {
-                val bmp = spriteBitmaps[identity]
+                val bmp = spriteBitmaps[sprite.identity] ?: (sprite.image.nativeImage as? Bitmap)
                 if (bmp != null) {
                     canvas.drawBitmap(bmp, sprite.x.toFloat(), sprite.y.toFloat(), null)
-                } else {
-                    // Visual placeholder if bitmap not provided
-                    val p = Paint().apply { color = 0xFF5588CC.toInt() }
+                } else if (sprite.identity.isNotEmpty()) {
+                    // Fallback rectangle for synthetic tests without Bitmaps
                     canvas.drawRect(
                         sprite.x.toFloat(), sprite.y.toFloat(),
                         (sprite.x + sprite.image.width).toFloat(),
-                        (sprite.y + sprite.image.height).toFloat(), p
+                        (sprite.y + sprite.image.height).toFloat(), placeholderPaint
                     )
                 }
             }
         }
 
-        // Draw found sprites during animation
+        // 2. Draw found sprites during flight/scaling animation
         for (identity in scene.foundOrder) {
             val sprite = scene.objects[identity] ?: continue
             val motion = sprite.motion ?: continue
             if (!motion.removed) {
-                val bmp = spriteBitmaps[identity]
+                val bmp = spriteBitmaps[identity] ?: (sprite.image.nativeImage as? Bitmap)
                 val dstRect = Rect(motion.x, motion.y, motion.x + motion.drawWidth, motion.y + motion.drawHeight)
                 if (bmp != null) {
                     canvas.drawBitmap(bmp, null, dstRect, null)
                 } else {
-                    val p = Paint().apply { color = 0xFFE8B84A.toInt() }
-                    canvas.drawRect(dstRect, p)
+                    canvas.drawRect(dstRect, animPlaceholderPaint)
                 }
             }
         }
 
-        // Draw HUD: Score and Clock
-        canvas.drawText("Puntos: ${scene.score.points}", 24f, 36f, hudPaint)
-        if (clock != null) {
-            canvas.drawText("Tiempo: ${clock.text()}", 620f, 36f, hudPaint)
-        }
+        // 3. Draw sidebar / HUD at x: 0..142
+        canvas.drawRect(0f, 0f, 142f, 600f, sidebarPaint)
+        canvas.drawLine(142f, 0f, 142f, 600f, dividerPaint)
 
-        // Draw target caption list on panel
+        // HUD: Score and Clock
+        canvas.drawText("PUNTOS", 12f, 28f, subPaint)
+        canvas.drawText("${scene.score.points}", 12f, 50f, hudPaint)
+
+        canvas.drawText("TIEMPO", 12f, 78f, subPaint)
+        val timeText = clock?.text() ?: "22:00"
+        canvas.drawText(timeText, 12f, 100f, hudPaint)
+
+        // Target caption list
         val remaining = scene.remainingCaptions()
-        var textY = 120f
-        canvas.drawText("Objetivos (${remaining.size}):", 24f, 90f, subPaint)
-        for (caption in remaining.take(8)) {
-            canvas.drawText("• $caption", 24f, textY, textPaint)
-            textY += 28f
+        canvas.drawText("OBJETIVOS (${remaining.size})", 12f, 136f, subPaint)
+        var textY = 160f
+        for (caption in remaining.take(15)) {
+            val displayCaption = if (caption.length > 17) caption.take(15) + "…" else caption
+            canvas.drawText("• $displayCaption", 10f, textY, textPaint)
+            textY += 22f
         }
 
         canvas.restore()
@@ -152,6 +162,6 @@ class SdaGameView(
         if (scene.batchRetired) {
             onSceneCompleteListener?.invoke()
         }
-        postInvalidate()
+        postInvalidateOnAnimation()
     }
 }

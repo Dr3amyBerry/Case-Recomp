@@ -75,4 +75,59 @@ class SdaVerticalSliceUnitTest {
 
         content.close()
     }
+
+    @Test
+    fun authentic_vault_scene_verifiable_if_available() {
+        val candidates = listOf(
+            File("../../local-output/vegas_vault.zip"),
+            File("../local-output/vegas_vault.zip"),
+            File("local-output/vegas_vault.zip"),
+        )
+        val packageFile = candidates.firstOrNull { it.isFile } ?: return
+
+        val decoder = SdaImageDecoder { bytes ->
+            // Minimal PNG parser/dimension extractor for headless unit tests
+            val w = if (bytes.size >= 24) ((bytes[16].toInt() and 0xFF) shl 24) or
+                    ((bytes[17].toInt() and 0xFF) shl 16) or
+                    ((bytes[18].toInt() and 0xFF) shl 8) or
+                    (bytes[19].toInt() and 0xFF) else 32
+            val h = if (bytes.size >= 24) ((bytes[20].toInt() and 0xFF) shl 24) or
+                    ((bytes[21].toInt() and 0xFF) shl 16) or
+                    ((bytes[22].toInt() and 0xFF) shl 8) or
+                    (bytes[23].toInt() and 0xFF) else 32
+            object : SdaPixelSource {
+                override val width: Int = maxOf(1, w)
+                override val height: Int = maxOf(1, h)
+                override fun getAlpha(px: Int, py: Int): Int = 255
+            }
+        }
+
+        val content = SdaContent.open(packageFile, decoder)
+        content.verifyAll()
+        assertNotNull(content.coverPng())
+
+        val scene = content.loadScene("SCENE_VAULT.MSL", seed = 12345L)
+        assertEquals("SCENE_VAULT.MSL", scene.name)
+        assertEquals(87, scene.objects.size)
+        assertTrue(scene.drawOrder.size >= 88)
+        assertEquals(10, scene.activeSets.size)
+        assertTrue(scene.remainingCaptions().isNotEmpty())
+
+        // Hit first active target
+        val firstTarget = scene.targets.first()
+        val sprite = scene.objects[firstTarget]!!
+        val click = scene.click(sprite.x + 1, sprite.y + 1)
+        assertTrue(click is SdaClickResult.Found)
+        assertEquals(firstTarget, (click as SdaClickResult.Found).id)
+
+        // Checkpoint JSON round-trip
+        val state = scene.snapshot()
+        val json = state.toJson()
+        val restoredState = SdaSceneState.fromJson(json)
+        assertEquals(state.scorePoints, restoredState.scorePoints)
+        assertEquals(state.sceneName, restoredState.sceneName)
+        assertEquals(state.activeSets, restoredState.activeSets)
+
+        content.close()
+    }
 }

@@ -107,6 +107,15 @@ internal class PrivateSdaRepository internal constructor(
         return SdaInstall(file, sha)
     }
 
+    fun saveCheckpoint(stateJson: String): Boolean =
+        preferences.setString(CHECKPOINT, stateJson)
+
+    fun loadCheckpoint(): String? =
+        preferences.getString(CHECKPOINT, null)
+
+    fun clearCheckpoint(): Boolean =
+        preferences.setString(CHECKPOINT, "")
+
     private fun digest(file: File): String {
         val md = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
@@ -124,6 +133,7 @@ internal class PrivateSdaRepository internal constructor(
 
     companion object {
         private const val ACTIVE = "active-package-sha256"
+        private const val CHECKPOINT = "session-checkpoint"
         private const val MAX_ZIP_BYTES = 128 * 1024 * 1024L
         private const val MAX_COVER_BYTES = 4 * 1024 * 1024
         private val SHA = Regex("^[0-9a-f]{64}$")

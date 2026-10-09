@@ -7,6 +7,7 @@ interface SdaPixelSource {
     val width: Int
     val height: Int
     fun getAlpha(px: Int, py: Int): Int
+    val nativeImage: Any? get() = null
 }
 
 /**
@@ -92,7 +93,121 @@ data class SdaSceneState(
     val history: List<HistoryMark>,
     val historyVariant: Int?,
     val historyPruned: Boolean,
-)
+) {
+    fun toJson(): String {
+        val map = mutableMapOf<String, Any?>()
+        map["sceneName"] = sceneName
+        map["activeSets"] = activeSets
+        map["candidateSets"] = candidateSets
+        map["deckCursor"] = deckCursor
+        map["deckOrder"] = deckOrder
+        map["scorePoints"] = scorePoints
+        map["scoreFastChain"] = scoreFastChain
+        map["scoreFastBonus"] = scoreFastBonus
+        map["scoreMisses"] = scoreMisses
+        map["elapsed"] = elapsed
+        map["sinceFound"] = sinceFound
+        map["foundOrder"] = foundOrder
+        val objsMap = mutableMapOf<String, Any?>()
+        for ((k, v) in objects) {
+            objsMap[k] = mapOf(
+                "found" to v.found,
+                "hidden" to v.hidden,
+                "motionDelay" to v.motionDelay,
+                "motionVelocity" to v.motionVelocity,
+                "motionScale" to v.motionScale,
+                "motionPhase" to v.motionPhase,
+                "motionPulses" to v.motionPulses,
+                "motionRemoved" to v.motionRemoved,
+                "motionX" to v.motionX,
+                "motionY" to v.motionY,
+            )
+        }
+        map["objects"] = objsMap
+        map["rows"] = rows.map { r ->
+            mapOf("set" to r.set, "alpha" to r.alpha, "phase" to r.phase, "removed" to r.removed)
+        }
+        map["history"] = history.map { h ->
+            mapOf("text" to h.text, "x" to h.x, "y" to h.y)
+        }
+        map["historyVariant"] = historyVariant
+        map["historyPruned"] = historyPruned
+        return org.rigorcore.caserecomp.MiniJson.canonical(map)
+    }
+
+    companion object {
+        @Suppress("UNCHECKED_CAST")
+        fun fromJson(text: String): SdaSceneState {
+            val raw = org.rigorcore.caserecomp.MiniJson.parse(text) as Map<String, Any?>
+            val sceneName = raw["sceneName"] as String
+            val activeSets = (raw["activeSets"] as List<List<String>>)
+            val candidateSets = (raw["candidateSets"] as List<List<String>>)
+            val deckCursor = (raw["deckCursor"] as? Number)?.toInt()
+            val deckOrder = raw["deckOrder"] as? List<List<String>>
+            val scorePoints = (raw["scorePoints"] as Number).toInt()
+            val scoreFastChain = raw["scoreFastChain"] as Boolean
+            val scoreFastBonus = (raw["scoreFastBonus"] as Number).toInt()
+            val scoreMisses = (raw["scoreMisses"] as List<Number>).map { it.toLong() }
+            val elapsed = (raw["elapsed"] as Number).toFloat()
+            val sinceFound = (raw["sinceFound"] as Number).toFloat()
+            val foundOrder = (raw["foundOrder"] as List<String>)
+            val rawObjs = raw["objects"] as Map<String, Map<String, Any?>>
+            val objects = rawObjs.mapValues { (_, v) ->
+                SdaSpriteState(
+                    found = v["found"] as Boolean,
+                    hidden = v["hidden"] as Boolean,
+                    motionDelay = (v["motionDelay"] as? Number)?.toFloat(),
+                    motionVelocity = (v["motionVelocity"] as? Number)?.toFloat(),
+                    motionScale = (v["motionScale"] as? Number)?.toFloat(),
+                    motionPhase = (v["motionPhase"] as? Number)?.toInt(),
+                    motionPulses = (v["motionPulses"] as? Number)?.toInt(),
+                    motionRemoved = v["motionRemoved"] as? Boolean,
+                    motionX = (v["motionX"] as? Number)?.toInt(),
+                    motionY = (v["motionY"] as? Number)?.toInt(),
+                )
+            }
+            val rawRows = raw["rows"] as List<Map<String, Any?>>
+            val rows = rawRows.map { r ->
+                SdaRowState(
+                    set = r["set"] as List<String>,
+                    alpha = (r["alpha"] as Number).toFloat(),
+                    phase = (r["phase"] as Number).toInt(),
+                    removed = r["removed"] as Boolean,
+                )
+            }
+            val rawHistory = raw["history"] as List<Map<String, Any?>>
+            val history = rawHistory.map { h ->
+                HistoryMark(
+                    text = h["text"] as String,
+                    x = (h["x"] as Number).toInt(),
+                    y = (h["y"] as Number).toInt(),
+                )
+            }
+            val historyVariant = (raw["historyVariant"] as? Number)?.toInt()
+            val historyPruned = raw["historyPruned"] as Boolean
+
+            return SdaSceneState(
+                sceneName = sceneName,
+                activeSets = activeSets,
+                candidateSets = candidateSets,
+                deckCursor = deckCursor,
+                deckOrder = deckOrder,
+                scorePoints = scorePoints,
+                scoreFastChain = scoreFastChain,
+                scoreFastBonus = scoreFastBonus,
+                scoreMisses = scoreMisses,
+                elapsed = elapsed,
+                sinceFound = sinceFound,
+                foundOrder = foundOrder,
+                objects = objects,
+                rows = rows,
+                history = history,
+                historyVariant = historyVariant,
+                historyPruned = historyPruned,
+            )
+        }
+    }
+}
 
 /**
  * Complete SDA Scene runtime:
@@ -112,6 +227,7 @@ class SdaScene(
     history: List<HistoryMark> = emptyList(),
     historyVariant: Int? = null,
     prunePreviousHistory: Boolean = false,
+    val drawOrder: List<SdaSprite> = objects.values.toList(),
 ) {
     val sceneIdentity: String = name.substringBeforeLast('.').removePrefix("SCENE_").lowercase()
     val score = SdaScore()

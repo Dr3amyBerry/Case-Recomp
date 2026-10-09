@@ -25,8 +25,11 @@ class SdaContent private constructor(
 ) : AutoCloseable {
 
     fun read(path: String): ByteArray? {
-        val (size, digest) = entries[path] ?: return null
-        val entry = zip.getEntry(path) ?: throw IllegalArgumentException("content entry missing: $path")
+        val entryKey = if (path in entries) path else entries.keys.firstOrNull { it.equals(path, ignoreCase = true) } ?: return null
+        val (size, digest) = entries[entryKey] ?: return null
+        val entry = zip.getEntry(entryKey)
+            ?: zip.entries().asSequence().firstOrNull { it.name.equals(entryKey, ignoreCase = true) }
+            ?: throw IllegalArgumentException("content entry missing: $path")
         if (entry.size != size || size > MAX_ENTRY_BYTES) {
             throw IllegalArgumentException("content entry size mismatch: $path")
         }
@@ -83,12 +86,14 @@ class SdaContent private constructor(
             }
         }
 
+        val drawOrder = mutableListOf<SdaSprite>()
         val sprites = mutableMapOf<String, SdaSprite>()
         for (img in doc.images) {
             val texture = doc.textures[img.tex]
                 ?: throw IllegalArgumentException("unknown texture ${img.tex} for image ${img.id}")
             val pixelSource = getImage(texture.uri)
             val sprite = SdaSprite(img.id, img.x, img.y, pixelSource)
+            drawOrder.add(sprite)
             if (img.isEyeSpy) {
                 sprites[img.id] = sprite
             }
@@ -110,6 +115,7 @@ class SdaContent private constructor(
             history = history,
             historyVariant = historyVariant,
             prunePreviousHistory = prunePreviousHistory,
+            drawOrder = drawOrder,
         )
     }
 

@@ -34,18 +34,38 @@ class SdaLauncherActivity : Activity() {
     private var scene: SdaScene? = null
     private var gameView: SdaGameView? = null
     private var clock: SdaClock? = null
+    private var isFrameLoopRunning = false
+    private var lastFrameNanos: Long = 0L
+
+    private val frameCallback = object : android.view.Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!isFrameLoopRunning) return
+            if (lastFrameNanos != 0L) {
+                val dt = ((frameTimeNanos - lastFrameNanos) / 1_000_000_000f).coerceIn(0.001f, 0.1f)
+                gameView?.step(dt)
+            }
+            lastFrameNanos = frameTimeNanos
+            android.view.Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = PrivateSdaRepository(this)
 
-        val install = repository.loadActive()
-        if (install == null) {
+        val directPath = intent.getStringExtra(EXTRA_PACKAGE_PATH)
+        val packageFile = if (!directPath.isNullOrBlank()) {
+            File(directPath).takeIf { it.isFile }
+        } else {
+            repository.loadActive()?.path
+        }
+
+        if (packageFile == null) {
             showNoPackageScreen()
             return
         }
 
-        launchSdaPackage(install.path)
+        launchSdaPackage(packageFile)
     }
 
     private fun showNoPackageScreen() {
@@ -83,6 +103,7 @@ class SdaLauncherActivity : Activity() {
                             if (px !in 0 until width || py !in 0 until height) return 0
                             return (bmp.getPixel(px, py) ushr 24) and 0xFF
                         }
+                        override val nativeImage: Any get() = bmp
                     }
                 } else null
             }
@@ -90,22 +111,68 @@ class SdaLauncherActivity : Activity() {
             val sdaContent = SdaContent.open(file, decoder)
             content = sdaContent
 
-            // Load Vault scene by default or first available scene
-            val loadedScene = sdaContent.loadScene("SCENE_VAULT.MSL", seed = System.currentTimeMillis() and 0xFFFFFFFFL)
+            // Load Vault scene by default or requested scene
+            val sceneResource = intent.getStringExtra(EXTRA_SCENE) ?: "SCENE_VAULT.MSL"
+            val loadedScene = sdaContent.loadScene(sceneResource, seed = System.currentTimeMillis() and 0xFFFFFFFFL)
             scene = loadedScene
             clock = SdaClock(limit = 1320f)
 
-            // Cache bitmaps for rendering
-            for ((id, sprite) in loadedScene.objects) {
-                // If sprite has decoded image
+            // Cache bitmaps for objects and backdrop
+            var bgBitmap: Bitmap? = null
+            for (sprite in loadedScene.drawOrder) {
+                val bmp = sprite.image.nativeImage as? Bitmap
+                if (bmp != null) {
+                    if (sprite.identity.isNotEmpty()) {
+                        bitmaps[sprite.identity] = bmp
+                    } else if (bgBitmap == null && bmp.width >= 600) {
+                        bgBitmap = bmp
+                    }
+                }
             }
 
-            val view = SdaGameView(this, loadedScene, clock, null, bitmaps)
+            // Restore checkpoint if saved
+            val savedStateJson = repository.loadCheckpoint()
+            if (!savedStateJson.isNullOrBlank()) {
+                try {
+                    val savedState = org.rigorcore.caserecomp.sda.SdaSceneState.fromJson(savedStateJson)
+                    if (savedState.sceneName == loadedScene.name) {
+                        loadedScene.restore(savedState)
+                        clock?.elapsed = savedState.elapsed
+                        Log.i(TAG, "Restored SDA checkpoint for ${loadedScene.name}")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to restore SDA checkpoint", e)
+                }
+            }
+
+            val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps)
+            Log.i(TAG, "Scene ${loadedScene.name} loaded. Targets: ${loadedScene.targets}")
+            for (t in loadedScene.targets) {
+                val s = loadedScene.objects[t]
+                if (s != null) {
+                    Log.i(TAG, "Target $t at (${s.x}, ${s.y}) size (${s.image.width}x${s.image.height})")
+                }
+            }
+
             view.onObjectFoundListener = { id, gain ->
+                Log.i(TAG, "Object found: $id, +$gain pts, total: ${loadedScene.score.points}")
                 Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
             }
+            view.onMissListener = { penalty ->
+                Log.i(TAG, "Miss clicked: penalty=$penalty, points: ${loadedScene.score.points}")
+            }
             view.onSceneCompleteListener = {
-                Toast.makeText(this, "¡Escena completada!", Toast.LENGTH_LONG).show()
+                val sc = scene
+                val deck = sc?.deck
+                if (sc != null && deck != null && deck.cursor < sc.candidateSets.size) {
+                    val nextBatch = sc.nextBatch(System.currentTimeMillis() and 0xFFFFFFFFL)
+                    Log.i(TAG, "Next batch unlocked: ${nextBatch.size} sets")
+                    Toast.makeText(this, "Siguiente lote de objetivos (${nextBatch.size})", Toast.LENGTH_SHORT).show()
+                } else {
+                    repository.clearCheckpoint()
+                    Log.i(TAG, "Scene completed! Final score: ${sc?.score?.points}")
+                    Toast.makeText(this, "¡Escena completada! Puntuación final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
+                }
             }
             gameView = view
             setContentView(view)
@@ -120,9 +187,29 @@ class SdaLauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        if (!isFrameLoopRunning) {
+            isFrameLoopRunning = true
+            lastFrameNanos = 0L
+            android.view.Choreographer.getInstance().postFrameCallback(frameCallback)
+        }
+    }
+
+    override fun onPause() {
+        isFrameLoopRunning = false
+        android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+        scene?.let { sc ->
+            try {
+                repository.saveCheckpoint(sc.snapshot().toJson())
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to save SDA checkpoint", e)
+            }
+        }
+        super.onPause()
     }
 
     override fun onDestroy() {
+        isFrameLoopRunning = false
+        android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
         content?.close()
         content = null
         super.onDestroy()
@@ -143,6 +230,8 @@ class SdaLauncherActivity : Activity() {
 
     companion object {
         const val EXTRA_PLAY = "extra-play-sda"
+        const val EXTRA_PACKAGE_PATH = "package_path"
+        const val EXTRA_SCENE = "extra-scene"
         private const val TAG = "CaseRecompSda"
     }
 }
