@@ -15,6 +15,23 @@ public class ExportStoredInstructions extends GhidraScript {
   String[] roots=String.join(",", Arrays.copyOfRange(args,1,args.length)).split(",");
   if(roots.length>12) throw new IllegalArgumentException("root budget exceeded");
   for(String root:roots) {
+   if(root.startsWith("bytes:")) {
+    String[] parts=root.split(":");
+    if(parts.length!=3) throw new IllegalArgumentException("bytes:address:length required");
+    Address start=toAddr(parts[1]); int length=Integer.parseInt(parts[2]);
+    if(length<1 || length>4096) throw new IllegalArgumentException("byte budget exceeded");
+    byte[] bytes=new byte[length];
+    if(currentProgram.getMemory().getBytes(start,bytes)!=length) throw new IllegalArgumentException("incomplete stored memory");
+    try(PrintWriter w=new PrintWriter(new OutputStreamWriter(new FileOutputStream(new File(out,root.replace(':','-')+".txt")),StandardCharsets.UTF_8))) {
+     for(int offset=0;offset<length;offset+=16) {
+      StringBuilder hex=new StringBuilder();
+      for(int i=offset;i<Math.min(offset+16,length);i++) hex.append(String.format("%02x",bytes[i]&255));
+      w.println(start.add(offset)+"\t"+hex);
+     }
+    }
+    println("exported stored bytes: "+start+" count="+length);
+    continue;
+   }
    Function f=currentProgram.getFunctionManager().getFunctionAt(toAddr(root));
    if(f==null) throw new IllegalArgumentException("missing function "+root);
    Set<Address> constants=new LinkedHashSet<>();

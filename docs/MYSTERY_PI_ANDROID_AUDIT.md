@@ -139,3 +139,21 @@ Verificación: fixture de 24 cuartos de giro reconstruido independientemente en 
 Continuación concreta WordSearch: las instrucciones completas ya están disponibles en el directorio privado indicado. `0045c0e0` consume RNG para fuentes al crear cada casilla; reduce el pool a **10**, no seis, y luego ordena/invierte antes de intentar colocaciones. No portar el corte de seis ni la mezcla Python. `0045d140` valida ocho direcciones/solapamientos; `0045d200` llama a `0045d0d0` por carácter, consumiendo RNG al variar mayúsculas/minúsculas. La generación restante rellena caracteres y rechaza palabras accidentales con `0045d540`/`0045d660`. Debe recuperar el comparador de `0045cd70`, el consumo completo y las selecciones/gestos antes de sustituir `SdaWordSearchGame.clickPixel` y su snapshot/renderer. No se añadió todavía un generador sustituto. Estas observaciones cambian el siguiente paso; no certifican el bonus como jugable.
 
 No se modificaron perfiles/guardado durante la investigación independiente: siguen pendientes su escritura atómica y aislamiento por instalación/perfil. Director/Huntsville y archivos ajenos intactos. Objetivo global pendiente.
+
+
+## WordSearch: núcleo funcional, pendiente de integración
+
+Lectura autorizada del proyecto Ghidra existente con `-readOnly -noanalysis`: comparador de longitud, variación de case y eventos de selección recuperados. `tools/ghidra/ExportStoredInstructions.java` añade lectura de memoria almacenada acotada a 4096 bytes por raíz y 12 raíces, verificada en Ghidra. Listados y bytes permanecen privados. No se importa, abre ni ejecuta el EXE original ni se controla el escritorio.
+
+`SdaWordSearchBoard.kt`: consumo RNG por casillas, reducción del pool a 10, orden estable por longitud seguido de inversión, ocho direcciones, solapamientos, variación ASCII de case y relleno con rechazo local de palabras accidentales. `begin`/`end` exigen extremos de una colocación registrada, aceptan sentido inverso y rechazan repeticiones, posiciones inválidas y selecciones de una sola casilla. Solo acredita 250 puntos base por palabra. Los límites diagnósticos fallan explícitamente; no hay tablero de emergencia inventado.
+
+Verificación: RED (clase inexistente) → GREEN; engine **146**, app **23**, cero fallos/errores/omitidas; APK debug compilada y diff limpio. `SdaPrivateLevelJourneyUnitTest.private_wordsearch_resources_generate_and_accept_only_recorded_paths` genera los siete recursos WSG con sus pools originales sin normalizar case, semilla 8, comprueba las palabras sobre sus casillas y resuelve mediante extremos registrados rechazando duplicados. Pasan también los probes privados anteriores. No constituye comparación dinámica original ni recorrido Android. Locale/codificación nativa de acentos, continuidad RNG global y bonus rápido de 150 puntos siguen pendientes.
+
+Continuación exacta:
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaWordSearchBoard.kt`: checkpoint completo de tablero/colocaciones/selección/retiros y comprobación de locale/RNG/bonus rápido.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaBonus.kt`: sustituir clic arbitrario de `SdaWordSearchGame.clickPixel`, preservar case en `SdaBonusLoader.load`, restaurar tablero completo en `restore`.
+- `android/engine/src/main/kotlin/org/rigorcore/caserecomp/sda/SdaCampaign.kt`: integrar selección y crédito incremental; comprobar elegibilidad nativa de recompensa final.
+- `android/app/src/main/kotlin/org/rigorcore/caserecomp/app/SdaGameView.kt`: confirmar geometría XUI, conectar down/move/up/cancel y dibujar tablero/selecciones reales.
+- `android/engine/src/test/kotlin/org/rigorcore/caserecomp/sda/SdaPrivateLevelJourneyUnitTest.kt`: recorrido de campaña nivel 2 con guardado/reanudación y transición; el nuevo probe es solo del núcleo.
+
+Estado: nivel 1→2 probado en JVM; rotación/intercambio parciales; WordSearch tiene núcleo funcional pero su clase de juego conserva clics simulados. Jigsaw, niveles posteriores y desenlace incompletos. Task 3 y objetivo global abiertos. Huntsville, Director, APK aprobada y cambios ajenos intactos.

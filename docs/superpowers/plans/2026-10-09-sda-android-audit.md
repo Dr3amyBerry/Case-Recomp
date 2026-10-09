@@ -54,3 +54,5 @@
 
 - Task 3: usuario autorizó lectura del proyecto Ghidra existente. Revisión inicial confundió -process con abrir el EXE; se comprobó semántica del README instalado y se permitió readOnly/noanalysis. Exportador genérico verificado; listados privados de tres funciones recuperados sin importar/ejecutar original.
 - Ruling: consumo RNG por fuentes/case y reducción a 10 impiden portar generador Python de seis palabras. No se inventa tablero. Se corrige mezcla de rotación con constantes/instrucciones recién recuperadas, preservando tableros guardados. RED→GREEN, engine 143/app 23 y APK debug correctos; continuidad global RNG y WordSearch todavía pendientes. Continuación exacta en audit.
+
+- Task 3, núcleo WordSearch: generación/selección por extremos recuperadas del proyecto Ghidra en lectura; siete recursos privados probados. RED→GREEN; engine 146/app 23 y APK debug correctos. Gestos, snapshot, renderer, campaña, locale/RNG global y bonus rápido pendientes. SdaWordSearchGame y Task 3 siguen incompletos; continuación exacta en audit.

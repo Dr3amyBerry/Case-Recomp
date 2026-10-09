@@ -10,6 +10,44 @@ import javax.imageio.ImageIO
 
 /** Optional private-resource JVM journey. Never replaces missing media with synthetic data. */
 class SdaPrivateLevelJourneyUnitTest {
+    @Test fun private_wordsearch_resources_generate_and_accept_only_recorded_paths() {
+        val packageFile = listOf(File("../../local-output/vegas_full.zip"),
+            File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
+            .firstOrNull { it.isFile }
+        assumeTrue("local private Vegas package is required", packageFile != null)
+        SdaContent.open(packageFile!!, SdaImageDecoder { null }).use { content ->
+            val table = SdaStrings.parse(content.read("WORDSEARCH.TXT")!!)
+            val resources = SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
+                .map { it.bonus }.filter { it.endsWith(".WSG", ignoreCase = true) }.distinct()
+            assertEquals(7, resources.size)
+            for (resource in resources) {
+                val nodes = SdaXml.parse(content.read(resource)!!).getElementsByTagName("*")
+                val attrs = mutableMapOf<String, String>()
+                for (i in 0 until nodes.length) {
+                    val values = nodes.item(i).attributes
+                    for (j in 0 until values.length) {
+                        val item = values.item(j)
+                        attrs[item.nodeName.lowercase()] = item.nodeValue
+                    }
+                }
+                val pool = SdaStrings.resolve(attrs.getValue("text"), table).split(',')
+                val board = SdaWordSearchBoard(attrs.getValue("rows").toInt(),
+                    attrs.getValue("columns").toInt(), pool, 8)
+                assertEquals(minOf(10, pool.size), board.words.size)
+                for ((word, path) in board.placements) {
+                    assertEquals(word, path.map { board.grid[it / board.cols][it % board.cols] }.joinToString(""))
+                    assertTrue(board.begin(path.first()))
+                    assertTrue(board.end(path.last()))
+                    assertTrue(board.begin(path.last()))
+                    assertFalse(board.end(path.first()))
+                }
+                assertTrue(board.isSolved)
+                assertEquals(board.words.size * 250, board.basePoints)
+            }
+            println("PRIVATE KERNEL: seven wordsearch resources generated and solved through recorded endpoints; not Android/campaign/native-locale parity")
+        }
+    }
+
     @Test fun private_level_four_swap_bonus_solves_through_inputs_and_resumes() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
