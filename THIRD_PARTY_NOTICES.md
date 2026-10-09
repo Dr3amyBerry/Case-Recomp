@@ -11,7 +11,8 @@
 | **GitHub Pages / Actions / Releases** | Hospedaje, builds y APKs | Condiciones y privacidad de GitHub; no constituyen una licencia del juego |
 | **Android SDK / AndroidX / Gradle / Kotlin / JUnit** | Dependencias de compilación y pruebas | Inventariar artefactos/versiones y sus licencias en SBOM reproducible; no atribuir licencia única sin comprobación |
 | **ProjectorRays** | Herramienta externa de investigación, no incluida como dependencia de runtime en este repo | Documentación previa del proyecto indica MPL-2.0; verificar archivo LICENSE del commit exacto antes de distribuir/copiar derivados |
-| **LibreShockwave** | Herramienta externa de referencia, no incluida en APK/conversor | Documentación previa indica AGPL-3.0; verificar LICENSE y si hubo incorporación de código a Case Recomp |
+| **LibreShockwave** | Parser externo usado localmente por `tools/font-experiment/pfr_convert.cpp`; ejecutable de investigación privado. No se enlaza en la APK principal ni en la app de glifos | AGPL-3.0; revisión de investigación `fca530f9ef388d7ff38fa6c7117feae5bb5411c6`. Fuentes upstream conservadas en `private/tools`; no se copiaron implementaciones al repo |
+| **FontTools** | Extra Python opcional `font-research`; construye la fuente experimental desde contornos privados. No se empaqueta en Android | [MIT, fuente oficial](https://github.com/fonttools/fonttools/blob/main/LICENSE) |
 
 Los juegos, casts, música, sprites, Lingo y portadas **no son dependencias libres ni reciben una licencia por aparecer en esta lista**. No incorporar automáticamente archivos comerciales a paquetes o tests.
 

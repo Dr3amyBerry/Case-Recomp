@@ -161,3 +161,11 @@ Ghidra analysis and original Windows reference observations are documented in
 [Mystery P.I. native research](MYSTERY_PI_NATIVE_RESEARCH.md). No SDA runtime or
 Android compatibility is claimed; native rule reconstruction and the playable
 prototype remain outstanding.
+
+## Experimento de fuentes de Huntsville (2026-10-08)
+
+Se extrajeron seis fuentes PFR1 del ejecutable original y se preparó una app de
+comparación de Tekton normal/itálica, independiente del player aprobado. La
+conversión tiene defectos visuales y no se adopta en Huntsville. Resultados,
+límites y protección de la referencia en
+[HUNTSVILLE_FONT_EXPERIMENT.md](HUNTSVILLE_FONT_EXPERIMENT.md).

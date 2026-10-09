@@ -14,7 +14,8 @@ dependencies = []
 [project.optional-dependencies]
 images = ["Pillow>=11.3,<13"]
 media = ["Pillow>=11.3,<13", "mutagen>=1.47,<2"]
-dev = ["Pillow>=11.3,<13", "mutagen>=1.47,<2", "coverage>=7.5,<8"]
+font-research = ["Pillow>=11.3,<13", "fonttools>=4.61,<5"]
+dev = ["Pillow>=11.3,<13", "mutagen>=1.47,<2", "coverage>=7.5,<8", "fonttools>=4.61,<5"]
 
 [project.scripts]
 caserecomp = "caserecomp.__main__:main"
