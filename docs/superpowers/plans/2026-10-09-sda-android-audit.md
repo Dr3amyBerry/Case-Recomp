@@ -74,3 +74,8 @@
 
 
 - Task4, segunda adivinanza: native event00450950 recuperado en lectura demuestra comparación de destino en rectángulo del puntero, tolerance100 desde XUI y bordes asimétricos. SdaRiddleDropZone/loadSecond reutilizan kernel/parser y conservan texturas original/PDA/target separadas. RED→GREEN, probe privado ocho piezas/orden inverso/bordes/held resume; engine171/app23/APK correctos. Ruling: no copiar coordenadas/tolerancia30 del Python ni heredar límite1500 de primera fase (factory00467cc0 no lo lee). Coste: aún sin controlador/render/animación segunda fase; next salto requiere diálogo1015 y efectos especiales00451360. No se acredita jugabilidad Android segunda fase ni final. Objetivo abierto; referencias y continuación exacta en audit.
+
+
+## Bloque visual Android — 2026-10-09
+
+Prioridad del usuario: mapa, escena y cuatro minijuegos con recursos originales antes de continuar el desenlace. Implementado perfil Vegas separado del lector/renderer genérico. APK y seis framebuffer captures WSA privados; recorrido de los cuatro bonus mediante MotionEvents alcanza nivel 5, con restauración de cada resultado. 173 engine + 23 app sin fallos; regresión Android Jigsaw 3→4 aprobada. Comparación y continuidad exacta en `docs/MYSTERY_PI_ANDROID_VISUAL_COMPARISON.md`. Pendientes fuentes, controles/efectos completos, transiciones, audio y desenlace; aceptación global abierta.

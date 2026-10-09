@@ -281,3 +281,8 @@ de build local es la ruta al archivo privado de firma. La referencia aprobada
 0.6.0 permanece congelada y no se reemplazan sus artefactos.
 
 [Case Recomp 0.6.1 beta — GitHub Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases/tag/v0.6.1-beta).
+
+
+### Vegas: primer bloque visual Android (2026-10-09)
+
+XUI se lee con `SdaUiDocument`; los servicios Android de dibujo están en `SdaResourceCanvas`. IDs y layouts de Vegas pertenecen a `VegasVisualProfile`, activado exclusivamente para `vegas_heist`. Huntsville/Director permanecen intactos. La [comparación visual](MYSTERY_PI_ANDROID_VISUAL_COMPARISON.md) documenta la APK, seis capturas privadas WSA, pruebas y límites; este bloque no cierra el objetivo global.

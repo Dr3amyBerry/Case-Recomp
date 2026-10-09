@@ -148,12 +148,12 @@ class SdaLauncherActivity : Activity() {
 
                 // Initial scene for view setup
                 val initialSceneName = camp.currentSceneName ?: camp.currentLevel.scenes.first()
-                val loadedScene = sdaContent.loadScene("SCENE_${initialSceneName.uppercase()}.MSL", seed = camp.seed)
+                val loadedScene = camp.scenes[initialSceneName] ?: sdaContent.loadScene("SCENE_${initialSceneName.uppercase()}.MSL", seed = camp.seed)
                 scene = loadedScene
                 clock = camp.clock
                 cacheBitmaps(loadedScene)
 
-                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp)
+                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp, if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null)
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
                 setContentView(view)

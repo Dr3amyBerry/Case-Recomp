@@ -34,6 +34,7 @@ class SdaGameView(
     var backgroundBitmap: Bitmap? = null,
     var spriteBitmaps: Map<String, Bitmap> = emptyMap(),
     var campaign: SdaCampaign? = null,
+    var visuals: SdaVisualProfile? = null,
 ) : View(context) {
 
     private val bgPaint = Paint().apply { color = 0xFF0D1117.toInt() }
@@ -175,6 +176,8 @@ class SdaGameView(
             }
         }
 
+        visuals?.let { it.drawHud(canvas,camp,scene,clock); return }
+
         // 3. Draw sidebar / HUD at x: 0..142
         canvas.drawRect(0f, 0f, 142f, 600f, sidebarPaint)
         canvas.drawLine(142f, 0f, 142f, 600f, dividerPaint)
@@ -212,6 +215,7 @@ class SdaGameView(
     }
 
     private fun drawMap(canvas: Canvas, camp: SdaCampaign) {
+        visuals?.let { it.drawMap(canvas,camp); return }
         val mapBgPaint = Paint().apply { color = 0xFF141923.toInt() }
         canvas.drawRect(0f, 0f, 800f, 600f, mapBgPaint)
 
@@ -264,10 +268,16 @@ class SdaGameView(
         val bonus = camp.bonusGame
         canvas.drawRect(0f, 0f, 800f, 600f, bgPaint)
 
+        visuals?.let {
+            it.drawBonusBase(canvas,camp)
+            if(it.drawTileBonus(canvas,camp)) return
+        }
+        if(visuals==null) {
         // Banner
         canvas.drawText("MINIJUEGO DE PISTA ADICIONAL (+25,000 PTS)", 40f, 45f, titlePaint)
         canvas.drawText("Tiempo restante: ${camp.clock.text()} · Tipo: ${bonus?.kind ?: "Puzle"}", 40f, 75f, subPaint)
 
+        }
         if (bonus is SdaTileRotGame) {
             // Draw 4x6 tile rotation grid
             val bx = 172f
@@ -371,6 +381,7 @@ class SdaGameView(
             canvas.drawText("Puzle interactivo en progreso...", 320f, 300f, textPaint)
         }
 
+        if(visuals!=null) return
         // Solve puzzle button
         canvas.drawRect(580f, 530f, 770f, 575f, buttonPaint)
         canvas.drawText("RESOLVER PUZLE", 605f, 558f, buttonTextPaint)
@@ -476,7 +487,7 @@ class SdaGameView(
         if (wordCamp?.phase == SdaCampaignPhase.BONUS && wordCamp.bonusGame is SdaWordSearchGame) {
             val x = ((event.x - offsetX) / scale).toInt()
             val y = ((event.y - offsetY) / scale).toInt()
-            val solveButton = x in 580..770 && y in 530..575
+            val solveButton = (visuals?.solveRect ?: Rect(580,530,771,576)).contains(x,y)
             if (event.actionMasked == MotionEvent.ACTION_DOWN && !solveButton) {
                 if (event.buttonState and MotionEvent.BUTTON_SECONDARY != 0) return true
                 wordPointerId = event.getPointerId(0)
@@ -532,7 +543,10 @@ class SdaGameView(
                     if(jigsaw.movePixel(x,y)) onBonusInputListener?.invoke()
                     invalidate(); return true
                 }
-                MotionEvent.ACTION_DOWN -> if (x in 10 until 140 && y in 450 until 490) {
+                MotionEvent.ACTION_DOWN -> if (listOfNotNull(jigsaw.arrowUp,jigsaw.arrowDown).any { x in it.x until it.x+it.width && y in it.y until it.y+it.height }) {
+                    jigsawCamp.clickBonus(x,y)
+                    onBonusInputListener?.invoke();invalidate();return true
+                } else if (x in 10 until 140 && y in 450 until 490) {
                     jigsawCamp.clickBonus(x,y,clockwise=true)
                     onBonusInputListener?.invoke(); invalidate(); return true
                 }
@@ -546,6 +560,10 @@ class SdaGameView(
             if (camp != null) {
                 when (camp.phase) {
                     SdaCampaignPhase.MAP -> {
+                        if(visuals!=null) {
+                            visuals!!.sceneAt(camp,logicalX,logicalY)?.let { onSceneSelectedListener?.invoke(it) }
+                            invalidate();return true
+                        }
                         // Check click on scene cards
                         var startY = 130
                         for (scName in camp.currentLevel.scenes) {
@@ -559,7 +577,7 @@ class SdaGameView(
                     }
                     SdaCampaignPhase.SCENE, SdaCampaignPhase.SCENE_COMPLETE -> {
                         // Check Return to Map button (10..132, 550..586)
-                        if (logicalX in 10..132 && logicalY in 550..586) {
+                        if ((visuals?.returnMapRect ?: Rect(10,550,133,587)).contains(logicalX,logicalY)) {
                             onReturnToMapListener?.invoke()
                             invalidate()
                             return true
@@ -589,7 +607,7 @@ class SdaGameView(
                     }
                     SdaCampaignPhase.BONUS -> {
                         // Solve button (580..770, 530..575)
-                        if (logicalX in 580..770 && logicalY in 530..575) {
+                        if ((visuals?.solveRect ?: Rect(580,530,771,576)).contains(logicalX,logicalY)) {
                             camp.solveBonus()
                             onBonusInputListener?.invoke()
                             invalidate()
