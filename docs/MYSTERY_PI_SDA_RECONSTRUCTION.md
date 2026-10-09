@@ -132,3 +132,61 @@ El siguiente trabajo es enlazar esas dependencias reales al prototipo y contrast
 hipótesis precisas con el original cuando el usuario ceda el escritorio. Android
 se conecta después de comprobar el funcionamiento. Huntsville y su APK aprobada
 permanecen separados de este experimento.
+
+
+## Atlas originales, localización y primera vista del menú
+
+La continuación se realizó con pseudocódigo y lectura estática de los PE, sin
+abrir ni manejar el original. `tools/sda-prototype/fonts.py` añade una recuperación
+independiente de texto a partir de los atlas originales. No cambia Director, el
+perfil de Huntsville, Android ni la APK aprobada.
+
+| Función | Evidencia recuperada |
+| --- | --- |
+| 0047e078 | Recorre columnas de toda la altura; considera tinta si algún alfa supera 4. Cierra el glifo en la primera columna vacía posterior. Límite de 256 entradas; no cierra automáticamente una franja que alcanza el borde derecho. |
+| 0047d822 | Convierte charset UTF-8 a UTF-16 y registra índices; una aparición posterior de un carácter duplicado reemplaza su índice anterior. |
+| 0047da4b | Avance entero por truncamiento de ancho × spacing float; espacio configurable. La altura viene del atlas. |
+| 0047ddd4 | Dibuja el recorte original a toda su altura, sin escalarlo horizontalmente por spacing; modos verticales inferior, baseline, centro y superior. |
+| 0048dff3 / 0047dbbd | Pares de kerning cargados con el primer byte UTF-8; búsqueda por los bytes bajos de los caracteres al dibujar. |
+| 00472124 / 004725b0 | El ancho de alineación suma avances sin kerning; el dibujado sí añade kerning. El escape literal de nueva línea avanza tres cuartos de la altura. |
+| 0048aad0 | Renderer virtual de label, slot 7 en vtable 0050896c: centra con ajuste de −1 píxel y traduce alineación del label a modos del texto. |
+| 0048d003 / 004882e9 | Bounds del botón sin w/h explícitos se derivan de las texturas de sus estados. Caption centrado; offset local de caption corresponde al estado pulsado, mientras el global afecta al normal. |
+| 0046ebf4 / 0046ed14 / 00471872 | Tabla de textos: clave desde la primera I hasta =, eliminación de whitespace final, valor entre primera/última comilla. Lookup de atributos @ID; si falta se conserva el atributo. |
+
+El escape vertical presente en el botón principal usa dos dígitos. Se comprobó
+su bloque x86 en 0047285f–004728a1: el acumulador también multiplica por el índice
+del dígito, por lo que no se sustituye toda la rutina por un parser decimal general.
+El prototipo admite avances de uno/dos dígitos y rechaza los más largos y otros
+estilos hasta recuperar su comportamiento completo. Tampoco implementa el estado
+global de color/alfa, clipping jerárquico ni todos los caminos de texto de SDA.
+
+El sondeo de ENVS encontró 56 definiciones: 35 atlas presentes y 21 referencias a
+recursos ausentes. No se crean sustitutos para esas referencias. De los presentes,
+34 tienen igual número de franjas cerradas y unidades de charset; la excepción es
+fnt_maplabelnumberlrg. Su lista omite el paréntesis de cierre, mientras el atlas
+presenta 189 franjas. Se registra la discrepancia sin corregir la fuente de datos
+ni afirmar equivalencia visual a partir de un conteo. STRINGS.TXT aportó 286 claves;
+las etiquetas de objetos se resuelven además con la tabla de la escena.
+
+Se generaron y revisaron visualmente los artefactos privados:
+
+- `research/prototype/fonts/original-fonts.png`: tres fuentes y captions originales.
+- `research/prototype/fonts/atlas-scan.json`: métricas, discrepancias, ausentes y hash del DLL.
+- `research/prototype/menu-initial.png` y JSON: 11 elementos dibujados y siete botones con sus valores/rectángulos, obtenidos del XUI.
+
+El menú es una vista estática con el padre activado para la prueba. Conserva los
+flags originales de sus hijos y no inventa el nombre del jugador; siguen pendientes
+el binding del jugador, logo/faders, navegación y estados de desbloqueo. No se
+confunde esta imagen con una partida iniciada ni con una comparación contra el EXE.
+
+La acción 299 del botón principal tiene rutas en 00412300 y 00414af0. La primera
+depende de +0x410 y flags +0x5ee/+0x5ed, puede llamar 00406cc0 o mostrar un diálogo;
+la segunda programa transición +0x4c4=0x26 mediante 00404950. Por eso aún no se
+implementa como un salto directo inventado a la bóveda. El siguiente enlace exige
+recuperar estas transiciones y la selección real de objetivos.
+
+Pasaron 14 pruebas: las seis de escena/puntuación anteriores y ocho de atlas,
+umbral, límite de entradas, charset duplicado, avance sin deformar píxeles,
+centrado/kerning, alineación vertical, escapes y localización. Son fixtures propios;
+la comparación diferencial con el original permanece pendiente de una hipótesis
+concreta y del acceso al escritorio autorizado por el usuario.
