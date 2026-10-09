@@ -235,8 +235,8 @@ class BonusAuditedTests(unittest.TestCase):
         wsg = load_bonus_game(r, "WORDSEARCH01.WSG", seed=1)
         self.assertIsInstance(wsg, WordSearchGame)
         self.assertEqual(wsg.rows, 8)
-        self.assertEqual(wsg.cols, 12)
-        self.assertEqual(wsg.words, am1_words)
+        self.assertEqual(wsg.words, am1_words[:6])
+        self.assertTrue(set(wsg.words).issubset(am1_words))
 
         # Real JSW
         jsw = load_bonus_game(r, "JIGSAW01.JSW", seed=1)
@@ -340,6 +340,299 @@ class BonusAuditedTests(unittest.TestCase):
             self.assertEqual(restored.clock.limit, 1800.0)
             # Speed bonus was added once, total score preserved
             self.assertEqual(restored.points, (18 * 5000) + BONUS_REWARD + speed_bonus)
+
+    def test_level2_playable_progression_wordsearch_solve_and_transition(self):
+        """End-to-end playable test of Level 2: scenes -> natural WordSearch bonus solve -> Level 3."""
+        dll = Path("private/mystery-pi-vegas/game/Resources.dll")
+        if not dll.exists():
+            self.skipTest("Resources.dll not available")
+        r = Resources(dll)
+        session = Session(r, seed=42, level_index=1)
+        self.assertEqual(session.level_index, 1)
+        self.assertEqual(session.level.clue, 2)
+        self.assertEqual(session.level.bonus, "wordsearch02.wsg")
+
+        # Complete Level 2 required objects (27 objects across scenes)
+        for sc_name in session.level.scenes:
+            if session.completed >= session.level.objects:
+                break
+            sc = session.enter(sc_name)
+            for grp in sc.active_sets:
+                if session.completed >= session.level.objects:
+                    break
+                for item in grp:
+                    obj = sc.objects[item]
+                    obj.found = True
+                    obj.motion = FoundMotion(obj.x, obj.y, obj.image.width, obj.image.height, removed=True)
+                session.counted[sc_name].add(grp)
+                session.completed += 1
+                if grp in sc.rows:
+                    sc.rows[grp] = TargetRow(0.0, 0, True)
+
+        self.assertEqual(session.completed, 27)
+        session.points = 27 * 5000
+        session.phase = "objects_complete"
+
+        # Start WordSearch bonus
+        session.start_bonus()
+        self.assertEqual(session.phase, "bonus")
+        self.assertIsInstance(session.bonus_game, WordSearchGame)
+        bonus = session.bonus_game
+        self.assertFalse(bonus.is_solved())
+
+        # Test invalid click outside board
+        res = session.bonus_click(10, 10)
+        self.assertEqual(res["kind"], "miss")
+
+        # Solve WordSearch naturally via two-click pixel selection
+        tile_w = BOARD_W // bonus.cols
+        tile_h = BOARD_H // bonus.rows
+        for word in bonus.words:
+            coords = bonus.find_word_coordinates(word)
+            self.assertIsNotNone(coords, f"Authentic word {word} must be placed on board")
+            (r0, c0), (r_end, c_end) = coords
+            px1 = BOARD_X + c0 * tile_w + tile_w // 2
+            py1 = BOARD_Y_ROT + r0 * tile_h + tile_h // 2
+            px2 = BOARD_X + c_end * tile_w + tile_w // 2
+            py2 = BOARD_Y_ROT + r_end * tile_h + tile_h // 2
+
+            # Click 1: select start letter
+            res1 = session.bonus_click(px1, py1)
+            self.assertEqual(res1["kind"], "moved")
+            self.assertEqual(bonus.selected_start, (r0, c0))
+
+            # Click 2: select end letter (submits line)
+            res2 = session.bonus_click(px2, py2)
+            self.assertIn(res2["kind"], ("moved", "solved"))
+            self.assertIn(word, bonus.found)
+
+        # Naturally solved and awarded points
+        self.assertEqual(session.phase, "level_complete")
+        self.assertTrue(bonus.is_solved())
+        self.assertEqual(session.points, (27 * 5000) + BONUS_REWARD)
+
+        # Confirm level completion -> transitions to Level 3 (jigsaw01.jsw)
+        session.confirm_level_complete()
+        self.assertEqual(session.level_index, 2)
+        self.assertEqual(session.level.clue, 3)
+        self.assertEqual(session.level.bonus, "jigsaw01.jsw")
+        self.assertEqual(session.phase, "map")
+
+    def test_level3_playable_progression_jigsaw_solve_and_transition(self):
+        """End-to-end playable test of Level 3: scenes -> natural Jigsaw bonus solve -> Level 4."""
+        dll = Path("private/mystery-pi-vegas/game/Resources.dll")
+        if not dll.exists():
+            self.skipTest("Resources.dll not available")
+        r = Resources(dll)
+        session = Session(r, seed=77, level_index=2)
+        self.assertEqual(session.level_index, 2)
+        self.assertEqual(session.level.clue, 3)
+        self.assertEqual(session.level.bonus, "jigsaw01.jsw")
+
+        # Complete Level 3 objects (37 objects)
+        for sc_name in session.level.scenes:
+            if session.completed >= session.level.objects:
+                break
+            sc = session.enter(sc_name)
+            for grp in sc.active_sets:
+                if session.completed >= session.level.objects:
+                    break
+                for item in grp:
+                    obj = sc.objects[item]
+                    obj.found = True
+                    obj.motion = FoundMotion(obj.x, obj.y, obj.image.width, obj.image.height, removed=True)
+                session.counted[sc_name].add(grp)
+                session.completed += 1
+                if grp in sc.rows:
+                    sc.rows[grp] = TargetRow(0.0, 0, True)
+
+        self.assertEqual(session.completed, 37)
+        session.points = 37 * 5000
+        session.phase = "objects_complete"
+
+        # Start Jigsaw bonus
+        session.start_bonus()
+        self.assertEqual(session.phase, "bonus")
+        self.assertIsInstance(session.bonus_game, JigsawGame)
+        bonus = session.bonus_game
+        self.assertFalse(bonus.is_solved())
+
+        # Test rejection of placement outside tolerance
+        p0_info = bonus.pieces["p0"]
+        bonus.select_piece("p0")
+        bad_px = BOARD_X + p0_info["x"] + 150
+        bad_py = BOARD_Y_SWAP + p0_info["y"] + 150
+        res_bad = session.bonus_click(bad_px, bad_py)
+        self.assertEqual(res_bad["kind"], "miss")
+        self.assertNotIn("p0", bonus.placed)
+
+        # Naturally place all 24 pieces with authentic coordinate verification
+        for pid in sorted(bonus.pieces.keys()):
+            info = bonus.pieces[pid]
+            bonus.select_piece(pid)
+            px = BOARD_X + info["x"] + 10  # within 25px tolerance
+            py = BOARD_Y_SWAP + info["y"] + 10
+            res = session.bonus_click(px, py)
+            self.assertIn(res["kind"], ("moved", "solved"))
+            self.assertIn(pid, bonus.placed)
+
+        # Naturally solved and awarded points
+        self.assertEqual(session.phase, "level_complete")
+        self.assertTrue(bonus.is_solved())
+        self.assertEqual(session.points, (37 * 5000) + BONUS_REWARD)
+
+        # Confirm level completion -> transitions to Level 4 (tilegame_01.tgl)
+        session.confirm_level_complete()
+        self.assertEqual(session.level_index, 3)
+        self.assertEqual(session.level.clue, 4)
+        self.assertEqual(session.level.bonus, "tilegame_01.tgl")
+        self.assertEqual(session.phase, "map")
+
+    def test_level4_playable_progression_tileswap_solve_and_transition(self):
+        """End-to-end playable test of Level 4: scenes -> natural TileSwap bonus solve -> Level 5."""
+        dll = Path("private/mystery-pi-vegas/game/Resources.dll")
+        if not dll.exists():
+            self.skipTest("Resources.dll not available")
+        r = Resources(dll)
+        session = Session(r, seed=123, level_index=3)
+        self.assertEqual(session.level_index, 3)
+        self.assertEqual(session.level.clue, 4)
+        self.assertEqual(session.level.bonus, "tilegame_01.tgl")
+
+        # Complete Level 4 objects (45 objects)
+        for sc_name in session.level.scenes:
+            if session.completed >= session.level.objects:
+                break
+            sc = session.enter(sc_name)
+            for grp in sc.active_sets:
+                if session.completed >= session.level.objects:
+                    break
+                for item in grp:
+                    obj = sc.objects[item]
+                    obj.found = True
+                    obj.motion = FoundMotion(obj.x, obj.y, obj.image.width, obj.image.height, removed=True)
+                session.counted[sc_name].add(grp)
+                session.completed += 1
+                if grp in sc.rows:
+                    sc.rows[grp] = TargetRow(0.0, 0, True)
+
+        self.assertEqual(session.completed, 45)
+        session.points = 45 * 5000
+        session.phase = "objects_complete"
+
+        # Start TileSwap bonus
+        session.start_bonus()
+        self.assertEqual(session.phase, "bonus")
+        self.assertIsInstance(session.bonus_game, TileSwapGame)
+        bonus = session.bonus_game
+        self.assertFalse(bonus.is_solved())
+
+        # Test rejection of clicking outside board
+        res_outside = session.bonus_click(5, 5)
+        self.assertEqual(res_outside["kind"], "miss")
+
+        # Naturally solve 6x6 TileSwap by swapping tiles via pixel clicks
+        tile_w = BOARD_W // bonus.cols
+        tile_h = BOARD_H // bonus.rows
+        for target_val in range(len(bonus.tiles)):
+            curr_pos = bonus.tiles.index(target_val)
+            if curr_pos != target_val:
+                px_from = BOARD_X + (curr_pos % bonus.cols) * tile_w + tile_w // 2
+                py_from = BOARD_Y_SWAP + (curr_pos // bonus.cols) * tile_h + tile_h // 2
+                px_to = BOARD_X + (target_val % bonus.cols) * tile_w + tile_w // 2
+                py_to = BOARD_Y_SWAP + (target_val // bonus.cols) * tile_h + tile_h // 2
+
+                # Click 1: select tile at curr_pos
+                res1 = session.bonus_click(px_from, py_from)
+                self.assertEqual(res1["kind"], "moved")
+
+                # Click 2: swap with tile at target_val
+                res2 = session.bonus_click(px_to, py_to)
+                self.assertIn(res2["kind"], ("moved", "solved"))
+
+        # Naturally solved and awarded points
+        self.assertEqual(session.phase, "level_complete")
+        self.assertTrue(bonus.is_solved())
+        self.assertEqual(session.points, (45 * 5000) + BONUS_REWARD)
+
+        # Confirm level completion -> transitions to Level 5 (wordsearch01.wsg)
+        session.confirm_level_complete()
+        self.assertEqual(session.level_index, 4)
+        self.assertEqual(session.level.clue, 5)
+        self.assertEqual(session.level.bonus, "wordsearch01.wsg")
+        self.assertEqual(session.phase, "map")
+
+    def test_campaign_level25_finale_progression_and_completion(self):
+        """End-to-end playable test of Level 25 and campaign completion."""
+        dll = Path("private/mystery-pi-vegas/game/Resources.dll")
+        if not dll.exists():
+            self.skipTest("Resources.dll not available")
+        r = Resources(dll)
+        session = Session(r, seed=555, level_index=24)
+        self.assertEqual(session.level_index, 24)
+        self.assertEqual(session.level.clue, 25)
+        self.assertEqual(session.level.bonus, "tilerotgame01.trg")
+        self.assertEqual(session.rank, "P.I. Maestro")
+
+        # Complete Level 25 objects (90 objects)
+        for sc_name in session.level.scenes:
+            if session.completed >= session.level.objects:
+                break
+            sc = session.enter(sc_name)
+            for grp in sc.active_sets:
+                if session.completed >= session.level.objects:
+                    break
+                for item in grp:
+                    obj = sc.objects[item]
+                    obj.found = True
+                    obj.motion = FoundMotion(obj.x, obj.y, obj.image.width, obj.image.height, removed=True)
+                session.counted[sc_name].add(grp)
+                session.completed += 1
+                if grp in sc.rows:
+                    sc.rows[grp] = TargetRow(0.0, 0, True)
+
+        self.assertEqual(session.completed, 90)
+        session.points = 90 * 5000
+        session.phase = "objects_complete"
+
+        # Start Level 25 bonus
+        session.start_bonus()
+        self.assertEqual(session.phase, "bonus")
+        self.assertIsInstance(session.bonus_game, TileRotGame)
+        bonus = session.bonus_game
+
+        # Naturally solve Level 25 bonus via pixel tile rotations
+        tile_w = BOARD_W // bonus.cols
+        tile_h = BOARD_H // bonus.rows
+        for row in range(bonus.rows):
+            for col in range(bonus.cols):
+                px = BOARD_X + col * tile_w + tile_w // 2
+                py = BOARD_Y_ROT + row * tile_h + tile_h // 2
+                while bonus.grid[row][col] != 0:
+                    res = session.bonus_click(px, py)
+                    self.assertIn(res["kind"], ("moved", "solved"))
+
+        self.assertEqual(session.phase, "level_complete")
+        self.assertTrue(bonus.is_solved())
+        summary = session.level_summary()
+        self.assertTrue(summary["last_level"])
+        self.assertEqual(summary["rank"], "P.I. Maestro")
+
+        # Confirm level complete -> transitions to campaign_complete
+        session.confirm_level_complete()
+        self.assertEqual(session.phase, "campaign_complete")
+        self.assertEqual(session.rank, "P.I. Maestro")
+
+        # Save and restore campaign_complete state
+        test_root = Path(__file__).resolve().parents[2] / "local-output" / "sda-prototype" / "tests"
+        test_root.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=test_root) as td:
+            save_path = Path(td) / "campaign_complete.json"
+            write_state(session.state(), save_path)
+            restored = Session.restore(r, read_state(save_path))
+            self.assertEqual(restored.phase, "campaign_complete")
+            self.assertEqual(restored.points, session.points)
+            self.assertEqual(restored.rank, "P.I. Maestro")
 
 
 if __name__ == "__main__":

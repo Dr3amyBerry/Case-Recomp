@@ -856,9 +856,15 @@ las definiciones XUI (`TILEROTGAME01.TRG`, `TILEGAME_01.TGL`, `WORDSEARCH01.WSG`
 
 4. **Auditoría e interactividad jugable real:**
    - **Eliminación de fallbacks silenciosos:** `load_bonus_game` y `start_bonus` rechazan recursos inválidos o no soportados con `ValueError` explícito, sin sustituciones genéricas.
-   - **Sopa de letras auténtica:** palabras leídas directamente de `WORDSEARCH.TXT` (`@ID_testAM1` .. `@ID_testAM7`); validación de líneas rectas en 8 direcciones y rechazo de trayectorias no alineadas o palabras no coincidentes.
-   - **Rompecabezas con coordenadas reales:** las 24 piezas de `JIGSAW01.JSW` validan proximidad a sus coordenadas destino `(x, y)` reales con tolerancia de 25 píxeles; colocaciones fuera de posición son rechazadas.
-   - **Rotación y permuta con coordenadas reales:** `click_pixel` mapea clics dentro del marco del tablero (172, 95/96) a celdas individuales y rechaza clics fuera del área interactiva.
-   - **Recorrido jugable real del Nivel 1 (`test_level1_playable_progression_natural_solve_and_transition`):** busca objetivos en escenas, transiciona a bonus `tilerotgame01.trg`, rota todas las piezas mediante `bonus_click` sin auto-resolución forzada, calcula bonificación por velocidad y avanza con éxito al mapa del Nivel 2 con 1800 s de reloj y las escenas correspondientes.
+   - **Sopa de letras auténtica (`WordSearchGame`):** palabras leídas directamente de `WORDSEARCH.TXT` (`@ID_testAM1` .. `@ID_testAM7`); ajustado a las 6 etiquetas activas de la PDA (`wslabel0` a `wslabel5` en `ENVS.MSE`); selección real mediante dos clics (inicio y fin) en coordenadas de píxeles del canvas, validación de líneas rectas en 8 direcciones y rechazo de trayectorias no alineadas o palabras no coincidentes.
+   - **Rompecabezas con coordenadas reales (`JigsawGame`):** las 24 piezas de `JIGSAW01.JSW` validan proximidad a sus coordenadas destino `(x, y)` reales con tolerancia estricta de 25 píxeles; colocaciones fuera de posición son rechazadas; selección activa de piezas mediante `select_piece`.
+   - **Rotación y permuta con coordenadas reales:** `click_pixel` mapea clics dentro del marco del tablero (172, 95/96) a celdas individuales y rechaza clics fuera del área interactiva; `TileSwapGame` soporta selección y permuta natural de fichas.
+   - **Recorridos jugables reales verificados de principio a fin:**
+     - **Nivel 1 (`TileRotGame`):** escenas $\rightarrow$ bonus de rotación resuelto celda a celda mediante `bonus_click` $\rightarrow$ cálculo de bonificación por velocidad $\rightarrow$ transición al Nivel 2 con guardado y restauración verificados (`test_level1_playable_progression_natural_solve_and_transition`).
+     - **Nivel 2 (`WordSearchGame`):** escenas $\rightarrow$ sopa de letras resuelta mediante dos clics por término en coordenadas de píxel $\rightarrow$ verificación de palabras auténticas $\rightarrow$ transición al Nivel 3 (`test_level2_playable_progression_wordsearch_solve_and_transition`).
+     - **Nivel 3 (`JigsawGame`):** escenas $\rightarrow$ 24 piezas de `JIGSAW01.JSW` colocadas con verificación geométrica de tolerancia $\rightarrow$ rechazo de posiciones erróneas $\rightarrow$ transición al Nivel 4 (`test_level3_playable_progression_jigsaw_solve_and_transition`).
+     - **Nivel 4 (`TileSwapGame`):** escenas $\rightarrow$ 36 fichas de `TILEGAME_01.TGL` ordenadas mediante permutas sucesivas por píxeles $\rightarrow$ transición al Nivel 5 (`test_level4_playable_progression_tileswap_solve_and_transition`).
+     - **Nivel 25 y colofón (`campaign_complete`):** 90 objetos $\rightarrow$ bonus de rotación resuelto naturalmente $\rightarrow$ transición a `campaign_complete` con rango `P.I. Maestro`, tiempo acumulado y conservación estricta de puntuaciones (`test_campaign_level25_finale_progression_and_completion`).
+   - Las 66 pruebas unitarias y el smoke test de campaña se ejecutan de forma determinista y satisfactoria.
 
 

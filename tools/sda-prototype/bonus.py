@@ -277,12 +277,15 @@ class TileSwapGame(BonusGame):
 class WordSearchGame(BonusGame):
     """Word search game (.wsg): 8x12 grid with authentic words from WORDSEARCH.TXT."""
     def __init__(self, resource_name, rows=8, cols=12, seed=0, words=None, found_words=None,
-                 grid=None, bonusimage=""):
+                 grid=None, bonusimage="", selected_start=None):
         super().__init__("wordsearch", resource_name, rows, cols, seed, bonusimage)
         if words is None:
             raise ValueError("WordSearchGame requires authentic word list from WORDSEARCH.TXT")
-        self.words = [w.strip().upper() for w in words]
+        raw_words = [w.strip().upper() for w in words]
+        # Mystery P.I. PDA displays up to 6 target words on screen (wslabel0..wslabel5 from ENVS.MSE)
+        self.words = raw_words[:6] if len(raw_words) > 6 else raw_words
         self.found = set(w.strip().upper() for w in found_words) if found_words is not None else set()
+        self.selected_start = tuple(selected_start) if selected_start is not None else None
         self.tile_w = BOARD_W // cols
         self.tile_h = BOARD_H // rows
         if grid is not None:
@@ -293,39 +296,35 @@ class WordSearchGame(BonusGame):
 
     def _generate_grid(self):
         """Generate 8x12 board placing target words along straight lines."""
-        self.grid = [["" for _ in range(self.cols)] for _ in range(self.rows)]
         rng = random.Random(self.seed)
         dirs = [(0, 1), (1, 0), (1, 1), (0, -1), (-1, 0), (1, -1), (-1, 1), (-1, -1)]
 
-        for word in self.words:
-            placed = False
-            for _ in range(250):
-                dr, dc = rng.choice(dirs)
-                r0 = rng.randint(0, self.rows - 1)
-                c0 = rng.randint(0, self.cols - 1)
-                r_end = r0 + dr * (len(word) - 1)
-                c_end = c0 + dc * (len(word) - 1)
-                if 0 <= r_end < self.rows and 0 <= c_end < self.cols:
-                    if all(self.grid[r0 + dr * i][c0 + dc * i] in ("", word[i]) for i in range(len(word))):
-                        for i, ch in enumerate(word):
-                            self.grid[r0 + dr * i][c0 + dc * i] = ch
-                        placed = True
-                        break
-            if not placed:
-                # Deterministic fallback placement for any crowded word
-                for r0 in range(self.rows):
-                    if placed: break
-                    for c0 in range(self.cols):
-                        if placed: break
-                        for dr, dc in [(0, 1), (1, 0)]:
-                            r_end = r0 + dr * (len(word) - 1)
-                            c_end = c0 + dc * (len(word) - 1)
-                            if 0 <= r_end < self.rows and 0 <= c_end < self.cols:
-                                if all(self.grid[r0 + dr*i][c0 + dc*i] in ("", word[i]) for i in range(len(word))):
-                                    for i, ch in enumerate(word):
-                                        self.grid[r0 + dr*i][c0 + dc*i] = ch
-                                    placed = True
-                                    break
+        for attempt in range(50):
+            grid = [["" for _ in range(self.cols)] for _ in range(self.rows)]
+            all_placed = True
+            for word in self.words:
+                placed = False
+                for _ in range(300):
+                    dr, dc = rng.choice(dirs)
+                    r0 = rng.randint(0, self.rows - 1)
+                    c0 = rng.randint(0, self.cols - 1)
+                    r_end = r0 + dr * (len(word) - 1)
+                    c_end = c0 + dc * (len(word) - 1)
+                    if 0 <= r_end < self.rows and 0 <= c_end < self.cols:
+                        if all(grid[r0 + dr * i][c0 + dc * i] in ("", word[i]) for i in range(len(word))):
+                            for i, ch in enumerate(word):
+                                grid[r0 + dr * i][c0 + dc * i] = ch
+                            placed = True
+                            break
+                if not placed:
+                    all_placed = False
+                    break
+            if all_placed:
+                self.grid = grid
+                break
+        else:
+            self.grid = grid
+
         # Fill remaining empty cells with random letters
         alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         for r in range(self.rows):
@@ -370,9 +369,39 @@ class WordSearchGame(BonusGame):
                 return True
         return False
 
+    def find_word_coordinates(self, word):
+        """Locate start and end grid coordinates (r0, c0), (r_end, c_end) of word in grid."""
+        w = word.strip().upper()
+        dirs = [(0, 1), (1, 0), (1, 1), (0, -1), (-1, 0), (1, -1), (-1, 1), (-1, -1)]
+        for r in range(self.rows):
+            for c in range(self.cols):
+                for dr, dc in dirs:
+                    r_end = r + dr * (len(w) - 1)
+                    c_end = c + dc * (len(w) - 1)
+                    if 0 <= r_end < self.rows and 0 <= c_end < self.cols:
+                        candidate = "".join(self.grid[r + dr * i][c + dc * i] for i in range(len(w)))
+                        if candidate == w:
+                            return (r, c), (r_end, c_end)
+        return None
+
     def click_pixel(self, x, y):
-        # Pixel coordinates can select tiles
-        return False
+        """Handle canvas pixel click for two-click word selection."""
+        if not (BOARD_X <= x < BOARD_X + BOARD_W and BOARD_Y_ROT <= y < BOARD_Y_ROT + BOARD_H):
+            self.selected_start = None
+            return False
+        col = (x - BOARD_X) // self.tile_w
+        row = (y - BOARD_Y_ROT) // self.tile_h
+        if self.selected_start is None:
+            self.selected_start = (row, col)
+            return True
+        elif self.selected_start == (row, col):
+            self.selected_start = None
+            return True
+        else:
+            r1, c1 = self.selected_start
+            found = self.select_line(r1, c1, row, col)
+            self.selected_start = None
+            return found
 
     def _check_solved(self):
         if set(self.words).issubset(self.found):
@@ -380,6 +409,7 @@ class WordSearchGame(BonusGame):
 
     def solve(self):
         self.found = set(self.words)
+        self.selected_start = None
         self.solved = True
 
     def render(self, base_image=None):
@@ -392,7 +422,10 @@ class WordSearchGame(BonusGame):
                 x1 = BOARD_X + c * self.tile_w
                 y1 = BOARD_Y_ROT + r * self.tile_h
                 ch = self.grid[r][c]
-                draw.rectangle([x1, y1, x1 + self.tile_w, y1 + self.tile_h], outline=(40, 50, 65, 255))
+                is_selected = (self.selected_start == (r, c))
+                border = (255, 230, 40, 255) if is_selected else (40, 50, 65, 255)
+                fill_color = (60, 50, 20, 255) if is_selected else (16, 20, 26, 255)
+                draw.rectangle([x1, y1, x1 + self.tile_w, y1 + self.tile_h], fill=fill_color, outline=border)
                 draw.text((x1 + self.tile_w // 2 - 4, y1 + self.tile_h // 2 - 6), ch, fill=(220, 230, 240, 255))
         # Word list display on right/bottom
         draw.text((172, 515), f"Palabras: {len(self.found)} / {len(self.words)} encontradas", fill=(180, 220, 140, 255))
@@ -403,13 +436,15 @@ class WordSearchGame(BonusGame):
         s["words"] = list(self.words)
         s["found"] = sorted(self.found)
         s["grid"] = [list(r) for r in self.grid]
+        s["selected_start"] = list(self.selected_start) if self.selected_start else None
         return s
 
     @classmethod
     def restore(cls, state):
         game = cls(state["resource_name"], state["rows"], state["cols"],
                    state["seed"], words=state["words"], found_words=state.get("found"),
-                   grid=state.get("grid"), bonusimage=state.get("bonusimage", ""))
+                   grid=state.get("grid"), bonusimage=state.get("bonusimage", ""),
+                   selected_start=state.get("selected_start"))
         game.solved = bool(state["solved"])
         game.points = int(state.get("points", BONUS_REWARD))
         return game
@@ -417,13 +452,21 @@ class WordSearchGame(BonusGame):
 
 class JigsawGame(BonusGame):
     """Jigsaw puzzle (.jsw): 24 pieces from JIGSAW01.JSW placed into target slots."""
-    def __init__(self, resource_name, pieces, seed=0, placed=None, bonusimage=""):
+    def __init__(self, resource_name, pieces, seed=0, placed=None, bonusimage="", selected_piece=None):
         super().__init__("jigsaw", resource_name, 4, 6, seed, bonusimage)
         if not pieces:
             raise ValueError("JigsawGame requires pieces dictionary from JIGSAW01.JSW")
         self.pieces = dict(pieces)  # pid -> {'x': int, 'y': int, 'imageinfo': str}
         self.placed = set(placed) if placed is not None else set()
+        self.selected_piece = selected_piece
         self._check_solved()
+
+    def select_piece(self, piece_id):
+        """Select an unplaced piece to be held for placement."""
+        if piece_id in self.pieces and piece_id not in self.placed:
+            self.selected_piece = piece_id
+            return True
+        return False
 
     def place(self, piece_id, target_x, target_y):
         """Place a piece onto the board with coordinate tolerance validation."""
@@ -434,15 +477,22 @@ class JigsawGame(BonusGame):
         # Allow tolerance of 25 pixels around target coordinate
         if abs(target_x - true_x) <= 25 and abs(target_y - true_y) <= 25:
             self.placed.add(piece_id)
+            if self.selected_piece == piece_id:
+                self.selected_piece = None
             self._check_solved()
             return True
         return False
 
     def click_pixel(self, x, y):
-        # Canvas space coordinates
+        """Handle canvas pixel click.
+
+        If a piece is selected, tests placement at canvas offset.
+        If no piece is selected, checks if an unplaced piece target matches (x, y) within tolerance.
+        """
         local_x = x - BOARD_X
         local_y = y - BOARD_Y_SWAP
-        # Try to snap any unplaced piece near (local_x, local_y)
+        if self.selected_piece is not None:
+            return self.place(self.selected_piece, local_x, local_y)
         for pid in sorted(self.pieces.keys()):
             if pid not in self.placed:
                 if self.place(pid, local_x, local_y):
@@ -455,6 +505,7 @@ class JigsawGame(BonusGame):
 
     def solve(self):
         self.placed = set(self.pieces.keys())
+        self.selected_piece = None
         self.solved = True
 
     def render(self, base_image=None):
@@ -466,8 +517,14 @@ class JigsawGame(BonusGame):
             px = BOARD_X + info["x"]
             py = BOARD_Y_SWAP + info["y"]
             is_placed = pid in self.placed
-            color = (60, 220, 90, 255) if is_placed else (80, 90, 110, 255)
-            draw.rectangle([px, py, px + 80, py + 80], outline=color)
+            is_selected = (self.selected_piece == pid)
+            if is_selected:
+                color = (255, 230, 40, 255)
+            elif is_placed:
+                color = (60, 220, 90, 255)
+            else:
+                color = (80, 90, 110, 255)
+            draw.rectangle([px, py, px + 80, py + 80], outline=color, width=2 if is_selected else 1)
             draw.text((px + 5, py + 5), pid, fill=color)
         draw.text((172, 515), f"Piezas colocadas: {len(self.placed)} / {len(self.pieces)}", fill=(180, 220, 140, 255))
         return im
@@ -476,13 +533,15 @@ class JigsawGame(BonusGame):
         s = super().state()
         s["pieces"] = dict(self.pieces)
         s["placed"] = sorted(self.placed)
+        s["selected_piece"] = self.selected_piece
         return s
 
     @classmethod
     def restore(cls, state):
         game = cls(state["resource_name"], pieces=state["pieces"],
                    seed=state["seed"], placed=state.get("placed"),
-                   bonusimage=state.get("bonusimage", ""))
+                   bonusimage=state.get("bonusimage", ""),
+                   selected_piece=state.get("selected_piece"))
         game.solved = bool(state["solved"])
         game.points = int(state.get("points", BONUS_REWARD))
         return game
