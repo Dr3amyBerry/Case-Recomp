@@ -193,5 +193,50 @@ and continue finding objects. Mid-animation restoration preserves the stored
 state. A private check also invoked the actual Tk next/save/close callbacks with
 the window withdrawn, without moving the mouse or opening the original game.
 This is an experimental playable loop, not native player-file or campaign
-compatibility; original startup UI, level clock, victory and differential visual
-comparison remain pending.
+compatibility. The campaign shell below now models the level clock and global
+set count; original startup UI, victory/bonus and differential comparison remain
+pending.
+
+
+## First-level experimental campaign
+
+```powershell
+# Open the shell, then click Nueva partida experimental and choose a scene.
+python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/campaign.json --seed 8
+# Resume the same campaign after closing.
+python tools/sda-prototype/campaign_preview.py --resources private/mystery-pi-vegas/game/Resources.dll --save local-output/sda-prototype/campaign.json --resume
+```
+
+`campaign.py` reads the original `LEVELS_1.XUI` rather than assigning an invented
+per-scene quota. The first level requires 18 completed sets across vault/slots,
+with a 1320-second clock. Each scene starts its recovered ten-set selection;
+compound targets can require multiple clicks, but count once after all components
+retire. Use `Elegir escena` to reach the other location. The shell stops at
+`objects_complete`, which is the object objective boundary, not the original
+bonus round, clue collection, victory screen or next-level progression.
+
+`clock.py` reproduces the scalar timer's float32 storage and unusual pre-update
+check. The update compares integer seconds modulo 60 before storing elapsed;
+warning IDs occur at remaining 181/120/60/10, and timeout is checked against the
+old elapsed value. The native pause flag suppresses elapsed storage but does not
+suppress that check. Display truncates elapsed first, then remaining time, and
+clamps the result to zero. Large frames do not synthesize skipped warnings.
+The shell uses a separate map/input boundary and freezes outside its scene phase;
+this policy has not been verified against the original graph's pause/dialog flow.
+
+Campaign saves use `case-recomp-sda-campaign/1` and contain all visited scene
+snapshots, total points, retired-set accounting, current scene/phase, level index,
+seed and full clock. Atomic output and the resource hash restrictions are shared
+with diagnostic scene saves, but the formats are distinct. The shell caches scene
+instances when switching locations; original destruction/reconstruction, native
+profile files and scene variant allocation are pending. It resets the scoring
+chain/miss buffer on entry, matching fresh score-node construction; this still
+needs native runtime comparison. It adds no offline elapsed time.
+
+Private checks completed the ten vault sets, saved/loaded at the map boundary,
+entered slots and completed eight more, ending at 18 sets and 331500 points.
+Both intermediate and final campaign snapshots matched after file round trips.
+The actual Tk new-game, scene selection, map, save and close callbacks also passed
+with the window withdrawn. No original EXE or global mouse/keyboard input was used.
+The full synthetic suite now has 40 passing tests. The original menu remains a
+static preview; these buttons explicitly belong to an experimental campaign shell.

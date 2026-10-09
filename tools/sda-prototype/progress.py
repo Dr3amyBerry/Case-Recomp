@@ -126,8 +126,12 @@ def progress_path(path):
 
 
 def save(scene, path):
+    write_state(snapshot(scene), path)
+
+
+def write_state(state, path):
     out = progress_path(path)
-    payload = json.dumps(snapshot(scene), ensure_ascii=False, allow_nan=False, indent=2).encode("utf-8")
+    payload = json.dumps(state, ensure_ascii=False, allow_nan=False, indent=2).encode("utf-8")
     out.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=out.parent, suffix=".tmp", delete=False) as stream:
         temporary = Path(stream.name)
@@ -142,7 +146,11 @@ def save(scene, path):
 
 
 def load(resources, path):
+    return restore(resources, read_state(path))
+
+
+def read_state(path):
     data = progress_path(path).read_bytes()
     if len(data) > 1_000_000:
         raise ValueError("progress exceeds experimental state budget")
-    return restore(resources, json.loads(data.decode("utf-8")))
+    return json.loads(data.decode("utf-8"))

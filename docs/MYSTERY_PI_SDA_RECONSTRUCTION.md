@@ -416,3 +416,69 @@ distintos y tiempo no finito. El mapa actual tiene 92 raíces, 1.688 nodos y 5.4
 aristas directas. La persistencia del primer recorrido queda demostrada en el
 prototipo; el objetivo completo sigue abierto por inicio/navegación original,
 reloj de nivel, contexto de campaña/victoria y comparación diferencial pendiente.
+
+
+### Primer recorrido de nivel con dos escenas y reloj
+
+Se recuperó por descubrimiento estático en Ghidra la función 0041dc40, entrada
++0x18 de la tabla virtual del reloj en 005074a8. El nuevo export privado
+`campaign-clock-slice` terminó con 600 funciones y los siete roots solicitados
+completados. Se revisó además el ensamblador x86: el pseudocódigo omite los
+operandos x87 en las conversiones __ftol. No se ejecutó MysteryPIVegas.exe.
+
+004691a0 lee escenas, pista, tiempo, objetivo global y `setsinscene` de cada nivel;
+0043b510 añade cada escena y una entrada de contador inicializada a cero. El
+primer nivel exige 18 sets entre vault y slots, con 1320 segundos. Las listas de
+escena de 00428d70 tienen diez sets; no hay evidencia de repartir nueve y nueve.
+`objects` aquí no es el número de componentes de los sets compuestos. El flujo
+00429050 quita un set de la lista, 00426060 notifica a la aplicación y 00416370
+incrementa encontrados (004488e0) y resta uno al contador global (0043de60).
+El ensamblador de 00416690–004166c0 confirma +1 y −1, ausentes en la firma
+inferida del pseudocódigo. Un set sólo llega a este flujo al finalizar la retirada
+según el ciclo 00427bd0 / 0042a020. 0041a280 recompone el contador desde listas
+guardadas usando diez menos el tamaño restante por escena, con mínimo global cero.
+
+El reloj almacena elapsed en +0x68 y límite en +0x6c. 0041dc40 compara los segundos
+enteros módulo 60 de elapsed+dt y elapsed, llama a invalidación/0041db80 cuando
+cambian y sólo después almacena la suma float32 si +0x1c4 es cero. Por tanto el
+flag de pausa evita almacenar, pero no la comprobación anterior. 0041db80 decide
+con el elapsed anterior: aviso 3 a 181 segundos restantes, 2 a 120, 1 a 60, 4 a
+10, timeout cuando elapsed alcanza el límite; 00419670 suprime los eventos según
+estado de aplicación. No se inventan avisos cruzados por un frame grande.
+0041dca0 trunca elapsed primero, resta al límite y trunca de nuevo, clamp a cero;
+el modo ilimitado muestra elapsed. `clock.py` conserva estas reglas escalares,
+con las diferencias de precisión/cadencia de x87 pendientes de contraste nativo.
+
+`campaign.py` y `campaign_preview.py` añaden una envoltura jugable experimental:
+Nueva partida experimental → elegir vault → completar diez sets → Elegir escena
+→ slots → completar otros ocho. Usa nivel, tiempo y pool originales; cuenta cada
+set una vez tras la retirada, conserva puntos entre escenas y permite guardar y
+reanudar también desde la selección. `case-recomp-sda-campaign/1` guarda las
+escenas visitadas completas, contador global, reloj, fase, escena, semilla y nivel
+con huella de DLL, escritura atómica y rutas exclusivas de local-output.
+
+La envoltura usa botones propios y cachea instancias de escenas; no reproduce
+los diálogos de creación/selección de jugador, el mapa original ni la destrucción
+y reconstrucción nativa al regresar a una ubicación. Congela fuera de la fase de
+escena como política experimental, pendiente de recuperar la propagación de
+pausa del grafo y los diálogos. Reinicia la cadena rápida y los fallos al entrar,
+siguiendo el constructor del nodo de score; requiere contraste runtime. Termina
+en `objects_complete`, no en victoria de campaña: bonus, pista y avance de nivel
+siguen pendientes. No se ha adoptado esta envoltura como motor definitivo.
+
+Con los recursos reales, `campaign-real-check.json` confirma diez sets en vault,
+guardado/carga en selección con igualdad completa, otros ocho en slots, total 18,
+331.500 puntos y 13,579994 segundos almacenados. El snapshot final vuelve a ser
+idéntico tras carga. Se generaron las vistas privadas `campaign-vault-complete`,
+`campaign-slots-start` y `campaign-slots-complete`; se inspeccionó la lista con
+fuentes y captions originales en slots. `campaign-gui-check.json` comprueba los
+callbacks reales de inicio, escenas, selección, guardar y cierre con root oculto.
+No se mostró una ventana, ni se usaron controles globales, ni se abrió el EXE.
+
+Pasaron 40 pruebas: se añadieron las reglas del reloj (orden, pausa, display,
+salto de 60 segundos) y el recorrido de dos escenas con contabilidad de retirada,
+round trip, conservación de tiempo/puntos y rechazo de contador incoherente.
+El mapa actualizado tiene 112 raíces revisadas, 1.747 nodos y 5.822 aristas
+directas; continúa sin cierre de llamadas indirectas. Huntsville, Director y las
+APK aprobadas permanecen intactos. El objetivo sigue activo por las rutas y reglas
+nativas pendientes y la comparación diferencial todavía no realizada.
