@@ -18,3 +18,13 @@ Output includes functions, references, calls, completion/error status and privat
 pseudocode files. Inspect completion status and headless logs: Ghidra may exit zero
 even if a script throws. Decompiled output is not recovered source and inferred
 prototypes can be wrong. Keep proprietary inputs, projects and exports private.
+
+Use quoted roots in PowerShell (for example `'00492800,00492de0'`); otherwise
+PowerShell can interpret commas as arrays and hexadecimal-looking values as
+numbers before passing them to the headless batch launcher.
+
+A root such as `discover:004b71d0` explicitly disassembles and defines a missing
+function at an executable address in the private project. Existing overlapping
+functions are rejected. This changes analysis metadata only, never the input PE.
+Review each discovered function and its decompilation warnings; an exported
+function count does not prove coverage of callbacks or indirect targets.

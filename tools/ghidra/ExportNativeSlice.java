@@ -43,13 +43,6 @@ public class ExportNativeSlice extends GhidraScript {
                 }
             }
         }
-        try (PrintWriter w = writer(new File(out,"functions.tsv"))) {
-            w.println("address\tname\tsize\tcalling_convention");
-            FunctionIterator all = currentProgram.getFunctionManager().getFunctions(true);
-            while (all.hasNext()) {
-                Function f=all.next(); w.println(f.getEntryPoint()+"\t"+clean(f.getName())+"\t"+f.getBody().getNumAddresses()+"\t"+f.getCallingConventionName());
-            }
-        }
         // Include direct dependencies; full export is separately bounded to 10,000 functions.
         // Vtable roots expose candidate pointer runs; adjacent tables require manual boundary checks.
         if (focused) {
@@ -72,8 +65,25 @@ public class ExportNativeSlice extends GhidraScript {
                             w.println(slot+"\t"+target+"\t"+clean(f.getName())); selected.add(f);
                         }
                     }
+                } else if (entry.startsWith("discover:")) {
+                    Address address=toAddr(entry.substring(9));
+                    if(address==null) throw new IllegalArgumentException("invalid discovery address: "+entry);
+                    if (currentProgram.getMemory().getBlock(address)==null ||
+                        !currentProgram.getMemory().getBlock(address).isExecute())
+                        throw new IllegalArgumentException("discovery root is not executable: "+address);
+                    Function f=currentProgram.getFunctionManager().getFunctionContaining(address);
+                    if(f!=null && !f.getEntryPoint().equals(address))
+                        throw new IllegalArgumentException("discovery root overlaps existing function: "+address);
+                    if(f==null) {
+                        if(!disassemble(address)) throw new IllegalArgumentException("cannot disassemble "+address);
+                        f=createFunction(address,null);
+                    }
+                    if(f==null) throw new IllegalArgumentException("cannot define function at "+address);
+                    selected.add(f);
                 } else {
-                    Function f = currentProgram.getFunctionManager().getFunctionAt(toAddr(entry));
+                    Address address=toAddr(entry);
+                    if(address==null) throw new IllegalArgumentException("invalid root address: "+entry);
+                    Function f = currentProgram.getFunctionManager().getFunctionAt(address);
                     if (f == null) throw new IllegalArgumentException("no function at " + entry);
                     selected.add(f);
                 }
@@ -83,6 +93,13 @@ public class ExportNativeSlice extends GhidraScript {
                     for (Function other:f.getCalledFunctions(monitor))
                         if (!other.isExternal() && selected.size()<600) selected.add(other);
                 }
+            }
+        }
+        try (PrintWriter w = writer(new File(out,"functions.tsv"))) {
+            w.println("address\tname\tsize\tcalling_convention");
+            FunctionIterator all = currentProgram.getFunctionManager().getFunctions(true);
+            while (all.hasNext()) {
+                Function f=all.next(); w.println(f.getEntryPoint()+"\t"+clean(f.getName())+"\t"+f.getBody().getNumAddresses()+"\t"+f.getCallingConventionName());
             }
         }
         List<Function> seeds = new ArrayList<>(selected);

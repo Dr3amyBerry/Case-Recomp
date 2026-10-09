@@ -50,7 +50,8 @@ La elección definitiva y el slice jugable quedan pendientes. No se añadió un
 runtime SDA vacío, una escena simulada ni compatibilidad nueva al launcher Android.
 El contrato de prueba exige menú → escena, acierto/fallo, pista, animación, audio,
 pausa, guardado/reapertura y salida usando las reglas recuperadas. Primero se
-contrasta en Windows aislado; después se conecta a los servicios Android existentes.
+contrasta con el original según la instrucción vigente del usuario; después se
+conecta a los servicios Android existentes.
 
 ## Contraste con el original y control de ventana
 
@@ -81,3 +82,16 @@ Las capturas privadas estan en native-reference/. La instrumentacion Frida solo
 se uso para comprobar modulos; no hay aun traza completa de callbacks, hit/miss,
 animacion, guardado o cierre de una escena. El original arrancado no es el prototipo
 reconstruido de SDA. Los pasos 3 y 4 permanecen pendientes de completar.
+
+## Continuación estática y prototipo de escena
+
+La instrucción vigente del usuario es dejar el EXE de lado y trabajar con el
+pseudocódigo existente. No se vuelve a ejecutar ni controlar el original durante
+esta etapa. Para una hipótesis concreta se solicitará acceso al escritorio antes.
+
+Se recuperaron dos funciones que faltaban en el inventario reconocido por Ghidra,
+se reconstruyó un mapa reproducible de llamadas directas desde 51 raíces y se
+preparó un prototipo independiente con recursos de la bóveda, hit-testing alfa y
+puntuación recuperada. Es un experimento de escena, aún no una campaña compatible.
+Los hallazgos, pruebas y dependencias pendientes están en
+[MYSTERY_PI_SDA_RECONSTRUCTION.md](MYSTERY_PI_SDA_RECONSTRUCTION.md).
