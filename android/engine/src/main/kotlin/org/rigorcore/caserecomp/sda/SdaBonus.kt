@@ -46,32 +46,56 @@ class SdaTileRotGame(
         }
     }
 
-    override val isSolved: Boolean
-        get() = tileRotations.all { it == 0 }
+    // Native 00459ce0/0045a780: completed rows/columns retire their tiles.
+    val lockedTiles = BooleanArray(rows * cols)
+    var linePoints: Int = 0
+        private set
 
-    override fun clickPixel(x: Int, y: Int): Boolean {
-        if (isSolved) return false
-        val boardX = 172
-        val boardY = 95
-        val boardW = 612
-        val boardH = 408
-        if (x !in boardX until (boardX + boardW) || y !in boardY until (boardY + boardH)) {
-            return false
+    override val isSolved: Boolean
+        get() = lockedTiles.all { it }
+
+    override fun clickPixel(x: Int, y: Int): Boolean = rotatePixel(x, y, clockwise = false)
+
+    /** 00459c20: primary subtracts a quarter turn, secondary adds one. */
+    fun rotatePixel(x: Int, y: Int, clockwise: Boolean): Boolean {
+        if (isSolved || x !in 172 until 784 || y !in 95 until 503) return false
+        val col = (x - 172) * cols / 612
+        val row = (y - 95) * rows / 408
+        val index = row * cols + col
+        if (lockedTiles[index]) return false
+        tileRotations[index] = (tileRotations[index] + if (clockwise) 1 else 3) % 4
+        val rowIndices = (0 until cols).map { row * cols + it }
+        val colIndices = (0 until rows).map { it * cols + col }
+        for (line in listOf(rowIndices, colIndices)) {
+            if (line.all { tileRotations[it] == 0 }) {
+                line.forEach { lockedTiles[it] = true }
+                linePoints += 250 // 00459ce0 base score; native fast bonus is still pending.
+            }
         }
-        val col = ((x - boardX) * cols) / boardW
-        val row = ((y - boardY) * rows) / boardH
-        if (row in 0 until rows && col in 0 until cols) {
-            val idx = row * cols + col
-            tileRotations[idx] = (tileRotations[idx] + 1) % 4
-            return true
+        return true
+    }
+
+    internal fun restoreLocks(locks: List<Boolean>?, score: Int) {
+        require(score in 0..((rows + cols) * 250) && score % 250 == 0) { "invalid rotation line score" }
+        // Old checkpoints had no retirement bits. Infer completed lines, preserve their points.
+        val inferred = BooleanArray(rows * cols)
+        for (row in 0 until rows) {
+            val line = (0 until cols).map { row * cols + it }
+            if (line.all { tileRotations[it] == 0 }) line.forEach { inferred[it] = true }
         }
-        return false
+        for (col in 0 until cols) {
+            val line = (0 until rows).map { it * cols + col }
+            if (line.all { tileRotations[it] == 0 }) line.forEach { inferred[it] = true }
+        }
+        require(locks == null || (locks.size == lockedTiles.size &&
+            locks.indices.all { locks[it] == inferred[it] })) { "invalid retired rotation tiles" }
+        inferred.copyInto(lockedTiles)
+        linePoints = score
     }
 
     override fun solve() {
-        for (i in tileRotations.indices) {
-            tileRotations[i] = 0
-        }
+        tileRotations.fill(0)
+        lockedTiles.fill(true)
         points = 0
     }
 
@@ -84,6 +108,8 @@ class SdaTileRotGame(
         "bonusImage" to bonusImage,
         "points" to points,
         "rotations" to tileRotations.map { it.toLong() },
+        "lockedTiles" to lockedTiles.toList(),
+        "linePoints" to linePoints,
     )
 }
 
@@ -397,6 +423,14 @@ object SdaBonusLoader {
                 val rotations = integers("rotations")
                 require(rotations.size == game.tileRotations.size && rotations.all { it in 0..3 }) { "invalid rotations" }
                 rotations.forEachIndexed { index, value -> game.tileRotations[index] = value }
+                val locks = state["lockedTiles"]?.let { raw ->
+                    val values = raw as? List<*> ?: throw IllegalArgumentException("invalid rotation locks")
+                    require(values.all { it is Boolean }) { "invalid rotation locks" }
+                    values.map { it as Boolean }
+                }
+                val score = integer(state["linePoints"] ?: 0)
+                require(score in 0..Int.MAX_VALUE.toLong()) { "invalid rotation line score" }
+                game.restoreLocks(locks, score.toInt())
             }
             is SdaTileSwapGame -> {
                 val tiles = integers("tiles")

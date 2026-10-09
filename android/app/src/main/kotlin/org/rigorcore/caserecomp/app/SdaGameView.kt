@@ -259,6 +259,7 @@ class SdaGameView(
             for (r in 0 until bonus.rows) {
                 for (c in 0 until bonus.cols) {
                     val idx = r * bonus.cols + c
+                    if (bonus.lockedTiles[idx]) continue
                     val rot = bonus.tileRotations[idx]
                     val rx = bx + c * tw
                     val ry = by + r * th
@@ -443,7 +444,7 @@ class SdaGameView(
                             invalidate()
                             return true
                         }
-                        camp.clickBonus(logicalX, logicalY)
+                        camp.clickBonus(logicalX, logicalY, clockwise = event.buttonState and MotionEvent.BUTTON_SECONDARY != 0)
                         invalidate()
                         return true
                     }
@@ -462,7 +463,7 @@ class SdaGameView(
                             invalidate()
                             return true
                         }
-                        camp.clickBonus(logicalX, logicalY)
+                        camp.clickBonus(logicalX, logicalY, clockwise = event.buttonState and MotionEvent.BUTTON_SECONDARY != 0)
                         invalidate()
                         return true
                     }

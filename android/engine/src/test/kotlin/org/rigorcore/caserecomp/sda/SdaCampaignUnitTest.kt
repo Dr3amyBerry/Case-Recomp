@@ -90,7 +90,7 @@ class SdaCampaignUnitTest {
         for (index in bonus.tileRotations.indices) {
             val x = 172 + (index % bonus.cols) * 612 / bonus.cols + 1
             val y = 95 + (index / bonus.cols) * 408 / bonus.rows + 1
-            repeat((4 - bonus.tileRotations[index]) % 4) { assertTrue(camp.clickBonus(x, y)) }
+            repeat(bonus.tileRotations[index]) { assertTrue(camp.clickBonus(x, y)) }
         }
         assertTrue(bonus.isSolved)
         assertEquals(SdaCampaignPhase.LEVEL_COMPLETE, camp.phase)
@@ -134,6 +134,28 @@ class SdaCampaignUnitTest {
         assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
         assertEquals(camp.clickBonus(200, 100), resumed.clickBonus(200, 100))
         assertEquals(camp.snapshot().toJson(), resumed.snapshot().toJson())
+    }
+
+    @Test fun retired_rotation_row_resumes_without_duplicate_points() = withContent { content ->
+        val camp = SdaCampaign(levels(), seed = 8)
+        reachBonus(camp, content)
+        val bonus = camp.bonusGame as SdaTileRotGame
+        val beforePoints = camp.points
+        for (index in 0 until bonus.cols) {
+            val x = 172 + index * 612 / bonus.cols + 1
+            repeat(bonus.tileRotations[index]) { assertTrue(camp.clickBonus(x, 100)) }
+        }
+        assertEquals(beforePoints + 250, camp.points)
+        val saved = camp.snapshot().toJson()
+        val resumed = SdaCampaign(levels())
+        resumed.restore(SdaCampaignState.fromJson(saved), content)
+        assertEquals(saved, resumed.snapshot().toJson())
+        assertFalse(resumed.clickBonus(180, 100))
+        assertEquals(saved, resumed.snapshot().toJson())
+        val bad = resumed.snapshot().copy(bonusGameState = resumed.bonusGame!!.state() +
+            ("lockedTiles" to List(4) { false }))
+        assertThrows(IllegalArgumentException::class.java) { resumed.restore(bad, content) }
+        assertEquals(saved, resumed.snapshot().toJson())
     }
 
     @Test fun partial_swap_bonus_checkpoint_restores_selection_and_permutation() = withContent { content ->

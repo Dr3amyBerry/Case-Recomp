@@ -9,7 +9,7 @@ import javax.imageio.ImageIO
 
 /** Optional private-resource JVM journey. Never replaces missing media with synthetic data. */
 class SdaPrivateLevelJourneyUnitTest {
-    @Test fun private_first_level_reaches_bonus_through_real_alpha_hits_and_row_retirement() {
+    @Test fun private_first_level_solves_rotation_resumes_and_advances_to_level_two() {
         val packageFile = listOf(File("../../local-output/vegas_full.zip"),
             File("../local-output/vegas_full.zip"), File("local-output/vegas_full.zip"))
             .firstOrNull { it.isFile }
@@ -64,7 +64,39 @@ class SdaPrivateLevelJourneyUnitTest {
             resumed.startBonus(content)
             assertEquals(SdaCampaignPhase.BONUS, resumed.phase)
             assertEquals("tilerotgame01.trg", resumed.bonusGame!!.resourceName)
-            // The rotation mechanics remain partial. This deliberately does not certify them or the ending.
+            val bonus = resumed.bonusGame as SdaTileRotGame
+            for (index in bonus.tileRotations.indices) {
+                val x = 172 + (index % bonus.cols) * 612 / bonus.cols + 1
+                val y = 95 + (index / bonus.cols) * 408 / bonus.rows + 1
+                repeat((resumed.bonusGame as SdaTileRotGame).tileRotations[index]) { assertTrue(resumed.clickBonus(x, y)) }
+                if (index == bonus.cols - 1) {
+                    val partial = resumed.snapshot().toJson()
+                    resumed.restore(SdaCampaignState.fromJson(partial), content)
+                    assertEquals(partial, resumed.snapshot().toJson())
+                }
+            }
+            assertEquals(SdaCampaignPhase.LEVEL_COMPLETE, resumed.phase)
+            val complete = resumed.snapshot().toJson()
+            resumed.restore(SdaCampaignState.fromJson(complete), content)
+            assertEquals(complete, resumed.snapshot().toJson())
+            val earned = resumed.points
+            val elapsed = resumed.clock.elapsed
+            resumed.confirmLevelComplete()
+            assertEquals(1, resumed.levelIndex)
+            assertEquals(2, resumed.currentLevel.clue)
+            assertEquals(SdaCampaignPhase.MAP, resumed.phase)
+            assertTrue(resumed.points >= earned)
+            assertEquals(elapsed, resumed.totalElapsed)
+            assertEquals(0f, resumed.clock.elapsed)
+            val next = resumed.snapshot().toJson()
+            resumed.restore(SdaCampaignState.fromJson(next), content)
+            assertEquals(next, resumed.snapshot().toJson())
+            assertEquals(25, levels.last().clue)
+            assertEquals(90, levels.last().objects)
+            assertEquals(3120f, levels.last().time)
+            assertEquals(9, levels.last().scenes.size)
+            println("PRIVATE JOURNEY: level 1 alpha objectives -> rotation inputs -> partial resume -> result resume -> level 2; points=${resumed.points}, totalElapsed=${resumed.totalElapsed}")
+            // No forced counters/phases or generic solve. Not proof of Android, native RNG/scoring or finale.
         }
     }
 }

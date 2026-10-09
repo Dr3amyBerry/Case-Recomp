@@ -7,6 +7,35 @@ import org.junit.Test
 
 class SdaBonusUnitTest {
 
+    @Test fun rotation_completed_row_becomes_immutable_and_awards_base_line_score() {
+        val game = SdaTileRotGame("test.trg", rows = 2, cols = 2,
+            rotations = intArrayOf(3, 0, 3, 3))
+        assertFalse(game.clickPixel(171, 95))
+        repeat(3) { assertTrue(game.clickPixel(180, 100)) }
+        assertEquals(0, game.tileRotations[0])
+        assertFalse(game.clickPixel(180, 100))
+        assertFalse(game.clickPixel(500, 100))
+        assertEquals(250, game.state()["linePoints"])
+        assertFalse(game.isSolved)
+        repeat(3) { assertTrue(game.clickPixel(180, 310)) }
+        assertFalse(game.clickPixel(180, 310))
+        repeat(3) { assertTrue(game.clickPixel(500, 310)) }
+        assertTrue(game.isSolved)
+        assertEquals(1000, game.state()["linePoints"])
+        assertFalse(game.clickPixel(500, 310))
+    }
+
+    @Test fun rotation_secondary_input_is_inverse_and_does_not_award_unsolved_lines() {
+        val game = SdaTileRotGame("test.trg", rows = 2, cols = 2,
+            rotations = intArrayOf(1, 1, 1, 1))
+        assertTrue(game.rotatePixel(180, 100, clockwise = true))
+        assertEquals(2, game.tileRotations[0])
+        assertTrue(game.clickPixel(180, 100))
+        assertEquals(1, game.tileRotations[0])
+        assertEquals(0, game.linePoints)
+        assertFalse(game.rotatePixel(784, 100, clockwise = true))
+    }
+
     @Test
     fun tile_rot_game_rotations_and_solution() {
         val game = SdaTileRotGame("test.trg", rows = 4, cols = 6, seed = 42L)
@@ -19,7 +48,7 @@ class SdaBonusUnitTest {
         val initialRot = game.tileRotations[0]
         val clicked = game.clickPixel(180, 105)
         assertTrue(clicked)
-        assertEquals((initialRot + 1) % 4, game.tileRotations[0])
+        assertEquals((initialRot + 3) % 4, game.tileRotations[0])
 
         // Solve method
         game.solve()

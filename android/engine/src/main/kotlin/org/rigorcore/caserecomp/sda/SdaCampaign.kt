@@ -237,11 +237,13 @@ class SdaCampaign(
         phase = if (loaded != null) SdaCampaignPhase.BONUS else SdaCampaignPhase.LEVEL_COMPLETE
     }
 
-    fun clickBonus(x: Int, y: Int): Boolean {
+    fun clickBonus(x: Int, y: Int, clockwise: Boolean = false): Boolean {
         if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
-        val moved = bg.clickPixel(x, y)
+        val beforeLines = (bg as? SdaTileRotGame)?.linePoints ?: 0
+        val moved = if (bg is SdaTileRotGame) bg.rotatePixel(x, y, clockwise) else bg.clickPixel(x, y)
+        points += ((bg as? SdaTileRotGame)?.linePoints ?: 0) - beforeLines
         if (bg.isSolved) {
             points += bg.points
             when (phase) {
