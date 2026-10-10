@@ -135,7 +135,7 @@ class SdaLauncherActivity : Activity() {
                 val levels = SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy())
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true)
                 campaign = camp
 
                 // Restore campaign checkpoint if saved

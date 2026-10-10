@@ -27,6 +27,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun sceneFeedback(found:Boolean):String? =
   doc.component("eyespypauseunderlay").attributes[if(found) "foundsfx" else "notfoundsfx"]
  override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
+ override fun immediateHintRecharge(context:android.content.Context)=context.getSharedPreferences("case-recomp-vegas-options",0).getBoolean("rapidhints",false)
  override fun hintRect(campaign:SdaCampaign):Rect? =
   if(campaign.phase==SdaCampaignPhase.SCENE && campaign.hint?.ready==true) ui.rect(doc.component("hintbutton")) else null
  override fun hintSound():String?=doc.component("hintbutton").attributes["sfx"]
@@ -50,6 +51,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
   var optionsReturn="mainmenuunderlay"
   var optionsBefore:Pair<Int,Int>?=null
+  var rapidBefore:Boolean?=null
   var helpReturn=if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2"
   lateinit var view:SdaResourceMenuView
   var mainBackdrop=entry==SdaMenuEntry.MAIN
@@ -60,21 +62,25 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   fun cancelOptions() {
    optionsBefore?.let { (music,effects) -> audio?.setMusicVolume(music);audio?.setEffectsVolume(effects) };optionsBefore=null
+   rapidBefore?.let { campaign?.hintRechargeImmediately=it };rapidBefore=null
   }
   fun openOptions(from:String) {
    optionsReturn=from;optionsBefore=(audio?.musicVolume ?: prefs.getInt("music",50)) to (audio?.effectsVolume ?: prefs.getInt("effects",75))
+   rapidBefore=campaign?.hintRechargeImmediately ?: prefs.getBoolean("rapidhints",false)
    show(if(from=="menudlg2") "mainoptionsdlgeyespy" else "mainoptionsdlg")
-   // These four desktop/gameplay checkbox contracts are not recovered yet: visibly disabled.
+   // Native checkbox order: fullscreen, rapid hints, relaxed mode, hardware acceleration.
    val original=doc.component(view.screenId)
    // Measured Spanish Windows reference: template-matched outer corners, not XUI's base size.
    // Native runtime resizing algorithm is not yet recovered; keep this edition calibration here.
    val spanish=doc.resolve("@ID_OPTIONS_DIALOG1").uppercase(java.util.Locale.ROOT)=="OPCIONES DEL JUEGO"
    val node=if(spanish) original.copy(attributes=original.attributes+mapOf("x" to "114","y" to "85"),
     children=original.children.map { if(it.type=="dialogimg") it.copy(attributes=it.attributes+mapOf("w" to "573")) else it }) else original
+   val rapid=node.children.filter { it.type=="checkbox" }[1]
    view.show(node.copy(children=node.children.map {
-    if(it.type=="checkbox" || (it.type=="label" && it.attributes["caption"] in setOf("@ID_OPTIONS_FSCREEN","@ID_OPTIONS_HINTS","@ID_OPTIONS_RELAXED","@ID_OPTIONS_HACC"))) it.copy(attributes=it.attributes+mapOf("disabled" to "true")) else it
+    if((it.type=="checkbox" && it!=rapid) || (it.type=="label" && it.attributes["caption"] in setOf("@ID_OPTIONS_FSCREEN","@ID_OPTIONS_RELAXED","@ID_OPTIONS_HACC"))) it.copy(attributes=it.attributes+mapOf("disabled" to "true")) else it
    }),if(mainBackdrop) backdrop else emptyList())
    view.sliders.forEach { view.setSliderValue(it,if(it.number("typevalue")==1) optionsBefore!!.first else optionsBefore!!.second) }
+   view.setCheckboxValue(view.checkboxes[1],checkNotNull(rapidBefore))
   }
   view=SdaResourceMenuView(context,ui,main,textures,800,600) { value ->
    val screen=view.screenId
@@ -102,8 +108,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
      31,35 -> {
       val music=view.sliders.single { it.number("typevalue")==1 }.let(view::sliderValue)
       val effects=view.sliders.single { it.number("typevalue")==2 }.let(view::sliderValue)
-      prefs.edit().putInt("music",music).putInt("effects",effects).apply()
-      optionsBefore=null;show(optionsReturn)
+      val rapid=view.checkboxValue(view.checkboxes[1])
+      prefs.edit().putInt("music",music).putInt("effects",effects).putBoolean("rapidhints",rapid).apply()
+      campaign?.hintRechargeImmediately=rapid
+      optionsBefore=null;rapidBefore=null;show(optionsReturn)
      }
      else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
@@ -118,6 +126,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    }
   }
   view.onSliderValue={ node,value -> if(node.number("typevalue")==1) audio?.setMusicVolume(value) else audio?.setEffectsVolume(value) }
+  view.onCheckboxValue={ node,value -> if(node==view.checkboxes.getOrNull(1)) campaign?.hintRechargeImmediately=value }
   view.onClose={ cancelOptions() }
   view.onSoundEffect={ audio?.playEffect(it) }
   show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")

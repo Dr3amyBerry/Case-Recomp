@@ -18,11 +18,11 @@ class SdaHint(private val policy:SdaHintPolicy) {
  }
  fun reveal(id:String?) { target=id;animationAge=0f }
  fun clearTarget() { target=null;animationAge=0f }
- fun advance(seconds:Float) {
+ fun advance(seconds:Float,immediate:Boolean=false) {
   require(seconds.isFinite() && seconds>=0)
   animationAge+=seconds
   if(!cooling) return
-  elapsed=minOf(delay,elapsed+seconds)
+  elapsed=if(immediate) delay else minOf(delay,elapsed+seconds)
   if(elapsed>=delay) { cooling=false;delay=minOf(policy.maximumDelay,delay*policy.multiplier) }
  }
  fun state():Map<String,Any?> = mapOf("delay" to delay,"elapsed" to elapsed,"cooling" to cooling,"target" to target,"animationAge" to animationAge)

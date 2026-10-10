@@ -101,6 +101,7 @@ class SdaCampaign(
     var levelIndex: Int = 0,
     val firstRiddle: SdaRiddleBinding? = null,
     private val hintPolicy:SdaHintPolicy? = null,
+    var hintRechargeImmediately:Boolean=false,
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
@@ -202,7 +203,7 @@ class SdaCampaign(
             val sc = currentScene ?: return
             val clockEvents = clock.advance(seconds)
             sc.advance(seconds)
-            hint?.advance(seconds)
+            hint?.advance(seconds,hintRechargeImmediately)
 
             // Check active sets retired
             val sceneCounted = counted.getOrPut(currentSceneName!!) { mutableSetOf() }

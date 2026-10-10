@@ -15,6 +15,16 @@ class SdaHintUnitTest {
   assertTrue(hint.consume());hint.advance(45f);assertEquals(67.5f,hint.delay,0f)
   assertTrue(hint.consume());hint.advance(67.5f);assertEquals(67.5f,hint.delay,0f)
  }
+ @Test fun immediate_recharge_finishes_only_when_advanced_and_keeps_growth() {
+  val hint=SdaHint(policy);hint.consume()
+  assertFalse(hint.ready)
+  hint.advance(.016f,immediate=true)
+  assertTrue(hint.ready);assertEquals(30f,hint.delay,0f)
+  hint.consume();hint.advance(.016f,immediate=false)
+  assertFalse(hint.ready)
+  hint.advance(.016f,immediate=true)
+  assertTrue(hint.ready);assertEquals(45f,hint.delay,0f)
+ }
  @Test fun partial_recharge_roundtrips_without_restoring_a_free_hint() {
   val hint=SdaHint(policy);hint.consume();hint.advance(8f)
   val restored=SdaHint(policy);restored.restore(hint.state())

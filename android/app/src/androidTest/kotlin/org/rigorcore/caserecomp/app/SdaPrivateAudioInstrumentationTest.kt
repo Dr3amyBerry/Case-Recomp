@@ -21,6 +21,9 @@ class SdaPrivateAudioInstrumentationTest {
   val prefs=context.getSharedPreferences("case-recomp-sda",0)
   val keys=listOf("active_campaign_checkpoint","session-checkpoint");val before=keys.associateWith { prefs.getString(it,null) }
   assertTrue(prefs.edit().remove(keys[0]).remove(keys[1]).commit())
+  val settings=context.getSharedPreferences("case-recomp-vegas-options",0)
+  val optionsBefore=settings.all.toMap()
+  assertTrue(settings.edit().putBoolean("rapidhints",false).commit())
   lateinit var audio:SdaAudioSession;lateinit var game:SdaGameView
   fun find(view:android.view.View):SdaGameView? {
    if(view is SdaGameView) return view
@@ -158,6 +161,31 @@ class SdaPrivateAudioInstrumentationTest {
      val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
      val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==299 });click(menu,rect.centerX(),rect.centerY())
     }
+    fun pausedMenu(activity:SdaLauncherActivity):SdaResourceMenuView {
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+     return dialog.window!!.decorView.findViewWithTag("sda-resource-menu")
+    }
+    fun menuButton(menu:SdaResourceMenuView,value:Int) {
+     val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==value });click(menu,rect.centerX(),rect.centerY())
+    }
+    fun openPausedOptions() {
+     restored.onActivity { activity ->
+      val shown=checkNotNull(find(activity.window.decorView));val rect=checkNotNull(shown.visuals?.menuRect(checkNotNull(shown.campaign)))
+      click(shown,rect.centerX(),rect.centerY())
+     }
+     instrumentation.waitForIdleSync()
+     restored.onActivity { menuButton(pausedMenu(it),34) }
+    }
+    fun toggleRapid(menu:SdaResourceMenuView) {
+     val rect=menu.checkboxBounds(menu.checkboxes[1]);click(menu,rect.centerX(),rect.centerY())
+    }
+    // Cancelling preview during a real recharge must not award an immediate free hint.
+    instrumentation.waitForIdleSync();openPausedOptions()
+    restored.onActivity { activity ->
+     val menu=pausedMenu(activity);toggleRapid(menu);assertTrue(checkNotNull(find(activity.window.decorView)).campaign!!.hintRechargeImmediately)
+     menuButton(menu,220);menuButton(menu,215)
+    }
+    instrumentation.waitForIdleSync();assertFalse(recharge.ready)
     // Wait for real frame/time progression: no clock assignment or forced recharge.
     val deadline=android.os.SystemClock.uptimeMillis()+25000
     while(!recharge.ready && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(100)
@@ -166,10 +194,33 @@ class SdaPrivateAudioInstrumentationTest {
      val restoredGame=checkNotNull(find(activity.window.decorView))
      assertNotNull(restoredGame.visuals?.hintRect(checkNotNull(restoredGame.campaign)))
     }
+    openPausedOptions()
+    restored.onActivity { activity ->
+     val menu=pausedMenu(activity);toggleRapid(menu);menuButton(menu,35);menuButton(menu,215)
+    }
+    instrumentation.waitForIdleSync()
+    restored.onActivity { activity ->
+     val shown=checkNotNull(find(activity.window.decorView));val campaign=checkNotNull(shown.campaign)
+     assertTrue(campaign.hintRechargeImmediately);val rect=checkNotNull(shown.visuals?.hintRect(campaign))
+     val points=campaign.points;click(shown,rect.centerX(),rect.centerY())
+     assertEquals(maxOf(0,points-7500),campaign.points)
+    }
+    val rapidDeadline=android.os.SystemClock.uptimeMillis()+1000
+    while(!recharge.ready && android.os.SystemClock.uptimeMillis()<rapidDeadline) android.os.SystemClock.sleep(10)
+    assertTrue("saved rapid option recharges through real frame loop",recharge.ready);assertEquals(45f,recharge.delay,0f)
    }
   } finally {
    val edit=prefs.edit();for(key in keys) before[key]?.let { edit.putString(key,it) } ?: edit.remove(key)
    assertTrue(edit.commit());for(key in keys) assertEquals(before[key],prefs.getString(key,null))
+   val restoreOptions=settings.edit()
+   for(key in listOf("music","effects","rapidhints")) when(val value=optionsBefore[key]) {
+    is Int -> restoreOptions.putInt(key,value)
+    is Boolean -> restoreOptions.putBoolean(key,value)
+    null -> restoreOptions.remove(key)
+    else -> error("unexpected original option type")
+   }
+   assertTrue(restoreOptions.commit())
+   for(key in listOf("music","effects","rapidhints")) assertEquals("restore original option $key",optionsBefore[key],settings.all[key])
   }
  }
 
@@ -182,12 +233,13 @@ class SdaPrivateAudioInstrumentationTest {
   val keys=listOf("active_campaign_checkpoint","session-checkpoint");val before=keys.associateWith { checkpoint.getString(it,null) }
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",0)
   val settingsBefore=prefs.all.toMap()
-  assertTrue(prefs.edit().putInt("music",50).putInt("effects",75).commit())
+  assertTrue(prefs.edit().putInt("music",50).putInt("effects",75).putBoolean("rapidhints",false).commit())
   fun launch()=androidx.test.core.app.ActivityScenario.launch<SdaLauncherActivity>(
    android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path),
    android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
   lateinit var audio:SdaAudioSession
   lateinit var menu:SdaResourceMenuView
+  lateinit var camp:SdaCampaign
   fun touch(action:Int,x:Float,y:Float) {
    val scale=minOf(menu.width/800f,menu.height/600f)
    val event=android.view.MotionEvent.obtain(0,android.os.SystemClock.uptimeMillis(),action,
@@ -204,6 +256,7 @@ class SdaPrivateAudioInstrumentationTest {
    touch(android.view.MotionEvent.ACTION_UP,rect.centerX().toFloat(),rect.centerY().toFloat())
   }
   fun bind(activity:SdaLauncherActivity) {
+   camp=SdaLauncherActivity::class.java.getDeclaredField("campaign").apply { isAccessible=true }.get(activity) as SdaCampaign
    audio=SdaLauncherActivity::class.java.getDeclaredField("audioSession").apply { isAccessible=true }.get(activity) as SdaAudioSession
    val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
    menu=dialog.window!!.decorView.findViewWithTag("sda-resource-menu")
@@ -228,6 +281,37 @@ class SdaPrivateAudioInstrumentationTest {
      menu.onSoundEffect=handler
      button(30);assertEquals("mainoptionsdlg",menu.screenId)
     }
+    // Real checkbox events: DOWN/CANCEL and UP outside do not commit a toggle.
+    scenario.onActivity {
+     val rapid=menu.checkboxes[1];val rect=menu.checkboxBounds(rapid)
+     assertFalse(menu.checkboxValue(rapid));assertFalse(camp.hintRechargeImmediately)
+     touch(android.view.MotionEvent.ACTION_DOWN,rect.centerX().toFloat(),rect.centerY().toFloat())
+     assertFalse(menu.checkboxValue(rapid))
+     touch(android.view.MotionEvent.ACTION_CANCEL,rect.centerX().toFloat(),rect.centerY().toFloat())
+     assertFalse(menu.checkboxValue(rapid))
+     touch(android.view.MotionEvent.ACTION_DOWN,rect.centerX().toFloat(),rect.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,(rect.right+10).toFloat(),rect.centerY().toFloat())
+     assertFalse(menu.checkboxValue(rapid))
+     touch(android.view.MotionEvent.ACTION_DOWN,rect.centerX().toFloat(),rect.centerY().toFloat())
+     val properties=arrayOf(android.view.MotionEvent.PointerProperties().apply { id=0;toolType=android.view.MotionEvent.TOOL_TYPE_FINGER },
+      android.view.MotionEvent.PointerProperties().apply { id=7;toolType=android.view.MotionEvent.TOOL_TYPE_FINGER })
+     val scale=minOf(menu.width/800f,menu.height/600f)
+     val coordinates=arrayOf(0f,100f).map { dx -> android.view.MotionEvent.PointerCoords().apply {
+      x=(menu.width-800*scale)/2+(rect.centerX()+dx)*scale;y=(menu.height-600*scale)/2+rect.centerY()*scale;pressure=1f;size=1f
+     } }.toTypedArray()
+     for(action in listOf(android.view.MotionEvent.ACTION_POINTER_DOWN,android.view.MotionEvent.ACTION_POINTER_UP)) {
+      val event=android.view.MotionEvent.obtain(0,android.os.SystemClock.uptimeMillis(),action or (1 shl android.view.MotionEvent.ACTION_POINTER_INDEX_SHIFT),2,properties,coordinates,0,0,1f,1f,0,0,android.view.InputDevice.SOURCE_TOUCHSCREEN,0)
+      try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
+      assertFalse("secondary finger must not toggle captured checkbox",menu.checkboxValue(rapid))
+     }
+     touch(android.view.MotionEvent.ACTION_UP,rect.centerX().toFloat(),rect.centerY().toFloat())
+     assertTrue(menu.checkboxValue(rapid));assertTrue(camp.hintRechargeImmediately)
+     assertFalse("preview is not persisted before OK",prefs.getBoolean("rapidhints",false))
+     val disabled=menu.checkboxBounds(menu.checkboxes[0])
+     touch(android.view.MotionEvent.ACTION_DOWN,disabled.centerX().toFloat(),disabled.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,disabled.centerX().toFloat(),disabled.centerY().toFloat())
+     assertFalse("unsupported fullscreen checkbox remains disabled",menu.checkboxValue(menu.checkboxes[0]))
+    }
     // Real Android gestures: drag captured knobs beyond both track ends; values must clamp.
     scenario.onActivity {
      grab(1)
@@ -240,8 +324,12 @@ class SdaPrivateAudioInstrumentationTest {
      assertEquals(100,audio.effectsVolume)
      button(36);assertEquals("mainmenuunderlay",menu.screenId)
      assertEquals(50,audio.musicVolume);assertEquals(75,audio.effectsVolume)
+     assertFalse("CANCEL restores hint preview",camp.hintRechargeImmediately)
      assertEquals(50,prefs.getInt("music",-1));assertEquals(75,prefs.getInt("effects",-1))
      button(30)
+     val rapid=menu.checkboxBounds(menu.checkboxes[1])
+     touch(android.view.MotionEvent.ACTION_DOWN,rapid.centerX().toFloat(),rapid.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,rapid.centerX().toFloat(),rapid.centerY().toFloat())
      grab(1)
      touch(android.view.MotionEvent.ACTION_MOVE,390f,184f)
      touch(android.view.MotionEvent.ACTION_UP,390f,184f)
@@ -251,6 +339,7 @@ class SdaPrivateAudioInstrumentationTest {
      assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume)
      button(31);assertEquals("mainmenuunderlay",menu.screenId)
      assertEquals(0,prefs.getInt("music",-1));assertEquals(0,prefs.getInt("effects",-1))
+     assertTrue(prefs.getBoolean("rapidhints",false));assertTrue(camp.hintRechargeImmediately)
      button(299)
     }
     instrumentation.waitForIdleSync()
@@ -273,13 +362,22 @@ class SdaPrivateAudioInstrumentationTest {
     scenario.onActivity {
      button(34)
      assertEquals("mainoptionsdlgeyespy",menu.screenId)
+     assertTrue(menu.checkboxValue(menu.checkboxes[1]))
+     val rapid=menu.checkboxBounds(menu.checkboxes[1])
+     touch(android.view.MotionEvent.ACTION_DOWN,rapid.centerX().toFloat(),rapid.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,rapid.centerX().toFloat(),rapid.centerY().toFloat())
+     assertFalse(camp.hintRechargeImmediately)
      val slider=menu.sliders.single { it.number("typevalue")==1 }
      val knob=menu.sliderKnobBounds(slider)
      touch(android.view.MotionEvent.ACTION_DOWN,knob.centerX().toFloat(),knob.centerY().toFloat())
      touch(android.view.MotionEvent.ACTION_MOVE,720f,knob.centerY().toFloat());assertEquals(100,audio.musicVolume)
      touch(android.view.MotionEvent.ACTION_CANCEL,720f,knob.centerY().toFloat());assertEquals(0,audio.musicVolume)
-     button(220);assertEquals("menudlg2",menu.screenId)
+     button(220);assertEquals("menudlg2",menu.screenId);assertTrue(camp.hintRechargeImmediately)
      button(34)
+     val rapidAgain=menu.checkboxBounds(menu.checkboxes[1])
+     touch(android.view.MotionEvent.ACTION_DOWN,rapidAgain.centerX().toFloat(),rapidAgain.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,rapidAgain.centerX().toFloat(),rapidAgain.centerY().toFloat())
+     assertFalse(camp.hintRechargeImmediately)
      val next=menu.sliderKnobBounds(menu.sliders.single { it.number("typevalue")==1 })
      touch(android.view.MotionEvent.ACTION_DOWN,next.centerX().toFloat(),next.centerY().toFloat())
      touch(android.view.MotionEvent.ACTION_MOVE,720f,next.centerY().toFloat())
@@ -288,11 +386,12 @@ class SdaPrivateAudioInstrumentationTest {
      dialog.cancel()
     }
     instrumentation.waitForIdleSync()
-    scenario.onActivity { assertEquals("closing options cancels preview",0,audio.musicVolume) }
+    scenario.onActivity { assertEquals("closing options cancels preview",0,audio.musicVolume);assertTrue(camp.hintRechargeImmediately) }
    }
    launch().use { scenario ->
     scenario.onActivity {
-     bind(it);assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume);button(30)
+     bind(it);assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume);assertTrue(camp.hintRechargeImmediately);button(30)
+     assertTrue(menu.checkboxValue(menu.checkboxes[1]))
      val knob=menu.sliderKnobBounds(menu.sliders.single { it.number("typevalue")==1 })
      assertEquals("Spanish layout observed in native Windows reference",424,knob.left)
      assertEquals(162,knob.top)

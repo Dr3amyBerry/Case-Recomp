@@ -14,6 +14,18 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  var onSoundEffect:((String)->Unit)?=null
  var onSliderValue:((SdaUiNode,Int)->Unit)?=null
  var onClose:(()->Unit)?=null
+ var onCheckboxValue:((SdaUiNode,Boolean)->Unit)?=null
+ private val checkboxValues=mutableMapOf<SdaUiNode,Boolean>()
+ private var checkboxCaptured:SdaUiNode?=null
+ val checkboxes get()=container.children.filter { it.type=="checkbox" }
+ fun checkboxValue(node:SdaUiNode)=checkboxValues[node] ?: (node.attributes["checked"]=="true")
+ fun setCheckboxValue(node:SdaUiNode,value:Boolean) { checkboxValues[node]=value;invalidate() }
+ fun checkboxBounds(node:SdaUiNode):Rect {
+  val images=listOf("texoff","texon","texoffover","texonover").mapNotNull { node.attributes[it] }.map(ui::bitmap)
+  val x=container.number("x")+node.number("x");val y=container.number("y")+node.number("y")
+  return Rect(x,y,x+images.maxOf { it.width },y+images.maxOf { it.height })
+ }
+ private fun enabled(node:SdaUiNode)=node.attributes["disabled"]!="true"
  private val sliderValues=mutableMapOf<SdaUiNode,Int>()
  private var sliderCaptured:SdaUiNode?=null
  private var hovered:SdaUiNode?=null
@@ -43,10 +55,11 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
  fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
-  container=node;this.background=background;captured=null;sliderCaptured=null;hovered=null;pressed=false;invalidate()
+  container=node;this.background=background;captured=null;sliderCaptured=null;checkboxCaptured=null;hovered=null;pressed=false;gesturePointer=null;invalidate()
  }
  private var captured:SdaUiNode?=null
  private var pressed=false
+ private var gesturePointer:Int?=null
  init { tag="sda-resource-menu";isFocusable=true }
  fun buttonBounds(node:SdaUiNode)=ui.rect(node).apply { offset(container.number("x"),container.number("y")) }
  override fun onDraw(canvas:Canvas) {
@@ -61,7 +74,11 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    "image" -> ui.image(canvas,node,photographic=true)
    "label" -> ui.label(canvas,node,opacity=if(node.attributes["disabled"]=="true") .45f else 1f)
    "checkbox" -> {
-    val icon=ui.bitmap(node.attributes.getValue("texoff"))
+    val on=checkboxValue(node)
+    val normal=if(on) "texon" else "texoff"
+    val over=if(on) "texonover" else "texoffover"
+    val texture=if(enabled(node) && (node==hovered || (node==checkboxCaptured && pressed))) node.attributes[over] ?: node.attributes.getValue(normal) else node.attributes.getValue(normal)
+    val icon=ui.bitmap(texture)
     val paint=android.graphics.Paint().apply { alpha=if(node.attributes["disabled"]=="true") 115 else 255 }
     canvas.drawBitmap(icon,node.number("x").toFloat(),node.number("y").toFloat(),paint)
    }
@@ -84,25 +101,40 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   val x=((event.x-(width-logicalWidth*scale)/2)/scale).toInt()
   val y=((event.y-(height-logicalHeight*scale)/2)/scale).toInt()
   val next=if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) null else
-   buttons.firstOrNull { buttonBounds(it).contains(x,y) } ?: sliders.firstOrNull { sliderKnobBounds(it).contains(x,y) }
+   buttons.firstOrNull { enabled(it) && buttonBounds(it).contains(x,y) } ?: sliders.firstOrNull { enabled(it) && sliderKnobBounds(it).contains(x,y) } ?: checkboxes.firstOrNull { enabled(it) && checkboxBounds(it).contains(x,y) }
   if(next!=hovered) { hovered=next;next?.attributes?.get("sfxrollover")?.let { onSoundEffect?.invoke(it) };invalidate() }
   return true
  }
  override fun onTouchEvent(event:MotionEvent):Boolean {
   val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat())
   if(scale<=0f) return false
-  val x=((event.x-(width-logicalWidth*scale)/2)/scale).toInt()
-  val y=((event.y-(height-logicalHeight*scale)/2)/scale).toInt()
+  if(event.actionMasked==MotionEvent.ACTION_POINTER_DOWN) return true
+  if(event.actionMasked==MotionEvent.ACTION_DOWN) gesturePointer=event.getPointerId(event.actionIndex)
+  if(event.actionMasked==MotionEvent.ACTION_POINTER_UP && event.getPointerId(event.actionIndex)!=gesturePointer) return true
+  val index=event.findPointerIndex(gesturePointer ?: event.getPointerId(0))
+  if(index<0) {
+   sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) }
+   sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null;invalidate();return true
+  }
+  val x=((event.getX(index)-(width-logicalWidth*scale)/2)/scale).toInt()
+  val y=((event.getY(index)-(height-logicalHeight*scale)/2)/scale).toInt()
   when(event.actionMasked) {
    MotionEvent.ACTION_DOWN -> {
-    sliderCaptured=sliders.firstOrNull { sliderKnobBounds(it).contains(x,y) }
+    sliderCaptured=sliders.firstOrNull { enabled(it) && sliderKnobBounds(it).contains(x,y) }
+    checkboxCaptured=if(sliderCaptured==null) checkboxes.firstOrNull { enabled(it) && checkboxBounds(it).contains(x,y) } else null
     sliderCaptured?.let { sliderGrab=x-sliderKnobBounds(it).left;sliderInitial=sliderValue(it);it.attributes["clicknobsfx"]?.let { sound -> onSoundEffect?.invoke(sound) } }
-    captured=if(sliderCaptured==null) buttons.firstOrNull { buttonBounds(it).contains(x,y) } else null;pressed=captured!=null
+    captured=if(sliderCaptured==null && checkboxCaptured==null) buttons.firstOrNull { enabled(it) && buttonBounds(it).contains(x,y) } else null;pressed=captured!=null || checkboxCaptured!=null
    }
-   MotionEvent.ACTION_MOVE -> { sliderCaptured?.let { updateSlider(it,x) };pressed=captured?.let { buttonBounds(it).contains(x,y) } ?: false }
-   MotionEvent.ACTION_CANCEL -> { sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;captured=null;pressed=false }
-   MotionEvent.ACTION_UP -> {
+   MotionEvent.ACTION_MOVE -> { sliderCaptured?.let { updateSlider(it,x) };pressed=checkboxCaptured?.let { checkboxBounds(it).contains(x,y) } ?: captured?.let { buttonBounds(it).contains(x,y) } ?: false }
+   MotionEvent.ACTION_CANCEL -> { sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null }
+   MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP -> {
+    gesturePointer=null
     sliderCaptured?.let { updateSlider(it,x) };sliderCaptured=null
+    val checked=checkboxCaptured?.takeIf { checkboxBounds(it).contains(x,y) };checkboxCaptured=null
+    if(checked!=null) {
+     val value=!checkboxValue(checked);setCheckboxValue(checked,value);performClick()
+     checked.attributes["sfx"]?.let { onSoundEffect?.invoke(it) };onCheckboxValue?.invoke(checked,value)
+    }
     val selected=captured?.takeIf { buttonBounds(it).contains(x,y) }
     captured=null;pressed=false;invalidate()
     if(selected!=null) { performClick();selected.attributes["sfx"]?.let { onSoundEffect?.invoke(it) };onAction(selected.number("value",-1)) }

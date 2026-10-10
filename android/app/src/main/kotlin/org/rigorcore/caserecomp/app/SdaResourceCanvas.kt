@@ -126,6 +126,7 @@ interface SdaVisualProfile {
  fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?=null,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun sceneFeedback(found:Boolean):String? = null
  fun hintPolicy():SdaHintPolicy? = null
+ fun immediateHintRecharge(context:android.content.Context):Boolean = false
  fun hintRect(campaign:SdaCampaign):Rect? = null
  fun hintSound():String? = null
  fun pointer(x:Int?,y:Int?,pressed:Boolean) {}

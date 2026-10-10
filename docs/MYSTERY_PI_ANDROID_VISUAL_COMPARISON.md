@@ -348,3 +348,8 @@ Verificacion: compilacion y pruebas JVM correctas; prueba Android de mapa, escen
 ### PDA: pista original recuperada (V3)
 
 La zona vacia encima de MAPA ahora contiene PISTA durante la escena. Utiliza sus texturas y atlas originales; muestra recarga y efecto sobre un objeto aun pendiente. Captura Android real y comparacion local: `local-output/vegas-hints/comparison.html`. El informe diferencia recursos extraidos de capturas Android, y el antes/despues contiene estados y objetivos distintos: no calcula una diferencia de pixeles enga?osa. No hay nueva referencia Windows equivalente; la fidelidad de la animacion y de todos los estados queda PARCIAL. El efecto ya no invade el PDA ni el letterboxing. Pruebas y pendientes detallados en el informe de auditoria.
+
+
+### Opciones: PISTAS ILIMITADAS original habilitada
+
+La casilla y su etiqueta ahora aparecen activas y admiten off/on/hover mediante las texturas originales. OK guarda, CANCEL/cierre restauran el preview y la opcion afecta la recarga real conservando su penalizacion. APK, captura WSA, matriz y HTML: `local-output/vegas-rapid-hints/`. Comparacion con captura Windows anterior de otro estado: referencia contextual, no aprobacion de todos los estados. Las otras tres casillas permanecen deshabilitadas hasta integrar sus contratos autenticos.
