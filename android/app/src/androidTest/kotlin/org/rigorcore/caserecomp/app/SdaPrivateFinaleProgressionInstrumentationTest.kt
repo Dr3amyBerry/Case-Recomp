@@ -72,8 +72,12 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
   }
   fun memory(scenario:ActivityScenario<SdaLauncherActivity>,name:String) {
    scenario.onActivity { activity ->
-    val shown=game(activity);val riddle=shown.campaign!!.bonusGame as SdaPlacementRiddleGame
-    val sources=(riddle.images.values+riddle.trayImages.values+riddle.placedImages.values+riddle.arrowImages.values+listOfNotNull(riddle.background,riddle.captionPaper)).mapNotNull { it.nativeImage as? Bitmap }.distinct()
+    val shown=game(activity)
+    val sources=when(val riddle=shown.campaign!!.bonusGame) {
+     is SdaPlacementRiddleGame -> (riddle.images.values+riddle.trayImages.values+riddle.placedImages.values+riddle.arrowImages.values+listOfNotNull(riddle.background,riddle.captionPaper))
+     is SdaInteractiveRiddleGame -> riddle.controller.items.definitions.flatMap { it.images }.mapNotNull { it.pixels }
+     else -> emptyList()
+    }.mapNotNull { it.nativeImage as? Bitmap }.distinct()
     val profile=shown.visuals as VegasVisualProfile
     val ui=VegasVisualProfile::class.java.getDeclaredField("ui").apply { isAccessible=true }.get(profile) as SdaResourceCanvas
     val info=android.os.Debug.MemoryInfo();android.os.Debug.getMemoryInfo(info)
@@ -264,8 +268,8 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
     }
     capture(reopened,"finale-third-restored-real.png")
     fun native(activity:SdaLauncherActivity)=(game(activity).campaign!!.bonusGame as SdaInteractiveRiddleGame).controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
-    fun awaitState(message:String,condition:(org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController)->Boolean) {
-     val deadline=SystemClock.uptimeMillis()+5000;var passed=false
+    fun awaitState(message:String,timeoutMillis:Long=5000,condition:(org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController)->Boolean) {
+     val deadline=SystemClock.uptimeMillis()+timeoutMillis;var passed=false
      while(!passed && SystemClock.uptimeMillis()<deadline) { reopened.onActivity { passed=condition(native(it)) };if(!passed) SystemClock.sleep(40) }
      assertTrue(message,passed)
     }
@@ -294,8 +298,32 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
     for(symbol in actualCode) reopened.onActivity { activity -> val bounds=native(activity).keyBounds[symbol];click(game(activity),bounds.x+bounds.width/2,bounds.y+bounds.height/2) }
     awaitState("earned reel code triggers native door step") { it.doorOpening }
     reopened.onActivity { assertFalse(native(it).isSolved);assertEquals(originalPoints,game(it).campaign!!.points) }
-    capture(reopened,"finale-third-unlocked-pending-ending.png")
+    capture(reopened,"finale-ending-door.png")
+    awaitState("original moneyroom transition",12000) { it.endingState==9 }
+    capture(reopened,"finale-ending-moneyroom.png");memory(reopened,"ending-moneyroom")
+    awaitState("original newspaper reaches full visibility",12000) { it.endingState==12 }
+    capture(reopened,"finale-ending-newspaper.png")
+    awaitState("native end sequence completes before final dialog",12000) { it.isSolved }
+    instrumentation.waitForIdleSync()
+    capture(reopened,"finale-ending-complete-dialog.png",true)
+    confirm(reopened,1019,"riddlesdialogcompletecontainer3")
+    reopened.onActivity { activity ->
+     val camp=game(activity).campaign!!;assertEquals(SdaCampaignPhase.CAMPAIGN_COMPLETE,camp.phase)
+     assertNull(camp.bonusGame);assertEquals(originalPoints,camp.points)
+     assertEquals("mainmenuunderlay",panel(activity).screenId)
+     assertEquals("true",panel(activity).buttons.single { it.number("value")==299 }.attributes["disabled"])
+     File(context.getExternalFilesDir(null),"finale-ending-earned-complete.json").writeText(camp.snapshot().toJson())
+    }
+    capture(reopened,"finale-ending-mainmenu.png");memory(reopened,"ending-complete-mainmenu")
 
+   }
+   launch().use { finished ->
+    finished.onActivity { activity ->
+     val camp=game(activity).campaign!!;assertEquals(SdaCampaignPhase.CAMPAIGN_COMPLETE,camp.phase)
+     assertEquals(originalPoints,camp.points);assertNull(camp.bonusGame)
+    }
+    instrumentation.waitForIdleSync()
+    capture(finished,"finale-ending-restored-mainmenu.png")
    }
   } finally {
    val editor=prefs.edit();before.forEach { (key,value) -> if(value==null) editor.remove(key) else editor.putString(key,value) };assertTrue(editor.commit())

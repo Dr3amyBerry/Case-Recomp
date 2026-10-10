@@ -445,12 +445,15 @@ class SdaGameView(
         val interactive=camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame
         if(interactive!=null) {
             visuals?.drawInteractiveRiddleBase(canvas,camp,interactive)
+            val opacity=visuals?.interactiveRiddleOpacity(interactive) ?: 1f
+            val itemPaint=Paint().apply { alpha=(opacity*255).toInt().coerceIn(0,255) }
             interactive.controller.items.definitions.indices.filter(interactive.controller::visible).forEach { index ->
                 val frame=interactive.controller.items.frame(index)
                 frame.image.pixels?.let { source ->
                     val bitmap=jigsawBitmap(source)
+                    val offset=visuals?.interactiveRiddleItemOffset(interactive,index) ?: (0 to 0)
                     canvas.drawBitmap(bitmap,Rect(frame.sourceX,frame.sourceY,frame.sourceX+frame.width,frame.sourceY+frame.height),
-                        Rect(frame.image.x,frame.image.y,frame.image.x+frame.width,frame.image.y+frame.height),null)
+                        Rect(frame.image.x+offset.first,frame.image.y+offset.second,frame.image.x+offset.first+frame.width,frame.image.y+offset.second+frame.height),itemPaint)
                 }
             }
             visuals?.drawInteractiveRiddleOverlay(canvas,interactive)
@@ -502,6 +505,7 @@ class SdaGameView(
     }
 
     private fun drawCampaignComplete(canvas: Canvas, camp: SdaCampaign) {
+        if(visuals?.drawCampaignComplete(canvas,camp)==true) return
         canvas.drawRect(0f, 0f, 800f, 600f, bgPaint)
         val box = Rect(100, 60, 700, 540)
         canvas.drawRect(box, cardPaint)
@@ -791,7 +795,9 @@ class SdaGameView(
         if(isPaused) { postInvalidateOnAnimation();return }
         val camp = campaign
         if (camp != null) {
+            val solvedBefore=(camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.isSolved==true
             camp.advance(seconds)
+            if(!solvedBefore && (camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.isSolved==true) onBonusInputListener?.invoke()
             (camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.let { game ->
                 game.controller.drainSounds().forEach { key -> visuals?.interactiveRiddleSound(game,key)?.let { onEffectListener?.invoke(it) } }
             }

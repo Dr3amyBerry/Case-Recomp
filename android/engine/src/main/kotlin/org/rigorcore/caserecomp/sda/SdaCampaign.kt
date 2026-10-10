@@ -240,6 +240,13 @@ class SdaCampaign(
         bonusGame=loaded;phase=SdaCampaignPhase.FINALE_3
     }
 
+    /** Completion requires the native interactive sequence and explicit final dialog acknowledgement. */
+    fun confirmInteractiveRiddleComplete() {
+        require(phase==SdaCampaignPhase.FINALE_3 && levelIndex==levels.lastIndex &&
+            (bonusGame as? SdaInteractiveRiddleGame)?.isSolved==true) { "interactive finale unfinished" }
+        bonusGame=null;currentSceneName=null;phase=SdaCampaignPhase.CAMPAIGN_COMPLETE
+    }
+
     fun requestHint(randomIndex:(Int)->Int):Boolean {
         if(phase!=SdaCampaignPhase.SCENE) return false
         val sc=currentScene ?: return false

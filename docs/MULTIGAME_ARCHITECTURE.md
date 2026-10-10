@@ -312,3 +312,6 @@ SdaInteractiveController/SdaInteractiveRiddleGame and SdaCampaign.interactiveRid
 
 
 Interactive-controller move and restartItem provide generic pointer/rearm contracts. Native reader/keypad coordinates, state machine, LED frame mapping and error/return durations remain entirely in games.vegas; its v2 checkpoint keeps legacy v1 readable. Android forwards touch/hover and draws original profile resources without changing Director/Huntsville.
+
+
+Native ending stages/timing/door coordinates and title images remain in games.vegas/VegasVisualProfile. SdaVisualProfile offers generic interactive opacity, item offset and campaign-complete drawing hooks; Director is untouched. SdaCampaign.confirmInteractiveRiddleComplete checks last level + solved native controller before clearing the active bonus and preserving a completed save. Android acknowledgement routes to the resource menu rather than deleting that save. v3 controller snapshots persist stage/alpha/movement; old v1/v2 are supported. Unverified final ranks/profile rewards remain separate pending title behavior.

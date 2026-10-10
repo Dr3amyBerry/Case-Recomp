@@ -47,6 +47,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
     }
    })
   }
+  val campaignFinished=campaign?.phase==SdaCampaignPhase.CAMPAIGN_COMPLETE
+  val finalMain=if(campaignFinished) main.copy(children=main.children.map { node ->
+   if(node.type=="allbutton" && node.number("value")==299) node.copy(attributes=node.attributes+mapOf("disabled" to "true")) else node
+  }) else main
   val backdrop=main.children.filter { it.type=="image" && it.attributes["id"]==null }
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
   var optionsReturn="mainmenuunderlay"
@@ -58,7 +62,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   fun show(id:String) {
    if(id=="mainmenuunderlay") { mainBackdrop=true;musicState.select(1);musicTracks["mainmenu"]?.let { audio?.playMusic(it,loop=true) } }
    if(id=="menudlg2") mainBackdrop=false
-   view.show(if(id=="mainmenuunderlay") main else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
+   view.show(if(id=="mainmenuunderlay") finalMain else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
   }
   fun cancelOptions() {
    optionsBefore?.let { (music,effects) -> audio?.setMusicVolume(music);audio?.setEffectsVolume(effects) };optionsBefore=null
@@ -82,7 +86,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    view.sliders.forEach { view.setSliderValue(it,if(it.number("typevalue")==1) optionsBefore!!.first else optionsBefore!!.second) }
    view.setCheckboxValue(view.checkboxes[1],checkNotNull(rapidBefore))
   }
-  view=SdaResourceMenuView(context,ui,main,textures,800,600) { value ->
+  view=SdaResourceMenuView(context,ui,finalMain,textures,800,600) { value ->
    val screen=view.screenId
    when {
     screen=="mainmenuunderlay" -> when(value) {
@@ -281,15 +285,32 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun interactiveRiddle(content:SdaContent,seed:Long,checkpoint:Map<String,Any?>?) =
   org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController.loadGame(content,seed,checkpoint)
  override fun interactiveRiddleSound(game:SdaInteractiveRiddleGame,key:String)=doc.component(game.controllerId).attributes[key]
+ override fun drawCampaignComplete(canvas:Canvas,campaign:SdaCampaign):Boolean {
+  ui.image(canvas,doc.component("thirdriddlenewspaper"));return true
+ }
+ override fun interactiveRiddleOpacity(game:SdaInteractiveRiddleGame)=(game.controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController).sceneOpacity
+ override fun interactiveRiddleItemOffset(game:SdaInteractiveRiddleGame,index:Int):Pair<Int,Int> {
+  val controller=game.controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
+  return (if(controller.items.definitions[index].name=="lock") controller.doorOffset else 0) to 0
+ }
+ private fun layer(canvas:Canvas,opacity:Float,draw:()->Unit) {
+  canvas.saveLayerAlpha(null,(opacity*255).toInt().coerceIn(0,255));try { draw() } finally { canvas.restore() }
+ }
  override fun drawInteractiveRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaInteractiveRiddleGame) {
   val controller=doc.component(game.controllerId)
+  val native=game.controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
+  layer(canvas,native.sceneOpacity) {
   base(canvas,campaign,campaign.clock)
   val visible=setOf("riddlebackground3","thirdriddleemptyclock","thirdriddlehourhand","thirdriddleminutehand","thirdriddleemptypda","thirdriddledoor")
-  controller.children.filter { it.type=="image" && it.attributes["id"] in visible }.forEach { ui.image(canvas,it) }
+  controller.children.filter { it.type=="image" && it.attributes["id"] in visible }.forEach {
+   ui.image(canvas,it,x=it.number("x")+if(it.attributes["id"]=="thirdriddledoor") native.doorOffset else 0)
+  }
   controller.children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
+  }
  }
  override fun drawInteractiveRiddleOverlay(canvas:Canvas,game:SdaInteractiveRiddleGame) {
   val controller=game.controller as? org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController ?: return
+  layer(canvas,controller.sceneOpacity) {
   val slot=doc.component("riddle3slotdisplay")
   val textures=slot.children.first { it.type=="container" }.children.filter { it.type=="image" }
   slot.children.filter { it.type=="image" }.forEachIndexed { i,node ->
@@ -308,6 +329,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   if(controller.fingerprintHeld || controller.fingerprintReturning)
    ui.image(canvas,doc.component("riddle3fingerprintimage"),controller.fingerprintX.toInt(),controller.fingerprintY.toInt())
+  }
+  if(controller.roomOpacity>0) layer(canvas,controller.roomOpacity) { ui.image(canvas,doc.component("thirdriddlemoneyroom")) }
+  if(controller.newspaperOpacity>0) layer(canvas,controller.newspaperOpacity) { ui.image(canvas,doc.component("thirdriddlenewspaper")) }
  }
  override fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? {
   val game=campaign.bonusGame
@@ -325,7 +349,15 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   if(!starting && !game.isSolved) return null
   val key=if(game is SdaInteractiveRiddleGame) { if(starting) "startdialog" else "completeddialog" }
    else if(starting) "startdialogcontainer" else "completedialog"
-  val container=doc.component(controller.attributes.getValue(key))
+  val original=doc.component(controller.attributes.getValue(key))
+  // Only the actual campaign points are available; native total breakdown and rank remain unverified.
+  var finalLine=0
+  val container=if(game is SdaInteractiveRiddleGame && !starting) original.copy(children=original.children.map { child ->
+   if(child.type=="label" && child.attributes["caption"].isNullOrEmpty()) {
+    finalLine++
+    if(finalLine==2) child.copy(attributes=child.attributes+mapOf("caption" to (doc.resolve(controller.attributes.getValue("totalscorecaption"))+" "+String.format(java.util.Locale.US,"%,d",campaign.points)))) else child
+   } else child
+  }) else original
   val expected=when(game) {
    is SdaInteractiveRiddleGame -> if(starting) 1018 else 1019
    is SdaSecondRiddleGame -> if(starting) 1016 else 1017

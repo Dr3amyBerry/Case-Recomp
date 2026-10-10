@@ -271,7 +271,7 @@ class SdaLauncherActivity : Activity() {
                 when(val game=camp.bonusGame) {
                     is org.rigorcore.caserecomp.sda.SdaFirstRiddleGame -> camp.continueFirstRiddle(content)
                     is org.rigorcore.caserecomp.sda.SdaSecondRiddleGame -> if(game.isSolved) camp.continueSecondRiddle(content) else game.start()
-                    is org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame -> game.controller.start()
+                    is org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame -> if(game.isSolved) camp.confirmInteractiveRiddleComplete() else game.controller.start()
                     else -> return@riddleDialog
                 }
                 confirmed=true;autoSave();view.invalidate();dialog.dismiss()
@@ -285,7 +285,7 @@ class SdaLauncherActivity : Activity() {
         dialog.setContentView(panel)
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave();if(confirmed) view.post { showRiddleDialog(view) } }
+        dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave();if(confirmed) view.post { if(camp.phase==SdaCampaignPhase.CAMPAIGN_COMPLETE) showResourceMenu(view,SdaMenuEntry.MAIN) else showRiddleDialog(view) } }
         dialog.setCancelable(true)
         hostMenu=dialog;dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
@@ -342,9 +342,7 @@ class SdaLauncherActivity : Activity() {
         }
 
         view.onCampaignCompletedListener = {
-            repository.clearCampaignCheckpoint()
-            Toast.makeText(this, "¡Campaña finalizada con éxito! Caso 100% resuelto.", Toast.LENGTH_LONG).show()
-            finish()
+            autoSave();showResourceMenu(view,SdaMenuEntry.MAIN)
         }
 
         view.onObjectFoundListener = { id, gain ->

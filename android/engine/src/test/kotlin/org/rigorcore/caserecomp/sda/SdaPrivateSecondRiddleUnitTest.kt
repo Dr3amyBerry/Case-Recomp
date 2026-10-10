@@ -129,6 +129,8 @@ class SdaPrivateSecondRiddleUnitTest {
    val thirdSave=camp.snapshot().toJson();camp.restore(SdaCampaignState.fromJson(thirdSave),content)
    assertEquals(thirdSave,camp.snapshot().toJson());assertFalse(camp.bonusGame!!.isSolved)
    assertThrows(UnsupportedOperationException::class.java) { camp.bonusGame!!.solve() }
+   assertThrows(IllegalArgumentException::class.java) { camp.confirmInteractiveRiddleComplete() }
+   assertEquals(thirdSave,camp.snapshot().toJson())
    println("PRIVATE SECOND RIDDLE: 8 real resource bindings, native pointer-relative destination tolerance, both boundary sides, reverse order, shuffled tray, held restore; no campaign/Android/animation claim")
   }
  }

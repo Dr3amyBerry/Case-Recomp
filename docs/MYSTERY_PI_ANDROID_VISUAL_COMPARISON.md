@@ -371,3 +371,8 @@ PARCIAL. Third entry/start dialogs, original wall/PDA/clock/door and 21 interact
 ### Third phase held print, reader and LED/keypad (2026-10-10)
 
 PARCIAL. Four new Android PixelCopy captures and original extracted LED atlas at local-output/vegas-fingerprint-keypad/comparison.html. Real tactile input places the print on the powered reader, rejects an invalid boundary, shows wrong-code error and accepts the live reel symbols, producing the original green unlock indicator. No equivalent Windows capture yet; door slide, moneyroom/newspaper, clock/pre-spin behavior and final completion remain pending. Full tests/limits/continuation addresses are in MYSTERY_PI_ANDROID_AUDIT.md.
+
+
+### Earned door, moneyroom, newspaper and native final menu (2026-10-10)
+
+PARCIAL: original resources and source-derived final sequence render and complete via WSA inputs. Six real window captures plus a clearly labelled derived transparent-dialog composition, source JPG comparisons and coverage at local-output/vegas-ending/comparison.html. Completed menu/activity reopen retains identical RGBA pixels and points. Equivalent Windows final-state capture, exact opacity composition, native score breakdown/rank/profile unlocks and full campaign E2E remain pending; no 100%-fidelity/Goal-completion claim. Tests, timing bounds, checkpoint versions and point PSS/bitmap samples are in MYSTERY_PI_ANDROID_AUDIT.md.

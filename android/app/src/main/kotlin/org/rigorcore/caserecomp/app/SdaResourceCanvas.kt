@@ -144,6 +144,9 @@ interface SdaVisualProfile {
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean=false)
  fun interactiveRiddle(content:SdaContent,seed:Long,checkpoint:Map<String,Any?>?):SdaInteractiveRiddleGame? = null
+ fun drawCampaignComplete(canvas:Canvas,campaign:SdaCampaign):Boolean = false
+ fun interactiveRiddleOpacity(game:SdaInteractiveRiddleGame):Float = 1f
+ fun interactiveRiddleItemOffset(game:SdaInteractiveRiddleGame,index:Int):Pair<Int,Int> = 0 to 0
  fun drawInteractiveRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaInteractiveRiddleGame) {}
  fun drawInteractiveRiddleOverlay(canvas:Canvas,game:SdaInteractiveRiddleGame) {}
  fun interactiveRiddleSound(game:SdaInteractiveRiddleGame,key:String):String? = null

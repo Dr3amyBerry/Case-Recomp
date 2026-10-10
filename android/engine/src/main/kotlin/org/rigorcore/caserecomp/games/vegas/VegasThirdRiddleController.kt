@@ -13,7 +13,17 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
  override var started=false;private set
  var reelsFinished=false;private set
  var blockedArm=false;private set
- override val isSolved=false // Native door/ending sequence has not been implemented; no synthetic victory.
+ var endingState=5;private set
+ var endingTime=0f;private set
+ var doorOffset=0;private set
+ private var doorFraction=0f
+ private var sceneAlpha=1f
+ private var roomAlpha=0f
+ private var paperAlpha=0f
+ val sceneOpacity get()=if(endingState in setOf(8,9,10,12,0)) sceneAlpha.coerceIn(0f,1f) else 1f
+ val roomOpacity get()=roomAlpha.coerceIn(0f,1f)
+ val newspaperOpacity get()=paperAlpha.coerceIn(0f,1f)
+ override val isSolved get()=endingState==0
  var fingerprintHeld=false;private set
  var fingerprintReturning=false;private set
  var fingerprintX=406f;private set
@@ -56,7 +66,7 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
    require(visible.size==4 && visible.all { it is Boolean });visible.forEachIndexed { i,value -> displayed[i]=value as Boolean }
    require(started || (!reelsFinished && !blockedArm && displayedSymbols.all { it==101 } && displayed.none { it }))
   }
-  if(checkpoint?.get("version")==2L || checkpoint?.get("version")==2) {
+  if(checkpoint!=null && checkpoint["version"] in setOf(2L,2,3L,3)) {
    fun flag(key:String)=checkpoint[key] as? Boolean ?: throw IllegalArgumentException("missing $key")
    fun time(key:String):Float {
     val v=checkpoint[key] as? Number ?: throw IllegalArgumentException("missing $key")
@@ -81,6 +91,17 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
    require(!fingerprintHeld || !fingerprintReturning)
    require(started || (!fingerprintHeld && !fingerprintReturning && !keypadEnabled && !keypadError && !doorOpening))
   } else require(checkpoint?.get("version")==null) { "unsupported controller checkpoint version" }
+  if(checkpoint!=null && checkpoint["version"] in setOf(3L,3)) {
+   fun number(key:String):Number=checkpoint[key] as? Number ?: throw IllegalArgumentException("missing $key")
+   fun scalar(key:String):Float=number(key).toFloat().also { require(it.isFinite() && it>=0) }
+   val stage=number("endingState");require(stage.toDouble()==stage.toInt().toDouble() && stage.toInt() in setOf(0,5,6,7,8,9,10,12))
+   endingState=stage.toInt();endingTime=scalar("endingTime")
+   val offset=number("doorOffset");require(offset.toDouble()==offset.toInt().toDouble() && offset.toInt() in 0..60);doorOffset=offset.toInt()
+   doorFraction=scalar("doorFraction");require(doorFraction<1f)
+   sceneAlpha=scalar("sceneAlpha");roomAlpha=scalar("roomAlpha");paperAlpha=scalar("paperAlpha")
+   require(sceneAlpha<=1f && roomAlpha<=1f && paperAlpha<=1f)
+   require(doorOpening==(endingState!=5)) { "ending state contradicts door callback" }
+  } else if(doorOpening) endingState=6 // Previously earned v2 unlock begins its unimplemented transition now.
   @Suppress("UNCHECKED_CAST")
   val saved=checkpoint?.let { it["items"] as? Map<String,Any?> ?: throw IllegalArgumentException("missing item checkpoint") }
   items=SdaInteractiveItems(definitions,saved,::completed,::blocked)
@@ -140,7 +161,8 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
  }
  override fun advance(seconds:Float) {
   require(seconds.isFinite() && seconds>=0)
-  if(!started || doorOpening) return
+  if(!started) return
+  if(doorOpening) { advanceEnding(seconds);return }
   if(fingerprintReturning) {
    returnTime+=seconds
    if(returnTime>.5f) {
@@ -159,6 +181,26 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
    if(errorTime>1.65f) { keypadError=false;errorTime=0f;entered.fill(101);ledsVisible=true }
   }
  }
+ /** 00432450 states 6..12: step movement is per native update, not invented pixels/second. */
+ private fun advanceEnding(seconds:Float) {
+  require((endingTime+seconds).isFinite())
+  when(endingState) {
+   6 -> if(seconds>0f) { endingState=7;endingTime=0f;sounds.add("doorsfx") }
+   7 -> {
+    endingTime+=seconds
+    val previousX=743+doorOffset
+    val distance=doorFraction+1.875f;val pixels=distance.toInt();doorFraction=distance-pixels;doorOffset+=pixels
+    if(previousX>800) { endingState=8;endingTime=0f;sceneAlpha=1f;roomAlpha=0f;sounds.add("finishsfx") }
+   }
+   8 -> {
+    endingTime+=seconds;sceneAlpha=(sceneAlpha-seconds).coerceAtLeast(0f);roomAlpha=(roomAlpha+seconds).coerceAtMost(1f)
+    if(endingTime>1f) { endingState=9;endingTime=0f;sceneAlpha=0f;roomAlpha=1f }
+   }
+   9 -> { endingTime+=seconds;if(endingTime>2f) { endingState=10;endingTime=0f } }
+   10 -> { endingTime+=seconds;paperAlpha=(paperAlpha+seconds).coerceAtMost(1f);if(endingTime>3f) { endingState=12;endingTime=0f;paperAlpha=1f } }
+   12 -> { endingTime+=seconds;if(endingTime>.7f) { endingState=0;endingTime=0f } }
+  }
+ }
  private fun blocked(machine:SdaInteractiveItems,index:Int,step:SdaInteractiveStep) {
   if(step.name=="slotarmblockedclick") {
    machine.advanceItem(id("slotarmblockedanimation"));blockedArm=true;sounds.add("slotarmnotfoundsfx")
@@ -172,7 +214,7 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
    "leveroff" -> sounds.add("leveronsfx")
    "fingerprintshouldbemoved" -> { fingerprintHeld=true;fingerprintX=406f;fingerprintY=243f }
    "keypadenabled" -> { keypadEnabled=true;inputIndex=0;entered.fill(101);sounds.add("fingerprintplacedsfx") }
-   "dooropen" -> { doorOpening=true }
+   "dooropen" -> { doorOpening=true;endingState=6;endingTime=0f }
    "coinempty" -> { machine.advanceItem(id("slotarm"));sounds.add("coinsfx") }
    "slotmachineoff" -> {
     listOf(7,6,4,0).forEachIndexed { i,symbol -> displayedSymbols[i]=symbol;displayed[i]=true }
@@ -190,7 +232,9 @@ class VegasThirdRiddleController(definitions:List<SdaInteractiveItemDefinition>,
   }
   return true
  }
- override fun state():Map<String,Any?> = mapOf("version" to 2L,"rng" to rng.state,
+ override fun state():Map<String,Any?> = mapOf("version" to 3L,"rng" to rng.state,
+  "endingState" to endingState,"endingTime" to endingTime.toDouble(),"doorOffset" to doorOffset,"doorFraction" to doorFraction.toDouble(),
+  "sceneAlpha" to sceneAlpha.toDouble(),"roomAlpha" to roomAlpha.toDouble(),"paperAlpha" to paperAlpha.toDouble(),
   "fingerprintHeld" to fingerprintHeld,"fingerprintReturning" to fingerprintReturning,"fingerprintX" to fingerprintX.toDouble(),"fingerprintY" to fingerprintY.toDouble(),
   "returnX" to returnX.toDouble(),"returnY" to returnY.toDouble(),"returnTime" to returnTime.toDouble(),
   "keypadEnabled" to keypadEnabled,"keypadError" to keypadError,"doorOpening" to doorOpening,"entered" to entered.toList(),"inputIndex" to inputIndex,

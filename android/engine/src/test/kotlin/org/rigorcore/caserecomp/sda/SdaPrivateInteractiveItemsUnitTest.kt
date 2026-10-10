@@ -76,6 +76,14 @@ class SdaPrivateInteractiveItemsUnitTest {
    code.drop(1).forEach { assertTrue(controller.enterSymbol(it)) }
    controller.advance(.126f);assertTrue(controller.doorOpening);assertFalse(controller.isSolved)
    assertFalse(controller.click(620,400))
+   assertEquals(6,controller.endingState);controller.advance(.016f);assertEquals(7,controller.endingState)
+   repeat(31) { controller.advance(.016f) };assertEquals(58,controller.doorOffset);assertEquals(7,controller.endingState)
+   controller.advance(.016f);assertEquals(8,controller.endingState);assertEquals(60,controller.doorOffset)
+   controller.advance(1f);assertEquals(8,controller.endingState);controller.advance(.001f);assertEquals(9,controller.endingState)
+   val room=controller.state();controller=VegasThirdRiddleController(definitions,0,room);assertEquals(room,controller.state())
+   controller.advance(2f);assertEquals(9,controller.endingState);controller.advance(.001f);assertEquals(10,controller.endingState)
+   controller.advance(3f);assertEquals(10,controller.endingState);controller.advance(.001f);assertEquals(12,controller.endingState)
+   controller.advance(.7f);assertFalse(controller.isSolved);controller.advance(.001f);assertTrue(controller.isSolved)
    assertThrows(IllegalArgumentException::class.java) { VegasThirdRiddleController(definitions,0,controller.state()+mapOf("rng" to -1L)) }
    println("PRIVATE THIRD CONTROLLER: original blocked arm, coin insertion, power, four reels, native RNG and mid-spin restore; fingerprint/keypad/ending not certified")
   }
