@@ -7,6 +7,18 @@ import org.rigorcore.caserecomp.sda.*
 class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
+ private val musicState=VegasMusicState()
+ private val musicTracks=doc.nodes("musictrack").associate { it.attributes.getValue("name") to it.attributes.getValue("audiostream") }
+ private val musicRequests=musicTracks.mapValues { SdaMusicRequest(it.value,true) }
+ override fun campaignMusic(phase:SdaCampaignPhase):SdaMusicRequest? {
+  val mode=when(phase) {
+   SdaCampaignPhase.MAP,SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE,SdaCampaignPhase.OBJECTS_COMPLETE -> 2
+   SdaCampaignPhase.BONUS,SdaCampaignPhase.LEVEL_COMPLETE -> 3
+   else -> 0 // Finale music is not mapped: XUI has no gamefinish stream.
+  }
+  val name=musicState.select(mode) ?: return null
+  return musicRequests[name]
+ }
  override fun audioSession(context:android.content.Context):SdaAudioSession {
   val sliders=doc.component("mainoptionsdlg").children.filter { it.type=="slider" }
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
@@ -38,7 +50,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   lateinit var view:SdaResourceMenuView
   var mainBackdrop=entry==SdaMenuEntry.MAIN
   fun show(id:String) {
-   if(id=="mainmenuunderlay") { mainBackdrop=true;audio?.playMusic("mainmenutrack") }
+   if(id=="mainmenuunderlay") { mainBackdrop=true;musicState.select(1);musicTracks["mainmenu"]?.let { audio?.playMusic(it,loop=true) } }
    if(id=="menudlg2") mainBackdrop=false
    view.show(if(id=="mainmenuunderlay") main else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
   }
@@ -64,14 +76,14 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    val screen=view.screenId
    when {
     screen=="mainmenuunderlay" -> when(value) {
-     299 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
+     299 -> onAction(SdaMenuAction.RESUME)
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
      30 -> openOptions(screen)
      else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
     screen=="menudlg2" -> when(value) {
-     215 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
+     215 -> onAction(SdaMenuAction.RESUME)
      80 -> show("mainmenuunderlay")
      34 -> openOptions(screen)
      209 -> {

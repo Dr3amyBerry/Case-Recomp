@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import org.rigorcore.caserecomp.sda.*
 import java.io.File
 
-/** Codec/reference test with authentic private audio. Not an audible or campaign UI acceptance test. */
+/** Private codec, adapter and real launcher-input checks. Not audible or full-campaign acceptance. */
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateAudioInstrumentationTest {
  @Test fun scene_found_and_missed_audio_follow_real_android_input() {
@@ -34,6 +34,15 @@ class SdaPrivateAudioInstrumentationTest {
     try { val handled=view.dispatchTouchEvent(event);if(action==android.view.MotionEvent.ACTION_DOWN) assertTrue(handled) } finally { event.recycle() }
    }
   }
+  fun awaitMusic(expected:String) {
+   val deadline=android.os.SystemClock.uptimeMillis()+3000
+   while(!audio.isMusicPlaying && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(20)
+   assertTrue("campaign music actually starts on Android",audio.isMusicPlaying)
+   assertEquals(expected,SdaAudioSession::class.java.getDeclaredField("musicId").apply { isAccessible=true }.get(audio))
+   val slot=SdaAudioSession::class.java.getDeclaredField("music").apply { isAccessible=true }.get(audio)!!
+   val player=slot.javaClass.getDeclaredField("player").apply { isAccessible=true }.get(slot) as MediaPlayer
+   assertTrue("native BASS stream looping is preserved",player.isLooping)
+  }
   fun awaitEffect(previous:Int,expected:String) {
    val deadline=android.os.SystemClock.uptimeMillis()+3000
    while(audio.effectsStarted<=previous && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(20)
@@ -52,6 +61,7 @@ class SdaPrivateAudioInstrumentationTest {
      val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==299 });click(menu,rect.centerX(),rect.centerY())
     }
     instrumentation.waitForIdleSync();android.os.SystemClock.sleep(200)
+    awaitMusic("eyespy2track")
     scenario.onActivity {
      val campaign=checkNotNull(game.campaign);assertEquals(SdaCampaignPhase.MAP,campaign.phase)
      val profile=checkNotNull(game.visuals)
@@ -59,6 +69,21 @@ class SdaPrivateAudioInstrumentationTest {
      click(game,point.first,point.second);assertEquals(SdaCampaignPhase.SCENE,campaign.phase)
     }
     instrumentation.waitForIdleSync()
+    awaitMusic("eyespy2track")
+    val playingSlot=SdaAudioSession::class.java.getDeclaredField("music").apply { isAccessible=true }.get(audio)
+    scenario.onActivity {
+     val rect=checkNotNull(game.visuals?.menuRect(checkNotNull(game.campaign)))
+     click(game,rect.centerX(),rect.centerY())
+    }
+    instrumentation.waitForIdleSync()
+    scenario.onActivity { activity ->
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+     val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+     val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==215 });click(menu,rect.centerX(),rect.centerY())
+    }
+    instrumentation.waitForIdleSync()
+    awaitMusic("eyespy2track")
+    assertSame("pause menu does not restart the investigation decoder",playingSlot,SdaAudioSession::class.java.getDeclaredField("music").apply { isAccessible=true }.get(audio))
     var started=audio.effectsStarted;var foundId=""
     scenario.onActivity {
      val scene=game.scene
@@ -328,6 +353,32 @@ class SdaPrivateAudioInstrumentationTest {
    val edit=prefs.edit();for(key in keys) before[key]?.let { edit.putString(key,it) } ?: edit.remove(key)
    assertTrue(edit.commit())
    for(key in keys) assertEquals(before[key],prefs.getString(key,null))
+  }
+ }
+
+ /** Adapter/decoder coverage only: does not advance or fake a campaign. */
+ @Test fun original_context_tracks_loop_through_bonus_and_back() {
+  val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext
+  val path=InstrumentationRegistry.getArguments().getString("privateAudioPackage")
+  assumeTrue(path!=null && File(path).isFile)
+  SdaContent.open(File(path!!),SdaImageDecoder { null }).use { content ->
+   val profile=VegasVisualProfile(content)
+   lateinit var audio:SdaAudioSession
+   instrumentation.runOnMainSync { audio=profile.audioSession(context);audio.setMusicVolume(0) }
+   try {
+    for((phase,id) in listOf(SdaCampaignPhase.MAP to "eyespy2track",SdaCampaignPhase.SCENE to "eyespy2track",
+     SdaCampaignPhase.BONUS to "minigametheme",SdaCampaignPhase.LEVEL_COMPLETE to "minigametheme",SdaCampaignPhase.MAP to "eyespy1track")) {
+     instrumentation.runOnMainSync {
+      val request=checkNotNull(profile.campaignMusic(phase));assertEquals(id,request.stream);assertTrue(request.loop)
+      audio.playMusic(request.stream,request.loop)
+     }
+     val deadline=android.os.SystemClock.uptimeMillis()+3000
+     while(!audio.isMusicPlaying && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(20)
+     assertTrue("original context stream starts: $id",audio.isMusicPlaying)
+    }
+    assertNull(profile.campaignMusic(SdaCampaignPhase.FINALE_1))
+   } finally { instrumentation.runOnMainSync { audio.close() } }
+   assertEquals(0,audio.activePlayers);assertEquals(0,audio.cachedFiles)
   }
  }
 

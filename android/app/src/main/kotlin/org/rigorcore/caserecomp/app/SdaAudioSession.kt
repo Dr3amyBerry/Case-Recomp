@@ -14,6 +14,7 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
  private val files=mutableMapOf<String,File>()
  private var music:Slot?=null
  private var musicId:String?=null
+ private var musicLoop:Boolean?=null
  private var paused=false
  var isClosed=false;private set
  var musicVolume=musicDefault.coerceIn(0,100);private set
@@ -29,10 +30,10 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
   val gain=(if(slot.music) musicVolume else effectsVolume)/100f
   slot.player.setVolume(gain,gain)
  }
- fun playMusic(id:String) {
-  if(isClosed || musicId==id) return
-  stopMusic();musicId=id
-  music=load("audiostream",id,true)
+ fun playMusic(id:String,loop:Boolean?=null) {
+  if(isClosed || (musicId==id && musicLoop==loop)) return
+  stopMusic();musicId=id;musicLoop=loop
+  music=load("audiostream",id,true,loop)
   if(music==null) musicId=null
  }
  fun stopMusic() { music?.let(::release);music=null;musicId=null }
@@ -42,7 +43,7 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
   if(slots.count { !it.music }>=8) return
   load("sfx",id,false)
  }
- private fun load(type:String,id:String,isMusic:Boolean):Slot? {
+ private fun load(type:String,id:String,isMusic:Boolean,loop:Boolean?=null):Slot? {
   val node=document.nodes(type).singleOrNull { it.attributes["id"]==id } ?: return null
   val uri=node.attributes["uri"] ?: return null
   var slot:Slot?=null
@@ -56,7 +57,7 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
    }
    val player=MediaPlayer();val entry=Slot(player,isMusic);slot=entry;slots.add(entry)
    file.inputStream().use { player.setDataSource(it.fd) }
-   player.isLooping=node.attributes["loop"]=="true"
+   player.isLooping=loop ?: (node.attributes["loop"]=="true")
    player.setOnPreparedListener {
     if(isClosed || entry !in slots) return@setOnPreparedListener
     entry.ready=true;volume(entry)

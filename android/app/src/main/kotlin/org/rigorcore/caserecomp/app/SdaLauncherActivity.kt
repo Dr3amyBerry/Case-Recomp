@@ -42,6 +42,8 @@ class SdaLauncherActivity : Activity() {
     private var gameView: SdaGameView? = null
     private var audioSession:SdaAudioSession? = null
     private var hostMenu: android.app.Dialog? = null
+    private var campaignMusicReady=false
+    private var lastMusicRequest:SdaMusicRequest?=null
     private var clock: SdaClock? = null
     private var isFrameLoopRunning = false
     private var lastFrameNanos: Long = 0L
@@ -56,6 +58,7 @@ class SdaLauncherActivity : Activity() {
                 val dt = ((frameTimeNanos - lastFrameNanos) / 1_000_000_000f).coerceIn(0.001f, 0.1f)
                 gameView?.step(dt)
             }
+            updateCampaignMusic()
             lastFrameNanos = frameTimeNanos
             android.view.Choreographer.getInstance().postFrameCallback(this)
         }
@@ -214,6 +217,16 @@ class SdaLauncherActivity : Activity() {
         }
     }
 
+    private fun updateCampaignMusic(force:Boolean=false) {
+        if(!campaignMusicReady || hostMenu!=null || isFinishing || isDestroyed) return
+        val phase=campaign?.phase ?: return
+        val audio=audioSession ?: return
+        val request=gameView?.visuals?.campaignMusic(phase)
+        if(!force && request==lastMusicRequest) return
+        lastMusicRequest=request
+        if(request==null) audio.stopMusic() else audio.playMusic(request.stream,request.loop)
+    }
+
     private fun showResourceMenu(view:SdaGameView,entry:SdaMenuEntry) {
         if(hostMenu?.isShowing==true) return
         view.pauseForMenu()
@@ -232,7 +245,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;audioSession?.stopMusic();view.resumeFromMenu() }
+            dialog.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true) }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
@@ -240,7 +253,7 @@ class SdaLauncherActivity : Activity() {
             val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
                 .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
                     if(item==1) { autoSave();finish() }
-                }.setOnDismissListener { hostMenu=null;audioSession?.stopMusic();view.resumeFromMenu() }.create()
+                }.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true) }.create()
             hostMenu=fallback;fallback.show()
         }
     }

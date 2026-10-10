@@ -118,7 +118,10 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
 enum class SdaMenuEntry { PAUSE, MAIN }
 
+data class SdaMusicRequest(val stream:String,val loop:Boolean)
+
 interface SdaVisualProfile {
+ fun campaignMusic(phase:SdaCampaignPhase):SdaMusicRequest? = null
  fun audioSession(context:android.content.Context):SdaAudioSession? = null
  fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?=null,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun sceneFeedback(found:Boolean):String? = null
