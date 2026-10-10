@@ -40,6 +40,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   } else SdaButtonState.NORMAL
  }
  private fun button(canvas:Canvas,node:SdaUiNode)=ui.button(canvas,node,state=buttonState(node))
+ override fun menuRect(campaign:SdaCampaign):Rect = ui.rect(doc.component("pdadownmenubutton"))
  override fun pauseRect(campaign:SdaCampaign):Rect? =
   if(campaign.phase in setOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE)) ui.rect(doc.component("pdadownpausebutton")) else null
  override fun drawPause(canvas:Canvas) {
@@ -52,13 +53,14 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private fun base(canvas:Canvas,c:SdaCampaign?,clock:SdaClock?) {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
-  ui.label(canvas,timer,doc.caption(timer),width=35)
-  ui.label(canvas,timer.copy(attributes=timer.attributes+mapOf("halign" to "left")),clock?.text().orEmpty(),x=timer.number("x")+35)
+  // User-requested Android layout: one centered clock line, separated from score.
+  ui.label(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),y=timer.number("y")-2)
+  button(canvas,doc.component("pdadownmenubutton"))
   button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")
   // 00453ee0 concatenates the caption and formatted value directly; 0048aad0
   // uses label width for alignment, without clipping glyphs to that rectangle.
-  ui.label(canvas,score,doc.caption(score)+String.format(java.util.Locale.US,"%,d",c?.points ?: 0),clipToBounds=false)
+  ui.label(canvas,score,doc.caption(score)+String.format(java.util.Locale.US,"%,d",c?.points ?: 0),y=score.number("y")+4,clipToBounds=false)
  }
  private fun levelLabel(canvas:Canvas,campaign:SdaCampaign) {
   // 004433d0 slot 0 formats the original caption as "%s: %d".
@@ -92,10 +94,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
   // The original hides objective captions while its pause overlay is active.
-  if(!paused) for(row in scene.targetPresentation()) {
+  if(!paused) for((slot,row) in scene.targetPresentation().withIndex()) {
    val attributes=definitions.getValue(row.objects).attributes
    val label=SdaUiNode("label",attributes+mapOf("halign" to "center","valign" to "middle"),emptyList())
-   ui.label(canvas,label,row.caption,y=label.number("y")+row.index*label.number("h"),opacity=row.alpha)
+   ui.label(canvas,label,row.caption,y=label.number("y")+slot*label.number("h"),opacity=row.alpha)
   }
   val total=doc.component("totalitems")
   ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
@@ -113,6 +115,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   // Anonymous overlay images are the shared native frame, not puzzle variants.
   overlay.children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it,photographic=true) }
   base(canvas,campaign,campaign.clock)
+  if(family=="jigsawgame") {
+   ui.image(canvas,doc.component("jigsawemptypdaimage"))
+   ui.image(canvas,doc.component("jigsawemptybottompdaimage"))
+  }
   val underlay=doc.component(family+"underlay")
   underlay.children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   underlay.children.filter { it.type=="label" && it.attributes["id"]==null }.forEach { ui.label(canvas,it) }
@@ -195,6 +201,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val emboss=tiles.document.component("overlay0")
   val shadow=if(rotation!=null) tiles.document.component("shadow0") else null
   val selection=tiles.document.component(if(swap!=null) "tile_selected" else "tile_select")
+  // 00457500 / 00459400 keep the full source photo active behind generated tiles.
+  // Retired pieces reveal that photo through the original dark frame, never a black hole.
+  ui.image(canvas,node,photographic=true)
+  val backdrop=tiles.document.component("tile_background_overlay")
+  tiles.frame(canvas,backdrop.copy(attributes=backdrop.attributes+mapOf("x" to ox.toString(),"y" to oy.toString())))
   // XUI shadows form a separate layer below all tiles and emboss overlays.
   shadow?.let { layer ->
    for(i in 0 until cols*rows) if(rotation!!.lockedTiles[i].not()) {

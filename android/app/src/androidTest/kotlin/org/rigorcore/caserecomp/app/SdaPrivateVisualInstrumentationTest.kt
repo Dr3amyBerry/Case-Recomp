@@ -19,6 +19,90 @@ import java.io.File
 /** Real device framebuffer captures; preparation uses normal campaign inputs, never forced states. */
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateVisualInstrumentationTest {
+ @Test fun launcher_menu_resume_and_saved_exit() {
+  val instrumentation=InstrumentationRegistry.getInstrumentation()
+  val context=instrumentation.targetContext
+  val path=InstrumentationRegistry.getArguments().getString("privateSdaPackage")
+  assumeTrue(path!=null && File(path).isFile)
+  val display=InstrumentationRegistry.getArguments().getString("visualDisplayId")?.toInt() ?: 0
+  val preferences=context.getSharedPreferences("case-recomp-sda",android.content.Context.MODE_PRIVATE)
+  val keys=listOf("active_campaign_checkpoint","session-checkpoint")
+  val saved=keys.associateWith { preferences.getString(it,null) }
+  try {
+   val intent=android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
+   ActivityScenario.launch<SdaLauncherActivity>(intent,android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle()).use { scenario ->
+    lateinit var shown:SdaGameView
+    fun find(view:android.view.View):SdaGameView? {
+     if(view is SdaGameView) return view
+     if(view is android.view.ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i))?.let { return it }
+     return null
+    }
+    scenario.onActivity { shown=checkNotNull(find(it.window.decorView)) }
+    fun clickMenu() {
+     scenario.onActivity { activity ->
+      val rect=checkNotNull(shown.visuals?.menuRect(checkNotNull(shown.campaign)))
+      val scale=minOf(shown.width/800f,shown.height/600f)
+      val x=(shown.width-800*scale)/2+rect.centerX()*scale;val y=(shown.height-600*scale)/2+rect.centerY()*scale
+      for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
+       val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,x,y,0)
+       try { assertTrue(shown.dispatchTouchEvent(event)) } finally { event.recycle() }
+      }
+     }
+     instrumentation.waitForIdleSync()
+    }
+    fun menu():android.app.AlertDialog {
+     lateinit var dialog:android.app.AlertDialog
+     scenario.onActivity { activity ->
+      val field=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }
+      dialog=field.get(activity) as android.app.AlertDialog
+     }
+     return dialog
+    }
+    clickMenu();val dialog=menu()
+    scenario.onActivity {
+     assertTrue(shown.isPaused)
+     assertEquals("Continuar partida",dialog.listView.adapter.getItem(0))
+     assertEquals("Guardar y volver al cat\u00e1logo",dialog.listView.adapter.getItem(1))
+    }
+    SystemClock.sleep(500)
+    lateinit var bitmap:Bitmap
+    lateinit var window:android.view.Window
+    scenario.onActivity { window=checkNotNull(dialog.window);bitmap=Bitmap.createBitmap(window.decorView.width,window.decorView.height,Bitmap.Config.ARGB_8888) }
+    val done=java.util.concurrent.CountDownLatch(1);var status=-1
+    android.view.PixelCopy.request(window,bitmap,{ status=it;done.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
+    assertTrue(done.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,status)
+    File(context.getExternalFilesDir(null),"vegas-host-menu.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
+    fun select(dialog:android.app.AlertDialog,index:Int) {
+     scenario.onActivity {
+      val list=dialog.listView;val child=list.getChildAt(index)
+      val x=list.width/2f;val y=child.top+child.height/2f
+      for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
+       val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,x,y,0)
+       try { list.dispatchTouchEvent(event) } finally { event.recycle() }
+      }
+     }
+     val deadline=SystemClock.uptimeMillis()+3000
+     while(dialog.isShowing && SystemClock.uptimeMillis()<deadline) { instrumentation.waitForIdleSync();SystemClock.sleep(50) }
+     assertFalse("menu selection must dismiss the real dialog",dialog.isShowing)
+     instrumentation.waitForIdleSync()
+    }
+    select(dialog,0)
+    scenario.onActivity { assertFalse(shown.isPaused) }
+    clickMenu();select(menu(),1)
+    val deadline=SystemClock.uptimeMillis()+3000
+    while(scenario.state!=androidx.lifecycle.Lifecycle.State.DESTROYED && SystemClock.uptimeMillis()<deadline) { instrumentation.waitForIdleSync();SystemClock.sleep(50) }
+    assertEquals(androidx.lifecycle.Lifecycle.State.DESTROYED,scenario.state)
+    val checkpoint=preferences.getString("active_campaign_checkpoint",null)
+    assertFalse(checkpoint.isNullOrBlank());SdaCampaignState.fromJson(checkpoint!!)
+   }
+  } finally {
+   val edit=preferences.edit()
+   for(key in keys) saved[key]?.let { edit.putString(key,it) } ?: edit.remove(key)
+   assertTrue(edit.commit())
+   for(key in keys) assertEquals("preserve preexisting checkpoint",saved[key],preferences.getString(key,null))
+  }
+ }
+
  @Test fun original_resources_map_scene_and_four_bonuses() {
   val instrumentation=InstrumentationRegistry.getInstrumentation()
   val path=InstrumentationRegistry.getArguments().getString("privateSdaPackage")
@@ -87,6 +171,7 @@ class SdaPrivateVisualInstrumentationTest {
      assertEquals("window surface capture failed",android.view.PixelCopy.SUCCESS,status)
      return bitmap
     }
+    var menuRequests=0
     lateinit var shown:SdaGameView
     fun touch(action:Int,x:Int,y:Int,buttons:Int=0) {
      scenario.onActivity {
@@ -103,6 +188,7 @@ class SdaPrivateVisualInstrumentationTest {
       val scene=campaign.scenes.values.firstOrNull() ?: content.loadScene("SCENE_${campaign.currentLevel.scenes.first().uppercase()}.MSL",8)
       val view=SdaGameView(activity,scene,campaign=campaign,visuals=profile)
       shown=view
+      view.onMenuListener={ menuRequests++ }
       activity.setContentView(view)
       view.onSceneSelectedListener={ selected -> view.scene=campaign.enterScene(selected,content);view.invalidate() }
       view.onReturnToMapListener={ campaign.toInvestigationMap();view.invalidate() }
@@ -130,15 +216,15 @@ class SdaPrivateVisualInstrumentationTest {
      if(name=="scene-row-retired") {
       // Capture real compositor frames until remaining row ink is visible, or fail.
       repeat(8) {
-       if(slots(screenshot).drop(1).any { it<=20 }) {
+       if(slots(screenshot).dropLast(1).any { it<=20 }) {
         screenshot.recycle();SystemClock.sleep(150)
         scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
         screenshot=captureWindow()
        }
       }
       val ink=slots(screenshot)
-      assertTrue("retired row still visible: $ink",ink.first()<5)
-      assertTrue("remaining row disappeared: $ink",ink.drop(1).all { it>20 })
+      assertTrue("remaining objectives must compact upward: $ink",ink.dropLast(1).all { it>20 })
+      assertTrue("last objective slot must clear: $ink",ink.last()<5)
      }
      if(name=="map") {
       val background=content.decodeImage("map_backgroundend.jpg")
@@ -176,6 +262,13 @@ class SdaPrivateVisualInstrumentationTest {
        assertTrue("original bonus frame missing in $name at $x,$y: $channels",channels.all { kotlin.math.abs(it)<=26 })
       }
      }
+     if(name=="jigsaw") {
+      for((uri,originY,y) in listOf(Triple("ui_empypda.jpg",88,200),Triple("ui_empybtmpda.jpg",340,400))) {
+       val expected=content.decodeImage(uri).getArgb(2,y-originY)
+       val actual=screenshot.getPixel((viewport.first+12.5f*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
+       for(shift in listOf(16,8,0)) assertTrue("Jigsaw PDA backing missing: $uri",kotlin.math.abs(((actual ushr shift) and 255)-((expected ushr shift) and 255))<=26)
+      }
+     }
      if(name=="wordsearch") {
       val game=campaign.bonusGame as SdaWordSearchGame
       val ink=(0 until game.cellWidth*game.cellHeight).count { point ->
@@ -196,6 +289,21 @@ class SdaPrivateVisualInstrumentationTest {
      scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
      SystemClock.sleep(500)
      val screenshot=captureWindow()
+     if(name=="rotation-retired" || name=="swap-retired") {
+      val rotation=campaign.bonusGame as? SdaTileRotGame
+      val swap=campaign.bonusGame as? SdaTileSwapGame
+      val cols=rotation?.cols ?: swap!!.cols;val rows=rotation?.rows ?: swap!!.rows
+      val locked=rotation?.lockedTiles ?: swap!!.lockedTiles
+      val i=locked.indexOfFirst { it };assertTrue(i>=0)
+      val photo=content.decodeImage("mini_${campaign.currentLevel.bonusImage}.jpg")
+      val sx=i%cols*612/cols+612/cols/2;val sy=i/cols*408/rows+408/rows/2
+      val location=IntArray(2);scenario.onActivity { shown.getLocationInWindow(location) }
+      val scale=minOf(shown.width/800f,shown.height/600f)
+      val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
+      val actual=screenshot.getPixel((ox+(172+sx+.5f)*scale).toInt(),(oy+((if(rotation!=null) 95 else 96)+sy+.5f)*scale).toInt())
+      val expected=photo.getArgb(sx,sy)
+      for(shift in listOf(16,8,0)) assertTrue("retired tile must reveal dimmed photo, not black",kotlin.math.abs(((actual ushr shift) and 255)-((expected ushr shift) and 255)*155f/255f)<26f)
+     }
      if(name=="scene-resumed") {
       val location=IntArray(2)
       scenario.onActivity { shown.getLocationInWindow(location) }
@@ -240,6 +348,14 @@ class SdaPrivateVisualInstrumentationTest {
      screenshot.recycle()
     }
     display("map")
+    val menu=profile.menuRect(campaign)
+    touch(MotionEvent.ACTION_DOWN,menu.centerX(),menu.centerY())
+    assertEquals(0,menuRequests)
+    touch(MotionEvent.ACTION_UP,menu.centerX(),menu.centerY())
+    assertEquals(1,menuRequests);assertTrue(shown.isPaused)
+    val menuClock=campaign.clock.elapsed
+    scenario.onActivity { shown.step(2f) };assertEquals(menuClock,campaign.clock.elapsed,0f)
+    scenario.onActivity { shown.resumeFromMenu() };assertFalse(shown.isPaused)
     val card=(0 until 600).asSequence().flatMap { y -> (0 until 800).asSequence().map { x -> x to y } }.first { (x,y) -> profile.sceneAt(campaign,x,y)==campaign.currentLevel.scenes.first() }
     touch(MotionEvent.ACTION_DOWN,card.first+20,card.second+20)
     assertEquals(SdaCampaignPhase.SCENE,campaign.phase)
@@ -373,6 +489,7 @@ class SdaPrivateVisualInstrumentationTest {
        touch(MotionEvent.ACTION_DOWN,172+i%game.cols*612/game.cols+1,96+i/game.cols*408/game.rows+1)
        if(!game.lockedTiles.any { it }) captureState("swap-selected")
        touch(MotionEvent.ACTION_DOWN,172+source%game.cols*612/game.cols+1,96+source/game.cols*408/game.rows+1)
+       if(game.lockedTiles.any { it } && !game.isSolved) captureState("swap-retired")
       }
       else -> fail("unexpected bonus")
      }

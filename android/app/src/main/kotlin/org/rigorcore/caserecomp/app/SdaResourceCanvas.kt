@@ -93,6 +93,7 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 interface SdaVisualProfile {
  fun pointer(x:Int?,y:Int?,pressed:Boolean) {}
+ fun menuRect(campaign:SdaCampaign):Rect? = null
  fun pauseRect(campaign:SdaCampaign):Rect? = null
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)

@@ -40,6 +40,7 @@ class SdaLauncherActivity : Activity() {
     private var scene: SdaScene? = null
     private var campaign: SdaCampaign? = null
     private var gameView: SdaGameView? = null
+    private var hostMenu: android.app.AlertDialog? = null
     private var clock: SdaClock? = null
     private var isFrameLoopRunning = false
     private var lastFrameNanos: Long = 0L
@@ -211,6 +212,19 @@ class SdaLauncherActivity : Activity() {
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
+        // Host navigation adapter; the original game's options/instructions dialogs remain pending.
+        view.onMenuListener = {
+            autoSave()
+            val dialog=android.app.AlertDialog.Builder(this)
+                .setTitle("Case-Recomp")
+                .setItems(arrayOf("Continuar partida", "Guardar y volver al catálogo")) { _, item ->
+                    if(item==1) { autoSave();finish() }
+                }
+                .setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
+                .create()
+            hostMenu=dialog
+            dialog.show()
+        }
         view.onPauseChangedListener = { autoSave() }
         view.onBonusInputListener = { autoSave() }
         view.onSceneSelectedListener = { sceneName ->
@@ -354,6 +368,8 @@ class SdaLauncherActivity : Activity() {
     }
 
     override fun onDestroy() {
+        hostMenu?.setOnDismissListener(null)
+        hostMenu?.dismiss();hostMenu=null
         isFrameLoopRunning = false
         android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
         content?.close()
