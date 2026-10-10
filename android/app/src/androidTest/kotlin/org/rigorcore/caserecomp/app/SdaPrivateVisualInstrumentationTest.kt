@@ -66,7 +66,7 @@ class SdaPrivateVisualInstrumentationTest {
      assertEquals(SdaCampaignPhase.OBJECTS_COMPLETE,campaign.phase)
     }
 
-   ActivityScenario.launch(HomeActivity::class.java).use { scenario ->
+   ActivityScenario.launch(HomeActivity::class.java, android.app.ActivityOptions.makeBasic().setLaunchDisplayId(0).toBundle()).use { scenario ->
     lateinit var shown:SdaGameView
     fun touch(action:Int,x:Int,y:Int,buttons:Int=0) {
      scenario.onActivity {
@@ -120,6 +120,17 @@ class SdaPrivateVisualInstrumentationTest {
      }
      if(name=="map") {
       val background=content.decodeImage("map_backgroundend.jpg")
+      // A cold WSA launch can expose the previous compositor frame after UI idle.
+      // Wait for the requested map, retaining the exact assertions below.
+      repeat(8) {
+       val expected=background.getArgb(750-144,100)
+       val actual=screenshot.getPixel((viewport.first+750.5f*viewport.third).toInt(),(viewport.second+100.5f*viewport.third).toInt())
+       if(listOf(16,8,0).any { shift -> kotlin.math.abs(((actual ushr shift) and 255)-((expected ushr shift) and 255))>26 }) {
+        screenshot.recycle();SystemClock.sleep(150)
+        scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
+        screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+       }
+      }
       for((x,y) in listOf(750 to 100,750 to 450,200 to 100)) {
        val expected=background.getArgb(x-144,y)
        val actual=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
@@ -133,6 +144,15 @@ class SdaPrivateVisualInstrumentationTest {
        android.graphics.Color.red(p)>160 && android.graphics.Color.green(p)>160 && android.graphics.Color.blue(p)>160
       } }
       assertTrue("original PDA level header missing: $levelInk",levelInk>100)
+     }
+     if(name in listOf("rotation","wordsearch","jigsaw","swap")) {
+      val background=content.decodeImage("minigame_background.jpg")
+      for((x,y) in listOf(750 to 550,200 to 550,750 to 25)) {
+       val expected=background.getArgb(x-144,y)
+       val actual=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
+       val channels=listOf(android.graphics.Color.red(actual)-android.graphics.Color.red(expected),android.graphics.Color.green(actual)-android.graphics.Color.green(expected),android.graphics.Color.blue(actual)-android.graphics.Color.blue(expected))
+       assertTrue("original bonus frame missing in $name at $x,$y: $channels",channels.all { kotlin.math.abs(it)<=26 })
+      }
      }
      if(name=="wordsearch") {
       val game=campaign.bonusGame as SdaWordSearchGame
@@ -154,12 +174,30 @@ class SdaPrivateVisualInstrumentationTest {
      scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
      SystemClock.sleep(500)
      val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     if(name=="scene-resumed") {
+      val location=IntArray(2)
+      scenario.onActivity { shown.getLocationOnScreen(location) }
+      val scale=minOf(shown.width/800f,shown.height/600f)
+      val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
+      val targetInk=(10 until 142).sumOf { x -> (120 until 320).count { y ->
+       val p=screenshot.getPixel((ox+(x+.5f)*scale).toInt(),(oy+(y+.5f)*scale).toInt())
+       val r=android.graphics.Color.red(p);val g=android.graphics.Color.green(p);val b=android.graphics.Color.blue(p)
+       r>40 && r>2*b && 2*g>3*b
+      } }
+      assertTrue("objective captions must return after resume: $targetInk",targetInk>100)
+     }
      if(name=="scene-paused") {
       val location=IntArray(2)
       scenario.onActivity { shown.getLocationOnScreen(location) }
       val scale=minOf(shown.width/800f,shown.height/600f)
       val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
       fun pixel(image:Bitmap,x:Int,y:Int)=image.getPixel((ox+(x+.5f)*scale).toInt(),(oy+(y+.5f)*scale).toInt())
+      val targetInk=(10 until 142).sumOf { x -> (120 until 320).count { y ->
+       val p=pixel(screenshot,x,y)
+       val r=android.graphics.Color.red(p);val g=android.graphics.Color.green(p);val b=android.graphics.Color.blue(p)
+       r>40 && r>2*b && 2*g>3*b
+      } }
+      assertEquals("original pause hides objective captions",0,targetInk)
       val ink=(150 until 800).sumOf { x -> (250 until 305).count { y ->
        val p=pixel(screenshot,x,y)
        android.graphics.Color.red(p)>190 && android.graphics.Color.green(p)>190 && android.graphics.Color.blue(p)>190
@@ -273,6 +311,19 @@ class SdaPrivateVisualInstrumentationTest {
        val rect=game.trayRectangles().first { it.id==id };val image=game.image(id,true)
        val pixel=(0 until image.width*image.height).first { image.getAlpha(it%image.width,it/image.width)==255 }
        touch(MotionEvent.ACTION_DOWN,rect.x+pixel%image.width,rect.y+pixel/image.width)
+       if(id==game.interaction.board.trayOrder.first()) {
+        val before=game.interaction.board.quarterTurns.getValue(id)
+        scenario.onActivity {
+         val properties=Array(2) { index -> MotionEvent.PointerProperties().apply { this.id=index;toolType=MotionEvent.TOOL_TYPE_FINGER } }
+         val coordinates=Array(2) { index -> MotionEvent.PointerCoords().apply { x=300f+index*30f;y=300f;pressure=1f;size=1f } }
+         for(action in listOf(MotionEvent.ACTION_POINTER_DOWN or (1 shl 8),MotionEvent.ACTION_POINTER_UP or (1 shl 8))) {
+          val event=MotionEvent.obtain(0,SystemClock.uptimeMillis(),action,2,properties,coordinates,0,0,1f,1f,0,0,android.view.InputDevice.SOURCE_TOUCHSCREEN,0)
+          try { assertTrue(shown.onTouchEvent(event)) } finally { event.recycle() }
+         }
+        }
+        assertNotEquals("two-finger adaptation must rotate held piece",before,game.interaction.board.quarterTurns.getValue(id))
+        assertEquals(id,game.interaction.board.selected)
+       }
        while(game.interaction.board.quarterTurns.getValue(id)!=0) touch(MotionEvent.ACTION_DOWN,0,0,MotionEvent.BUTTON_SECONDARY)
        val piece=game.interaction.board.pieces.getValue(id)
        touch(MotionEvent.ACTION_MOVE,piece.x+piece.width/2,piece.y+piece.height/2)

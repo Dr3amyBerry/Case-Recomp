@@ -80,14 +80,15 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val total=doc.component("totalitems");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
  }
  override fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String?=cards(campaign).firstOrNull { (n,p) -> Rect(p.first,p.second,p.first+n.number("w"),p.second+n.number("h")).contains(x,y) }?.first?.attributes?.get("name")
- override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?) {
+ override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean) {
   base(canvas,campaign,campaign?.clock ?: clock)
   campaign?.let { levelLabel(canvas,it) }
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
-  for(row in scene.targetPresentation()) {
+  // The original hides objective captions while its pause overlay is active.
+  if(!paused) for(row in scene.targetPresentation()) {
    val attributes=definitions.getValue(row.objects).attributes
    val label=SdaUiNode("label",attributes+mapOf("halign" to "center","valign" to "middle"),emptyList())
    ui.label(canvas,label,row.caption,y=label.number("y")+row.index*label.number("h"),opacity=row.alpha)
@@ -97,7 +98,26 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   button(canvas,doc.component("mapbutton"))
  }
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {
-  base(canvas,campaign,campaign.clock);button(canvas,doc.component("solvebutton"))
+  val family=when(campaign.bonusGame) {
+   is SdaTileRotGame -> "tilerotgame"
+   is SdaTileSwapGame -> "tilegame"
+   is SdaWordSearchGame -> "wordsearchgame"
+   is SdaJigsawGame -> "jigsawgame"
+   else -> return
+  }
+  val overlay=doc.component(family+"overlaymain")
+  // Anonymous overlay images are the shared native frame, not puzzle variants.
+  overlay.children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it,photographic=true) }
+  base(canvas,campaign,campaign.clock)
+  val underlay=doc.component(family+"underlay")
+  underlay.children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
+  underlay.children.filter { it.type=="label" && it.attributes["id"]==null }.forEach { ui.label(canvas,it) }
+  overlay.children.filter { it.type=="label" && it.attributes["caption"] in setOf(
+   "@ID_TILESWAP_HOWTOPLAY","@ID_TILEROT_HOWTOPLAY","@ID_WORDSEARCH_HOWTOPLAY","@ID_JIGSAW_HOWTOPLAY") }.forEach { ui.label(canvas,it) }
+  if(campaign.bonusGame is SdaTileRotGame || campaign.bonusGame is SdaTileSwapGame) {
+   ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
+  }
+  button(canvas,doc.component("solvebutton"))
  }
  private val wordCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean {

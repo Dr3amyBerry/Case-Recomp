@@ -193,7 +193,7 @@ class SdaGameView(
             }
         }
 
-        visuals?.let { it.drawHud(canvas,camp,scene,clock); return }
+        visuals?.let { it.drawHud(canvas,camp,scene,clock,isPaused); return }
 
         // 3. Draw sidebar / HUD at x: 0..142
         canvas.drawRect(0f, 0f, 142f, 600f, sidebarPaint)
@@ -367,9 +367,11 @@ class SdaGameView(
                 val left = board.heldLeft; val top = board.heldTop
                 if(left != null && top != null) canvas.drawBitmap(jigsawBitmap(bonus.image(id,false)),left.toFloat(),top.toFloat(),photoPaint)
             }
-            canvas.drawRect(10f,450f,140f,490f,buttonPaint)
-            canvas.drawText("GIRAR PIEZA",15f,475f,buttonTextPaint)
-            canvas.drawText("${board.placed.size}/${bonus.totalPieces}",15f,520f,textPaint)
+            if(visuals==null) {
+                canvas.drawRect(10f,450f,140f,490f,buttonPaint)
+                canvas.drawText("GIRAR PIEZA",15f,475f,buttonTextPaint)
+                canvas.drawText("${board.placed.size}/${bonus.totalPieces}",15f,520f,textPaint)
+            }
         } else if (bonus is SdaWordSearchGame) {
             val retired = bonus.foundWords.flatMap { bonus.board.placements.getValue(it) }.toSet()
             val selected = bonus.selectedCells
@@ -604,6 +606,15 @@ class SdaGameView(
         if (jigsawCamp?.phase == SdaCampaignPhase.BONUS && jigsaw != null) {
             val x = ((event.x-offsetX)/scale).toInt(); val y = ((event.y-offsetY)/scale).toInt()
             when (event.actionMasked) {
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    // Touch adaptation of native secondary-click rotation; keep the held piece.
+                    if(event.pointerCount==2 && jigsaw.interaction.board.selected!=null) {
+                        jigsawCamp.clickBonus(x,y,clockwise=true)
+                        onBonusInputListener?.invoke();invalidate()
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_POINTER_UP -> return true
                 MotionEvent.ACTION_UP -> return true // Native tap picks; the next primary tap drops.
                 MotionEvent.ACTION_MOVE, MotionEvent.ACTION_HOVER_MOVE -> {
                     if(jigsaw.movePixel(x,y)) onBonusInputListener?.invoke()
@@ -612,7 +623,7 @@ class SdaGameView(
                 MotionEvent.ACTION_DOWN -> if (listOfNotNull(jigsaw.arrowUp,jigsaw.arrowDown).any { x in it.x until it.x+it.width && y in it.y until it.y+it.height }) {
                     jigsawCamp.clickBonus(x,y)
                     onBonusInputListener?.invoke();invalidate();return true
-                } else if (x in 10 until 140 && y in 450 until 490) {
+                } else if (visuals==null && x in 10 until 140 && y in 450 until 490) {
                     jigsawCamp.clickBonus(x,y,clockwise=true)
                     onBonusInputListener?.invoke(); invalidate(); return true
                 }
