@@ -13,6 +13,17 @@ data class SdaXuiImage(
     val isEyeSpy: Boolean,
 )
 
+/** Resource-defined optional scene item, separate from ordinary target membership. */
+data class SdaXuiCollectible(
+    val id:String,
+    val kind:String,
+    val x:Int,
+    val y:Int,
+    val tex:String,
+    val imageIndex:Int,
+    val attributes:Map<String,String>,
+)
+
 data class SdaXuiSet(
     val objects: List<String>,
     val itemNameList: String,
@@ -24,6 +35,7 @@ data class SdaXuiDocument(
     val images: List<SdaXuiImage>,
     val eyeSpyImages: Map<String, SdaXuiImage>,
     val targetSets: List<SdaXuiSet>,
+    val collectibles:List<SdaXuiCollectible> = emptyList(),
 )
 
 /**
@@ -51,6 +63,7 @@ object SdaXui {
         val images = mutableListOf<SdaXuiImage>()
         val eyeSpyImages = mutableMapOf<String, SdaXuiImage>()
         val targetSets = mutableListOf<SdaXuiSet>()
+        val collectibles = mutableListOf<SdaXuiCollectible>()
 
         fun walk(node: Node) {
             if (node.nodeType == Node.ELEMENT_NODE) {
@@ -78,6 +91,15 @@ object SdaXui {
                             }
                             eyeSpyImages[id] = img
                         }
+                    }
+                    "chip", "key" -> {
+                        val attrs=(0 until element.attributes.length).associate { i ->
+                            element.attributes.item(i).let { it.nodeName to it.nodeValue }
+                        }
+                        val id=element.getAttribute("id").trim().ifEmpty { "collectible-$tag-${collectibles.size}" }
+                        require(collectibles.none { it.id==id }) { "duplicate collectible id: $id" }
+                        collectibles.add(SdaXuiCollectible(id,tag,parseCoord(element,"x"),parseCoord(element,"y"),
+                            element.getAttribute("tex").trim(),images.size,attrs))
                     }
                     "eyespyset" -> {
                         val objectsAttr = element.getAttribute("objects")
@@ -107,6 +129,10 @@ object SdaXui {
             }
         }
 
+        for(item in collectibles) {
+            require(item.tex.isNotEmpty() && item.tex in textures) { "collectible '${item.id}' references unknown texture '${item.tex}'" }
+        }
+
         // Validate eyespysets: must not be empty, must reference defined eyespyimages, no duplicates
         val seenSets = mutableSetOf<List<String>>()
         for (set in targetSets) {
@@ -123,6 +149,6 @@ object SdaXui {
             }
         }
 
-        return SdaXuiDocument(textures, images, eyeSpyImages, targetSets)
+        return SdaXuiDocument(textures, images, eyeSpyImages, targetSets, collectibles)
     }
 }

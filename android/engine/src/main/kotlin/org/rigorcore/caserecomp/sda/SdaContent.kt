@@ -106,6 +106,11 @@ class SdaContent private constructor(
             }
         }
 
+        val collectibles=doc.collectibles.map { item ->
+            val image=getImage(doc.textures.getValue(item.tex).uri)
+            SdaImageBudget.check(image.width,image.height)
+            SdaSceneCollectible(item,SdaSprite(item.id,item.x,item.y,image))
+        }
         val captionsMap = mutableMapOf<List<String>, List<String>>()
         val targetSets = doc.targetSets.map { set ->
             val resolvedList = SdaStrings.resolve(set.itemNameList, strings).split(',').map { it.trim() }
@@ -123,6 +128,7 @@ class SdaContent private constructor(
             historyVariant = historyVariant,
             prunePreviousHistory = prunePreviousHistory,
             drawOrder = drawOrder,
+            collectibles = collectibles,
         )
     }
 

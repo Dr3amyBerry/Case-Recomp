@@ -220,6 +220,8 @@ data class SdaSceneState(
  * - History marks recording, replaying, and pruning.
  * - Complete state snapshot and restoration.
  */
+data class SdaSceneCollectible(val definition:SdaXuiCollectible,val sprite:SdaSprite)
+
 class SdaScene(
     val objects: Map<String, SdaSprite>,
     val targetSets: List<List<String>>,
@@ -230,6 +232,7 @@ class SdaScene(
     historyVariant: Int? = null,
     prunePreviousHistory: Boolean = false,
     val drawOrder: List<SdaSprite> = objects.values.toList(),
+    val collectibles:List<SdaSceneCollectible> = emptyList(),
 ) {
     val sceneIdentity: String = name.substringBeforeLast('.').removePrefix("SCENE_").lowercase()
     val score = SdaScore()
