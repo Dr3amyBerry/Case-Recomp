@@ -684,7 +684,8 @@ class SdaGameView(
                     }
                     SdaCampaignPhase.BONUS -> {
                         // Solve button (580..770, 530..575)
-                        if ((visuals?.solveRect ?: Rect(580,530,771,576)).contains(logicalX,logicalY)) {
+                        val solveBounds=if(visuals==null) Rect(580,530,771,576) else visuals!!.bonusSolveRect(camp)
+                        if (solveBounds?.contains(logicalX,logicalY)==true) {
                             camp.solveBonus()
                             onBonusInputListener?.invoke()
                             invalidate()

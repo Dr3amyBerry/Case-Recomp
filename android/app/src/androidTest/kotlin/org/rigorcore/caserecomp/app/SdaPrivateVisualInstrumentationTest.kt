@@ -78,6 +78,7 @@ class SdaPrivateVisualInstrumentationTest {
      }
     }
     fun display(name:String) {
+     if(name in setOf("rotation","wordsearch","jigsaw","swap")) assertNull(profile.bonusSolveRect(campaign))
      scenario.onActivity { activity ->
       val scene=campaign.scenes.values.firstOrNull() ?: content.loadScene("SCENE_${campaign.currentLevel.scenes.first().uppercase()}.MSL",8)
       val view=SdaGameView(activity,scene,campaign=campaign,visuals=profile)

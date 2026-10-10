@@ -97,6 +97,7 @@ interface SdaVisualProfile {
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean=false)
+ fun bonusSolveRect(campaign:SdaCampaign):Rect? = solveRect
  fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign)
  fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean = false
  fun drawTileBonus(canvas:Canvas,campaign:SdaCampaign):Boolean

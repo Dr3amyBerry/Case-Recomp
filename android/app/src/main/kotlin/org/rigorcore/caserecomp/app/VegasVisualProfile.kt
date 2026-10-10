@@ -12,6 +12,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val selected=Paint().apply { color=Color.YELLOW;style=Paint.Style.STROKE;strokeWidth=2f }
  override val returnMapRect get()=ui.rect(doc.component("mapbutton"))
  override val solveRect get()=ui.rect(doc.component("solvebutton"))
+ // 0046ac50 registers slot 2; 00410300 hides it on bonus entry.
+ override fun bonusSolveRect(campaign:SdaCampaign):Rect? = null
  private val layouts=listOf(
   listOf(378 to 211),listOf(278 to 211,477 to 211),listOf(379 to 133,282 to 293,480 to 293),
   listOf(278 to 131,477 to 131,278 to 291,477 to 291),
@@ -117,7 +119,6 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   if(campaign.bonusGame is SdaTileRotGame || campaign.bonusGame is SdaTileSwapGame) {
    ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
   }
-  button(canvas,doc.component("solvebutton"))
  }
  private val wordCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean {
