@@ -304,3 +304,8 @@ SdaPlacementRiddleGame extrae el controlador existente de bandeja, puntero y che
 ### SDA interactive-item graph (2026-10-10)
 
 SdaInteractiveResources reads original item/image/step declarations through bounded SdaXml/SdaContent. SdaInteractiveItems owns reusable alpha input, timing, condition flags, frames and per-item checkpoints; completion/blocked callbacks are injected by the caller. Commercial names, code generation and finale transitions must stay in a separate title adapter. The interpreter is verified as an engine component; no Android third-controller integration or campaign victory is implied. Director/Huntsville remains unchanged.
+
+
+### Interactive native finale adapter (2026-10-10)
+
+SdaInteractiveController/SdaInteractiveRiddleGame and SdaCampaign.interactiveRiddleFactory inject title behavior without game IDs in SDA. The generic graph offers callback-directed rewind and eligibility predicates, preserving flags and frame timing. Android draws native pixel sources/atlas rectangles and delegates base/overlay/dialog/audio bindings to SdaVisualProfile. games.vegas.VegasThirdRiddleController alone owns recovered slot/coin/blocked-arm callbacks and symbol/RNG state; VegasVisualProfile alone owns ENVS controller IDs and graphical layers. Second-to-third loading and restore resolve/validate before campaign mutation. No hypothetical completion/reward is introduced: the third adapter stays unsolved until authentic ending behavior is implemented. Director/Huntsville code is unchanged by this block.

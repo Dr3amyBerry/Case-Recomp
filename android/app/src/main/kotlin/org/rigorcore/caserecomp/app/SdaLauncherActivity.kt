@@ -135,7 +135,7 @@ class SdaLauncherActivity : Activity() {
                 val levels = SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null)
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } })
                 campaign = camp
 
                 // Restore campaign checkpoint if saved
@@ -270,7 +270,8 @@ class SdaLauncherActivity : Activity() {
             try {
                 when(val game=camp.bonusGame) {
                     is org.rigorcore.caserecomp.sda.SdaFirstRiddleGame -> camp.continueFirstRiddle(content)
-                    is org.rigorcore.caserecomp.sda.SdaSecondRiddleGame -> game.start()
+                    is org.rigorcore.caserecomp.sda.SdaSecondRiddleGame -> if(game.isSolved) camp.continueSecondRiddle(content) else game.start()
+                    is org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame -> game.controller.start()
                     else -> return@riddleDialog
                 }
                 confirmed=true;autoSave();view.invalidate();dialog.dismiss()
@@ -301,6 +302,7 @@ class SdaLauncherActivity : Activity() {
             }
         }
         view.onPauseChangedListener = { autoSave() }
+        view.onEffectListener = { id -> audioSession?.playEffect(id) }
         view.onBonusInputListener = { autoSave();view.post { showRiddleDialog(view) } }
         view.onSceneSelectedListener = { sceneName ->
             val camp = campaign

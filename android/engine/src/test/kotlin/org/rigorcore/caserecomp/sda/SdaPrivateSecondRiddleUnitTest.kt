@@ -79,7 +79,7 @@ class SdaPrivateSecondRiddleUnitTest {
    assertThrows(UnsupportedOperationException::class.java) { game.solve() }
    val earned=File(file.parentFile,"sda-earned-first-riddle.json")
    assertTrue("earned first-riddle entry checkpoint required",earned.isFile)
-   val camp=SdaCampaign(SdaLevels.parse(content.read("LEVELS_1.XUI")!!),firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"),secondRiddle=SdaRiddleBinding("ENVS.MSE","secondriddle"))
+   val camp=SdaCampaign(SdaLevels.parse(content.read("LEVELS_1.XUI")!!),firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"),secondRiddle=SdaRiddleBinding("ENVS.MSE","secondriddle"),interactiveRiddleFactory={ c,seed,cp -> org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController.loadGame(c,seed,cp) })
    camp.restore(SdaCampaignState.fromJson(earned.readText()),content)
    val before=camp.snapshot().toJson()
    assertThrows(IllegalArgumentException::class.java) { camp.continueFirstRiddle(content) }
@@ -108,6 +108,27 @@ class SdaPrivateSecondRiddleUnitTest {
    (camp.bonusGame as SdaSecondRiddleGame).start()
    val ready=camp.snapshot().toJson();camp.restore(SdaCampaignState.fromJson(ready),content)
    assertEquals(ready,camp.snapshot().toJson())
+   val second=camp.bonusGame as SdaSecondRiddleGame
+   val beforeSecond=camp.snapshot().toJson()
+   assertThrows(IllegalArgumentException::class.java) { camp.continueSecondRiddle(content) }
+   assertEquals(beforeSecond,camp.snapshot().toJson())
+   for(piece in second.definition.pieces) {
+    while(second.interaction.cells().none { it.id==piece.id }) {
+     val key=if(second.interaction.board.available.indexOf(piece.id)<second.interaction.firstVisible) "up" else "down"
+     val arrow=second.arrowRect(key)!!;assertTrue(camp.clickBonus(arrow.x+1,arrow.y+1))
+    }
+    val cell=second.interaction.cells().first { it.id==piece.id };assertTrue(camp.clickBonus(cell.x+1,cell.y+1))
+    val target=second.definition.destinations.getValue(piece.id);val image=second.images.getValue(piece.id)
+    assertTrue(camp.clickBonus(144+target.x.toInt()+image.width/2,target.y.toInt()+image.height/2))
+   }
+   assertTrue(second.isSolved);camp.continueSecondRiddle(content)
+   assertEquals(SdaCampaignPhase.FINALE_3,camp.phase);assertEquals(score,camp.points)
+   val third=camp.bonusGame as SdaInteractiveRiddleGame
+   assertFalse(third.controller.started);third.controller.start()
+   camp.advance(.126f)
+   val thirdSave=camp.snapshot().toJson();camp.restore(SdaCampaignState.fromJson(thirdSave),content)
+   assertEquals(thirdSave,camp.snapshot().toJson());assertFalse(camp.bonusGame!!.isSolved)
+   assertThrows(UnsupportedOperationException::class.java) { camp.bonusGame!!.solve() }
    println("PRIVATE SECOND RIDDLE: 8 real resource bindings, native pointer-relative destination tolerance, both boundary sides, reverse order, shuffled tray, held restore; no campaign/Android/animation claim")
   }
  }

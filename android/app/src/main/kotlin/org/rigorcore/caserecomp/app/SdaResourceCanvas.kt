@@ -143,6 +143,10 @@ interface SdaVisualProfile {
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean=false)
+ fun interactiveRiddle(content:SdaContent,seed:Long,checkpoint:Map<String,Any?>?):SdaInteractiveRiddleGame? = null
+ fun drawInteractiveRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaInteractiveRiddleGame) {}
+ fun drawInteractiveRiddleOverlay(canvas:Canvas,game:SdaInteractiveRiddleGame) {}
+ fun interactiveRiddleSound(game:SdaInteractiveRiddleGame,key:String):String? = null
  fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? = null
  fun drawRiddleDecorations(canvas:Canvas,game:SdaPlacementRiddleGame) {}
  fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean = false

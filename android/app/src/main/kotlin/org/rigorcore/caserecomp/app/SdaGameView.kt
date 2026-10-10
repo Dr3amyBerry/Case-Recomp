@@ -73,6 +73,7 @@ class SdaGameView(
     private val animPlaceholderPaint = Paint().apply { color = 0xFFE8B84A.toInt() }
     private val overlayPaint = Paint().apply { color = 0xCC000000.toInt() }
 
+    var onEffectListener:((String)->Unit)?=null
     var onObjectFoundListener: ((String, Int) -> Unit)? = null
     var onMissListener: ((Boolean) -> Unit)? = null
     var onSceneCompleteListener: (() -> Unit)? = null
@@ -441,6 +442,20 @@ class SdaGameView(
 
     private fun drawFinale(canvas: Canvas, camp: SdaCampaign) {
         canvas.drawRect(0f,0f,800f,600f,bgPaint)
+        val interactive=camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame
+        if(interactive!=null) {
+            visuals?.drawInteractiveRiddleBase(canvas,camp,interactive)
+            interactive.controller.items.definitions.indices.filter(interactive.controller::visible).forEach { index ->
+                val frame=interactive.controller.items.frame(index)
+                frame.image.pixels?.let { source ->
+                    val bitmap=jigsawBitmap(source)
+                    canvas.drawBitmap(bitmap,Rect(frame.sourceX,frame.sourceY,frame.sourceX+frame.width,frame.sourceY+frame.height),
+                        Rect(frame.image.x,frame.image.y,frame.image.x+frame.width,frame.image.y+frame.height),null)
+                }
+            }
+            visuals?.drawInteractiveRiddleOverlay(canvas,interactive)
+            return
+        }
         val game=camp.bonusGame as? SdaPlacementRiddleGame
         if(game==null) {
             canvas.drawText("Desenlace heredado: controlador no compatible",40f,50f,textPaint)
@@ -607,6 +622,15 @@ class SdaGameView(
                 return true
             }
         }
+        val interactiveCamp=campaign
+        val interactive=interactiveCamp?.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame
+        if(interactiveCamp?.phase==SdaCampaignPhase.FINALE_3 && interactive!=null) {
+            if(event.actionMasked==MotionEvent.ACTION_DOWN && event.buttonState and MotionEvent.BUTTON_SECONDARY==0) {
+                interactiveCamp.clickBonus(((event.x-offsetX)/scale).toInt(),((event.y-offsetY)/scale).toInt())
+                onBonusInputListener?.invoke()
+            }
+            invalidate();return true
+        }
         val riddleCamp=campaign
         val riddle=riddleCamp?.bonusGame as? SdaPlacementRiddleGame
         if(riddleCamp?.phase in setOf(SdaCampaignPhase.FINALE_1,SdaCampaignPhase.FINALE_2) && riddle!=null) {
@@ -764,6 +788,9 @@ class SdaGameView(
         val camp = campaign
         if (camp != null) {
             camp.advance(seconds)
+            (camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.let { game ->
+                game.controller.drainSounds().forEach { key -> visuals?.interactiveRiddleSound(game,key)?.let { onEffectListener?.invoke(it) } }
+            }
             if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE || camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
                 onSceneCompleteListener?.invoke()
             }

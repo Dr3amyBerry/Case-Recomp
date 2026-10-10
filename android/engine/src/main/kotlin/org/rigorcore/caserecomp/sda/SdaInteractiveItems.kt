@@ -73,6 +73,11 @@ class SdaInteractiveItems(val definitions:List<SdaInteractiveItemDefinition>,che
   val state=items[item];if(state.index+1>=definitions[item].steps.size) return false
   state.completed[state.index]=true;state.index++;state.elapsed[state.index]=0f;return true
  }
+ /** Controller-directed rewind preserves completed/interactive flags, as native callbacks do. */
+ fun rewindItem(item:Int,index:Int) {
+  require(index in definitions[item].steps.indices)
+  items[item].index=index;items[item].elapsed[index]=0f
+ }
  fun frame(item:Int):SdaInteractiveFrame {
   val step=definitions[item].steps[items[item].index];val image=definitions[item].images[step.imageIndex]
   val width=if(step.frameWidth==-1) image.width else step.frameWidth
@@ -91,21 +96,21 @@ class SdaInteractiveItems(val definitions:List<SdaInteractiveItemDefinition>,che
   if(move) advanceItem(item)
   state.completed[old]=result
  }
- fun click(x:Int,y:Int):Boolean {
+ fun click(x:Int,y:Int,eligible:(Int)->Boolean={true}):Boolean {
   var handled=false
   definitions.indices.forEach { i ->
    val state=items[i];val old=state.index;val steps=definitions[i].steps
-   if(state.interactive[old] && hit(i,x,y)) {
+   if(eligible(i) && state.interactive[old] && hit(i,x,y)) {
     if(old+1<steps.size && !conditionAllows(steps[old+1])) onBlocked(this,i,steps[old])
     else { finish(i,old+1<steps.size);state.interactive[old]=false;handled=true }
    }
   }
   return handled
  }
- fun advance(seconds:Float) {
+ fun advance(seconds:Float,eligible:(Int)->Boolean={true}) {
   require(seconds.isFinite() && seconds>=0)
   require(items.all { (it.elapsed[it.index]+seconds).isFinite() })
-  definitions.indices.forEach { i ->
+  definitions.indices.filter(eligible).forEach { i ->
    val state=items[i];val current=state.index;val steps=definitions[i].steps;val step=steps[current]
    state.elapsed[current]+=seconds
    if(state.elapsed[current]>step.frameTime && !state.interactive[current]) {

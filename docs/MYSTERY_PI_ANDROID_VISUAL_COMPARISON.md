@@ -361,3 +361,8 @@ Por petici?n humana, tiempo, etiqueta de puntuaci?n y cifra utilizan escala 0.45
 ### Segunda fase jugable desde la primera (2026-10-10)
 
 PARCIAL: di?logos originales, ocho colocaciones Android, checkpoint de pieza sostenida y salida con guardado. Atlas de reloj de arena/palanca corregidos con fotogramas nativos; comparaci?n alineada contra recurso extra?do verificada, referencia Windows pendiente. Informe y siete capturas PixelCopy reales en local-output/vegas-second-riddle/comparison.html; matriz coverage.json. V?ase el bloque correspondiente en MYSTERY_PI_ANDROID_AUDIT.md para pruebas, memoria, SHA de APK, fallos conservados y funciones de continuaci?n. Tercera fase y validaci?n integral pendientes.
+
+
+### Third phase original composition and earned reel code (2026-10-10)
+
+PARCIAL. Third entry/start dialogs, original wall/PDA/clock/door and 21 interactive-item frames now render in Android. Real inputs operate hammer/hourglass/scale/reader and power/coin/arm/reels, with activity reopen retaining the same visible code. Six real PixelCopy captures, an extracted-background reference, explicit coverage and navigable report: local-output/vegas-third-riddle/comparison.html. Restored versus pre-close RGBA pixels are identical at the same viewport; this proves that one visual restore state, not Windows fidelity. No equivalent Windows third-phase capture yet. Fingerprint, clock interaction, keypad/LED, opening/end transitions and third performance validation remain pending. Tests, APK hash, initial capture failure and exact continuation functions are recorded in MYSTERY_PI_ANDROID_AUDIT.md.

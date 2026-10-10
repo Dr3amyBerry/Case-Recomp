@@ -278,20 +278,49 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
   }
  }
- override fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? {
-  val game=campaign.bonusGame as? SdaPlacementRiddleGame ?: return null
+ override fun interactiveRiddle(content:SdaContent,seed:Long,checkpoint:Map<String,Any?>?) =
+  org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController.loadGame(content,seed,checkpoint)
+ override fun interactiveRiddleSound(game:SdaInteractiveRiddleGame,key:String)=doc.component(game.controllerId).attributes[key]
+ override fun drawInteractiveRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaInteractiveRiddleGame) {
   val controller=doc.component(game.controllerId)
-  val starting=(game as? SdaSecondRiddleGame)?.started==false
+  base(canvas,campaign,campaign.clock)
+  val visible=setOf("riddlebackground3","thirdriddleemptyclock","thirdriddlehourhand","thirdriddleminutehand","thirdriddleemptypda","thirdriddledoor")
+  controller.children.filter { it.type=="image" && it.attributes["id"] in visible }.forEach { ui.image(canvas,it) }
+  controller.children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
+ }
+ override fun drawInteractiveRiddleOverlay(canvas:Canvas,game:SdaInteractiveRiddleGame) {
+  val controller=game.controller as? org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController ?: return
+  val slot=doc.component("riddle3slotdisplay")
+  val textures=slot.children.first { it.type=="container" }.children.filter { it.type=="image" }
+  slot.children.filter { it.type=="image" }.forEachIndexed { i,node ->
+   if(controller.symbolVisible(i)) ui.image(canvas,node.copy(attributes=node.attributes+mapOf("tex" to textures[controller.symbols[i]].attributes.getValue("tex"))))
+  }
+ }
+ override fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? {
+  val game=campaign.bonusGame
+  val controllerId=when(game) {
+   is SdaPlacementRiddleGame -> game.controllerId
+   is SdaInteractiveRiddleGame -> game.controllerId
+   else -> return null
+  }
+  val controller=doc.component(controllerId)
+  val starting=when(game) {
+   is SdaSecondRiddleGame -> !game.started
+   is SdaInteractiveRiddleGame -> !game.controller.started
+   else -> false
+  }
   if(!starting && !game.isSolved) return null
-  val container=doc.component(controller.attributes.getValue(if(starting) "startdialogcontainer" else "completedialog"))
-  val enabled=starting || game is SdaFirstRiddleGame
-  val node=if(enabled) container else container.copy(children=container.children.map { child ->
-   if(child.type=="allbutton") child.copy(attributes=child.attributes+mapOf("disabled" to "true")) else child
-  })
-  val expected=if(starting) 1016 else 1015 // Original global event dispatch 00412300.
-  return SdaResourceMenuView(context,ui,node,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+  val key=if(game is SdaInteractiveRiddleGame) { if(starting) "startdialog" else "completeddialog" }
+   else if(starting) "startdialogcontainer" else "completedialog"
+  val container=doc.component(controller.attributes.getValue(key))
+  val expected=when(game) {
+   is SdaInteractiveRiddleGame -> if(starting) 1018 else 1019
+   is SdaSecondRiddleGame -> if(starting) 1016 else 1017
+   else -> 1015
+  }
+  return SdaResourceMenuView(context,ui,container,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
    "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
-   if(enabled && action==expected) onConfirm()
+   if(action==expected) onConfirm()
   }
  }
  override fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean {

@@ -157,9 +157,8 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
      assertEquals(8,second.interaction.board.placed.size);assertTrue(second.isSolved)
      assertEquals(originalPoints,camp.points);assertEquals(SdaCampaignPhase.FINALE_2,camp.phase)
      val view=panel(activity);assertEquals("riddlesdialogcompletecontainer2",view.screenId)
-     assertEquals("true",view.buttons.single().attributes["disabled"])
-     val rect=view.buttonBounds(view.buttons.single());click(view,rect.centerX(),rect.centerY())
-     assertEquals(SdaCampaignPhase.FINALE_2,camp.phase)
+     assertFalse(view.buttons.single().attributes["disabled"]=="true")
+     // Capture the underlying placement surface without the modal window layered above it.
      val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
      dialog.dismiss()
     }
@@ -194,6 +193,52 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
     }
 
     scenario.onActivity { activity ->
+     val view=game(activity);val rect=view.visuals!!.menuRect(view.campaign!!)!!;click(view,rect.centerX(),rect.centerY())
+    }
+    confirm(scenario,215) // Actual native menu RESUME reopens the completed-phase dialog.
+    confirm(scenario,1017,"riddlesdialogcompletecontainer2")
+    capture(scenario,"finale-third-start-dialog.png",true)
+    confirm(scenario,1018,"riddlesdialogcontainer3")
+    fun third(activity:SdaLauncherActivity)=(game(activity).campaign!!.bonusGame as SdaInteractiveRiddleGame).controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
+    fun waitFor(message:String,predicate:(org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController)->Boolean) {
+     val deadline=SystemClock.uptimeMillis()+5000
+     var satisfied=false
+     while(!satisfied && SystemClock.uptimeMillis()<deadline) {
+      scenario.onActivity { satisfied=predicate(third(it)) };if(!satisfied) SystemClock.sleep(50)
+     }
+     assertTrue(message,satisfied)
+    }
+    fun clickItem(name:String) {
+     scenario.onActivity { activity ->
+      val controller=third(activity);val index=controller.items.definitions.indexOfFirst { it.name==name }
+      val frame=controller.items.frame(index);val pixels=frame.image.pixels
+      val point=(0 until frame.height).asSequence().flatMap { y -> (0 until frame.width).asSequence().map { x -> x to y } }.first { (x,y) -> pixels==null || pixels.getAlpha(frame.sourceX+x,frame.sourceY+y)!=0 }
+      click(game(activity),frame.image.x+point.first,frame.image.y+point.second)
+     }
+    }
+    scenario.onActivity { assertEquals(SdaCampaignPhase.FINALE_3,game(it).campaign!!.phase);assertTrue(third(it).started) }
+    capture(scenario,"finale-third-initial-real.png")
+    clickItem("hammer")
+    waitFor("hammer must break hourglass through Android ticks") { it.items.completed("hammer","breakhourglass") }
+    waitFor("hourglass interactive frame") { it.items.index(it.items.definitions.indexOfFirst { it.name=="hourglass" })==1 }
+    clickItem("hourglass")
+    waitFor("reader powered by authentic hourglass/scale chain") { it.items.index(it.items.definitions.indexOfFirst { it.name=="reader" })==1 }
+    capture(scenario,"finale-third-hourglass-real.png")
+    clickItem("plugin")
+    waitFor("slot power uses original symbols") { it.symbols==listOf(7,6,4,0) }
+    capture(scenario,"finale-third-powered-real.png")
+    clickItem("coin");clickItem("slotarm")
+    capture(scenario,"finale-third-spinning-real.png")
+    waitFor("four reels generate code through Android ticks") { it.reelsFinished }
+    scenario.onActivity { activity ->
+     val controller=third(activity)
+     assertTrue(controller.symbols.all { it in 0..8 });assertTrue((0..3).all(controller::symbolVisible))
+     assertFalse(controller.isSolved);assertEquals(originalPoints,game(activity).campaign!!.points)
+     File(context.getExternalFilesDir(null),"finale-third-earned-code.json").writeText(game(activity).campaign!!.snapshot().toJson())
+    }
+    capture(scenario,"finale-third-code-real.png")
+
+    scenario.onActivity { activity ->
      val view=game(activity);val camp=view.campaign!!
      val rect=view.visuals!!.menuRect(camp)!!;click(view,rect.centerX(),rect.centerY())
     }
@@ -204,8 +249,20 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
     }
     instrumentation.waitForIdleSync()
     val saved=SdaCampaignState.fromJson(prefs.getString("active_campaign_checkpoint",null)!!)
-    assertEquals(SdaCampaignPhase.FINALE_2.name,saved.phase)
+    assertEquals(SdaCampaignPhase.FINALE_3.name,saved.phase)
     assertEquals(originalPoints,saved.points)
+   }
+   launch().use { reopened ->
+    confirm(reopened,299)
+    reopened.onActivity { activity ->
+     val camp=game(activity).campaign!!;assertEquals(SdaCampaignPhase.FINALE_3,camp.phase)
+     val restored=(camp.bonusGame as SdaInteractiveRiddleGame).controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
+     assertTrue(restored.started);assertTrue(restored.reelsFinished);assertEquals(originalPoints,camp.points)
+     val earnedState=SdaCampaignState.fromJson(File(context.getExternalFilesDir(null),"finale-third-earned-code.json").readText())
+     @Suppress("UNCHECKED_CAST") val nativeState=earnedState.bonusGameState!!.getValue("controller") as Map<String,Any?>
+     assertEquals(nativeState["symbols"],restored.symbols.map { it.toLong() })
+    }
+    capture(reopened,"finale-third-restored-real.png")
    }
   } finally {
    val editor=prefs.edit();before.forEach { (key,value) -> if(value==null) editor.remove(key) else editor.putString(key,value) };assertTrue(editor.commit())
