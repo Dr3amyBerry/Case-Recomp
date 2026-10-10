@@ -195,7 +195,7 @@ class SdaPrivateCampaignE2EInstrumentationTest {
      record("scene-completed",main { mapOf("level" to level,"scene" to name,"objectInputs" to ids.size,"completedRows" to campaign().completedObjects,"points" to campaign().points,"elapsed" to campaign().clock.elapsed) })
      if(main { campaign().phase==SdaCampaignPhase.SCENE_COMPLETE }) main { val view=game();val r=view.visuals!!.returnMapRect;click(view,r.centerX(),r.centerY()) }
     }
-    main { click(game(),470,370) }
+    main { val view=game();val button=requireNotNull(view.visuals!!.objectsCompleteRect());click(view,button.centerX(),button.centerY()) }
     waitFor("level$level bonus") { campaign().phase==SdaCampaignPhase.BONUS }
     capture("level-%02d-bonus".format(level))
     val beforeBonusPoints=main { campaign().points }

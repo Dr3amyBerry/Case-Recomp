@@ -160,6 +160,8 @@ interface SdaVisualProfile {
  fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean = false
  fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaPlacementRiddleGame) {}
  fun drawRiddleCaption(canvas:Canvas,game:SdaPlacementRiddleGame):Boolean = false
+ fun drawObjectsComplete(canvas:Canvas):Boolean = false
+ fun objectsCompleteRect():Rect? = null
  fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean = false
  fun levelCompleteRect(campaign:SdaCampaign):Rect? = null
  fun bonusSolveRect(campaign:SdaCampaign):Rect? = solveRect

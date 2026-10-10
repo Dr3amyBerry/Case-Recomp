@@ -103,7 +103,8 @@ class SdaPrivateJigsawInstrumentationTest {
      try { assertTrue(view.onTouchEvent(event)) } finally { event.recycle() }
     }
     draw()
-    send(MotionEvent.ACTION_DOWN,470,370)
+    val startButton=requireNotNull(view.visuals!!.objectsCompleteRect())
+    send(MotionEvent.ACTION_DOWN,startButton.centerX(),startButton.centerY())
     assertEquals(1,bonusStarts)
     assertEquals(SdaCampaignPhase.BONUS,campaign.phase)
     var game=campaign.bonusGame as SdaJigsawGame

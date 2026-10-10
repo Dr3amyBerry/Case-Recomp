@@ -298,6 +298,7 @@ class SdaGameView(
     }
 
     private fun drawObjectsCompleteOverlay(canvas: Canvas, camp: SdaCampaign) {
+        if (visuals?.drawObjectsComplete(canvas)==true) return
         canvas.drawRect(142f, 0f, 800f, 600f, overlayPaint)
         val dlgRect = Rect(220, 200, 720, 420)
         canvas.drawRect(dlgRect, cardPaint)
@@ -740,7 +741,7 @@ class SdaGameView(
                     }
                     SdaCampaignPhase.OBJECTS_COMPLETE -> {
                         // Click to start bonus
-                        if (logicalX in 350..590 && logicalY in 345..395) {
+                        if ((visuals?.objectsCompleteRect() ?: Rect(350,345,591,396)).contains(logicalX,logicalY)) {
                             onStartBonusListener?.invoke()
                             invalidate()
                             return true

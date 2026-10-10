@@ -474,6 +474,32 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   return true
  }
+ // Original allobjectspickeddialog/action 334 (00412300), not the post-bonus wincontainer.
+ // Center the native 400x250 dialog in the logical viewport; keep child coordinates unchanged.
+ private fun objectsCompleteOrigin():Pair<Int,Int> {
+  val panel=doc.component("allobjectspickeddialog").children.single { it.type=="dialogimg" }
+  return (800-panel.number("w"))/2 to (600-panel.number("h"))/2
+ }
+ override fun objectsCompleteRect():Rect {
+  val node=doc.component("allobjectspickeddialog").children.single { it.type=="allbutton" && it.number("value")==334 }
+  val (x,y)=objectsCompleteOrigin()
+  return ui.rect(node).apply { offset(x,y) }
+ }
+ override fun drawObjectsComplete(canvas:Canvas):Boolean {
+  val container=doc.component("allobjectspickeddialog")
+  val panel=container.children.single { it.type=="dialogimg" }
+  val (x,y)=objectsCompleteOrigin()
+  canvas.save();canvas.translate(x.toFloat(),y.toFloat())
+  ui.tiledPanel(canvas,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+   "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),Rect(0,0,panel.number("w"),panel.number("h")))
+  container.children.forEach { node -> when(node.type) {
+   "image" -> ui.image(canvas,node)
+   "label" -> ui.label(canvas,node)
+   "allbutton" -> ui.button(canvas,node)
+  } }
+  canvas.restore()
+  return true
+ }
  override fun levelCompleteRect(campaign:SdaCampaign):Rect = ui.rect(doc.component("minigamecompletedokbutton"))
  override fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean {
   drawBonusBase(canvas,campaign)
