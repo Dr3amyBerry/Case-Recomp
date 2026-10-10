@@ -189,13 +189,13 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val score=doc.component("score")
   // Explicit user adaptation: caption above a smaller, centered numeric row.
   compactInfo(canvas,score,doc.caption(score),score.number("y")-6)
-  compactInfo(canvas,score,String.format(java.util.Locale.US,"%,d",c?.points ?: 0),score.number("y")+5)
+  compactInfo(canvas,score,String.format(java.util.Locale.US,"%,d",c?.points ?: 0),score.number("y")+5,scale=.80f)
  }
- private fun compactInfo(canvas:Canvas,node:SdaUiNode,text:String,y:Int) {
+ private fun compactInfo(canvas:Canvas,node:SdaUiNode,text:String,y:Int,scale:Float=.80f) {
   // Requested compact header: leave the level and objective instructions untouched.
   canvas.save()
-  canvas.scale(.45f,.45f,node.number("x")+node.number("w")/2f,y+node.number("h")/2f)
-  ui.label(canvas,node,text,y=y,clipToBounds=false)
+  canvas.scale(scale,scale,node.number("x")+node.number("w")/2f,y+node.number("h")/2f)
+  ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "center")),text,y=y,clipToBounds=false)
   canvas.restore()
  }
  private fun levelLabel(canvas:Canvas,campaign:SdaCampaign) {

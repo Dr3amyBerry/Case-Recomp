@@ -376,3 +376,8 @@ PARCIAL. Four new Android PixelCopy captures and original extracted LED atlas at
 ### Earned door, moneyroom, newspaper and native final menu (2026-10-10)
 
 PARCIAL: original resources and source-derived final sequence render and complete via WSA inputs. Six real window captures plus a clearly labelled derived transparent-dialog composition, source JPG comparisons and coverage at local-output/vegas-ending/comparison.html. Completed menu/activity reopen retains identical RGBA pixels and points. Equivalent Windows final-state capture, exact opacity composition, native score breakdown/rank/profile unlocks and full campaign E2E remain pending; no 100%-fidelity/Goal-completion claim. Tests, timing bounds, checkpoint versions and point PSS/bitmap samples are in MYSTERY_PI_ANDROID_AUDIT.md.
+
+
+### PDA text: user-approved legible layout
+
+Time, score caption and numeric score use the original atlas at .80 scale, in three centered rows. User visually approved this exact presentation; do not recalibrate it. The .36 experiment was rejected as illegible and is not retained. Debug build/app JVM checks pass; three WSA display2 visual regressions pass (74.329s). Private evidence: local-output/vegas-ending/pda-legible-scene.png and pda-legible-android.log.
