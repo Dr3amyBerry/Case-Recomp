@@ -1,4 +1,4 @@
-﻿package org.rigorcore.caserecomp.app
+package org.rigorcore.caserecomp.app
 
 import android.app.ActivityOptions
 import android.content.Intent
@@ -31,7 +31,7 @@ class SdaPrivateProfilesInstrumentationTest {
   assumeTrue(path!=null && File(path).isFile)
   val prefs=context.getSharedPreferences("case-recomp-sda",0)
   val before=prefs.all.toMap()
-  val roots=listOf(File(context.filesDir,"private-sda/profiles"),File(context.filesDir,"private-sda/campaigns"))
+  val roots=listOf(File(context.filesDir,"private-sda/profiles"),File(context.filesDir,"private-sda/campaigns"),File(context.filesDir,"private-sda/removed-profiles"))
   val files=roots.flatMap { root -> if(root.exists()) root.walkTopDown().filter { it.isFile }.map { it to it.readBytes() }.toList() else emptyList() }.toMap()
   val intent=Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
   fun launch()=ActivityScenario.launch<SdaLauncherActivity>(intent,ActivityOptions.makeBasic().setLaunchDisplayId(args.getString("visualDisplayId")?.toInt() ?: 0).toBundle())
@@ -162,6 +162,53 @@ class SdaPrivateProfilesInstrumentationTest {
      assertEquals(createdPoints,game(activity).campaign!!.points)
      assertTrue(foundIds.all { game(activity).campaign!!.currentScene!!.objects.getValue(it).found })
      assertEquals("mainmenuunderlay",panel(activity).screenId)
+    }
+    button(scenario,6,"mainmenuunderlay")
+    row(scenario,createdId);button(scenario,2,"selectplayer")
+    scenario.onActivity { activity ->
+     assertEquals("deletedlg",panel(activity).screenId)
+     assertTrue(panel(activity).labels.any { it.attributes["caption"]=="\"$newName\"" })
+    }
+    button(scenario,8,"deletedlg")
+    assertNotNull(PrivateSdaRepository(context).profileStorage.getProfile(createdId))
+    button(scenario,2,"selectplayer")
+    // A failed checkpoint write must preserve the live campaign and reject deletion.
+    val repositoryField=SdaLauncherActivity::class.java.getDeclaredField("repository").apply { isAccessible=true }
+    lateinit var originalRepository:PrivateSdaRepository
+    lateinit var liveCampaign:SdaCampaign
+    scenario.onActivity { activity ->
+     originalRepository=repositoryField.get(activity) as PrivateSdaRepository
+     liveCampaign=game(activity).campaign!!
+     val failing=PrivateSdaRepository(File(context.filesDir,"private-sda"),object:SdaPreferences {
+      override fun getString(key:String,def:String?)=prefs.getString(key,def)
+      override fun setString(key:String,value:String)=false
+      override fun setStrings(values:Map<String,String>)=if("active_profile_id" in values) AndroidSdaPreferences(prefs).setStrings(values) else false
+     })
+     val namespaceField=PrivateSdaRepository::class.java.getDeclaredField("campaignNamespace").apply { isAccessible=true }
+     failing.configureCampaignSlots(namespaceField.get(originalRepository) as String)
+     repositoryField.set(activity,failing)
+    }
+    try {
+     button(scenario,5,"deletedlg")
+     scenario.onActivity { activity ->
+      assertEquals("deletedlg",panel(activity).screenId)
+      assertSame(liveCampaign,game(activity).campaign)
+      assertNotNull(originalRepository.profileStorage.getProfile(createdId))
+      assertEquals(createdId,originalRepository.getActiveProfile().id)
+     }
+    } finally { scenario.onActivity { repositoryField.set(it,originalRepository) } }
+    button(scenario,5,"deletedlg")
+    scenario.onActivity { activity ->
+     assertEquals("selectplayer",panel(activity).screenId)
+     assertNull(PrivateSdaRepository(context).profileStorage.getProfile(createdId))
+     assertNotEquals(createdId,PrivateSdaRepository(context).getActiveProfile().id)
+     assertTrue(File(context.filesDir,"private-sda/removed-profiles").walkTopDown().any { it.isFile && it.name=="$createdId.json" })
+    }
+    row(scenario,originalId);button(scenario,3,"selectplayer")
+    scenario.onActivity { activity ->
+     assertEquals(originalId,PrivateSdaRepository(context).getActiveProfile().id)
+     assertEquals(originalPoints,game(activity).campaign!!.points)
+     assertEquals(originalPhase,game(activity).campaign!!.phase.name)
     }
    }
   } finally {

@@ -63,7 +63,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   var rapidBefore:Boolean?=null
   var helpReturn=if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2"
   lateinit var view:SdaResourceMenuView
-  var mainBackdrop=entry==SdaMenuEntry.MAIN
+  var mainBackdrop=entry!=SdaMenuEntry.PAUSE
   fun show(id:String) {
    if(id=="mainmenuunderlay") { mainBackdrop=true;musicState.select(1);musicTracks["mainmenu"]?.let { audio?.playMusic(it,loop=true) } }
    if(id=="menudlg2") mainBackdrop=false
@@ -74,9 +74,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   fun showPlayers() {
    val all=playerRepository.profileStorage.listProfiles()
    val original=doc.component("selectplayer")
-   // Profile deletion is still pending; retain its original disabled button.
+   // Original delete button is enabled only for an existing selected row.
    val node=original.copy(children=original.children.filterNot { it.type=="label" && it.attributes["caption"]=="@ID_PLAYER_MSG1" }.map { child ->
-    if(child.type=="allbutton" && child.number("value")==2) child.copy(attributes=child.attributes+mapOf("disabled" to "true")) else child
+    if(child.type=="allbutton" && child.number("value")==2) child.copy(attributes=child.attributes+mapOf("disabled" to (all.none { it.id==chosenPlayer }).toString())) else child
    })
    view.show(node,backdrop)
    view.setListRows(all.map { player -> SdaMenuListRow(player.id,player.name,original.children.single { it.type=="listbox" }.attributes[player.avatar] ?: original.children.single { it.type=="listbox" }.attributes["generic"]) }+SdaMenuListRow("",doc.resolve("@ID_CLICKTOCREATEPLAYER")),chosenPlayer)
@@ -124,7 +124,17 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
      30 -> openOptions(screen)
      else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
+    screen=="deletedlg" -> when(value) {
+     8 -> showPlayers()
+     5 -> { view.requestedProfileId=chosenPlayer;onAction(SdaMenuAction.DELETE_PROFILE) }
+    }
     screen=="selectplayer" -> when(value) {
+     2 -> playerRepository.profileStorage.getProfile(chosenPlayer)?.let { player ->
+      val node=doc.component("deletedlg")
+      view.show(node.copy(children=node.children.map { child ->
+       if(child.type=="label" && child.attributes["caption"]=="\"Player1\"") child.copy(attributes=child.attributes+mapOf("caption" to "\"${player.name}\"")) else child
+      }),backdrop)
+     }
      3 -> if(chosenPlayer.isNotBlank()) selectPlayer(chosenPlayer)
      4 -> show("mainmenuunderlay")
      62 -> view.scrollList(1)
@@ -193,7 +203,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    } else if(node==view.checkboxes.getOrNull(1)) campaign?.hintRechargeImmediately=value
   }
   view.onSoundEffect={ audio?.playEffect(it) }
-  show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
+  if(entry==SdaMenuEntry.PLAYER_SELECTION) { show("mainmenuunderlay");showPlayers() } else show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view
  }
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()

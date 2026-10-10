@@ -15,8 +15,17 @@ internal interface SdaPreferences {
 
 internal class AndroidSdaPreferences(private val prefs: android.content.SharedPreferences) : SdaPreferences {
     override fun getString(key: String, def: String?): String? = prefs.getString(key, def)
-    override fun setString(key: String, value: String): Boolean = prefs.edit().putString(key, value).commit()
-    override fun setStrings(values:Map<String,String>):Boolean { val edit=prefs.edit();values.forEach { (key,value) -> edit.putString(key,value) };return edit.commit() }
+    override fun setString(key: String, value: String): Boolean = setStrings(mapOf(key to value))
+    @Synchronized override fun setStrings(values:Map<String,String>):Boolean {
+        val before=values.keys.associateWith { prefs.getString(it,null) }
+        val edit=prefs.edit();values.forEach { (key,value) -> edit.putString(key,value) }
+        if(edit.commit()) return true
+        // SharedPreferences applies memory changes before reporting disk failure.
+        val rollback=prefs.edit()
+        before.forEach { (key,value) -> if(value==null) rollback.remove(key) else rollback.putString(key,value) }
+        rollback.commit()
+        return false
+    }
 }
 
 internal class InMemorySdaPreferences : SdaPreferences {
@@ -150,6 +159,46 @@ internal class PrivateSdaRepository internal constructor(
         val incoming=campaignSlots.load(namespace,profile.id).orEmpty()
         if(profileStorage.getProfile(profile.id)==null && !profileStorage.saveProfile(profile)) return false
         return preferences.setStrings(mapOf("active_profile_id" to profile.id,"active_campaign_checkpoint" to incoming,"campaign_checkpoint_namespace" to namespace))
+    }
+    /** Remove a shared SDA player from selection, retaining all their files in a private archive. */
+    @Synchronized fun removeProfile(id:String):Boolean {
+        val namespace=campaignNamespace ?: return false
+        if(!Regex("[A-Za-z0-9][A-Za-z0-9_-]{0,79}").matches(namespace)) return false
+        if(profileStorage.getProfile(id)==null) return false
+        val wasActive=preferences.getString("active_profile_id",null)==id
+        val archive=File(File(base,"removed-profiles"),java.util.UUID.randomUUID().toString())
+        val sources=mutableListOf(File(base,"profiles/$id.json"))
+        val safe=Regex("[A-Za-z0-9][A-Za-z0-9_-]{0,79}")
+        File(base,"campaigns").listFiles()?.filter { it.isDirectory && safe.matches(it.name) }?.forEach { directory ->
+            File(directory,"$id.json").takeIf { it.isFile }?.let(sources::add)
+        }
+        val moved=mutableListOf<Pair<File,File>>()
+        var createdFallback:String?=null
+        fun move(from:File,to:File) {
+            val root=base.canonicalFile.toPath()
+            check(from.canonicalFile.toPath().startsWith(root) && to.canonicalFile.toPath().startsWith(root))
+            check(to.parentFile.isDirectory || to.parentFile.mkdirs())
+            try { java.nio.file.Files.move(from.toPath(),to.toPath(),java.nio.file.StandardCopyOption.ATOMIC_MOVE) }
+            catch(e:java.nio.file.AtomicMoveNotSupportedException) { java.nio.file.Files.move(from.toPath(),to.toPath()) }
+        }
+        return try {
+            for(source in sources) {
+                val target=File(archive,source.relativeTo(base).path)
+                move(source,target);moved += source to target
+            }
+            if(wasActive) {
+                val next=profileStorage.listProfiles().firstOrNull() ?: org.rigorcore.caserecomp.sda.SdaProfile("default_pi","Detective Principal").also {
+                    check(profileStorage.saveProfile(it));createdFallback=it.id
+                }
+                val checkpoint=campaignSlots.load(namespace,next.id).orEmpty()
+                check(preferences.setStrings(mapOf("active_profile_id" to next.id,"active_campaign_checkpoint" to checkpoint,"campaign_checkpoint_namespace" to namespace,"session-checkpoint" to "")))
+            }
+            true
+        } catch(e:Exception) {
+            createdFallback?.let { profileStorage.deleteProfile(it) }
+            for((original,saved) in moved.asReversed()) move(saved,original)
+            false
+        }
     }
     fun saveCampaignCheckpoint(json: String): Boolean {
         val namespace=campaignNamespace

@@ -97,7 +97,7 @@ class SdaLauncherActivity : Activity() {
                 gravity = Gravity.CENTER
             })
             addView(TextView(this@SdaLauncherActivity).apply {
-                text = "\nNo se ha importado ningún paquete SDA activo.\nImporta un paquete legítimo desde la pantalla principal para jugar."
+                text = "\nNo se ha importado ningÃºn paquete SDA activo.\nImporta un paquete legÃ­timo desde la pantalla principal para jugar."
                 setTextColor(Color.WHITE)
                 textSize = 16f
                 gravity = Gravity.CENTER
@@ -166,7 +166,11 @@ class SdaLauncherActivity : Activity() {
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
                 setContentView(view)
-                if(view.visuals!=null) view.post { if(!isFinishing) showResourceMenu(view,SdaMenuEntry.MAIN) }
+                if(view.visuals!=null) {
+                    val initialMenu=if(intent.getBooleanExtra("sda-player-selection",false)) SdaMenuEntry.PLAYER_SELECTION else SdaMenuEntry.MAIN
+                    intent.removeExtra("sda-player-selection")
+                    view.post { if(!isFinishing) showResourceMenu(view,initialMenu) }
+                }
 
             } else {
                 // Standalone scene mode
@@ -237,6 +241,16 @@ class SdaLauncherActivity : Activity() {
         val dialog=android.app.Dialog(this)
         val nativeMenu=view.visuals?.menuView(this,campaign,entry,audioSession) { action ->
             when(action) {
+                SdaMenuAction.DELETE_PROFILE -> {
+                    val id=dialog.window?.decorView?.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")?.requestedProfileId
+                    val saved=autoSave()
+                    if(saved && id!=null && repository.removeProfile(id)) {
+                        changingProfile=true
+                        campaign=null;scene=null;gameView=null
+                        intent.putExtra("sda-player-selection",true)
+                        dialog.dismiss();recreate()
+                    } else Toast.makeText(this,"No se pudo eliminar el jugador; se conserva la partida",Toast.LENGTH_SHORT).show()
+                }
                 SdaMenuAction.SWITCH_PROFILE -> {
                     val id=dialog.window?.decorView?.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")?.requestedProfileId
                     val selected=id?.let { repository.profileStorage.getProfile(it) }
@@ -337,7 +351,7 @@ class SdaLauncherActivity : Activity() {
 
         view.onStartBonusListener = {
             campaign?.startBonus(sdaContent)
-            Toast.makeText(this, "¡Minijuego de bonificación desbloqueado!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Â¡Minijuego de bonificaciÃ³n desbloqueado!", Toast.LENGTH_SHORT).show()
             autoSave()
         }
 
@@ -360,7 +374,7 @@ class SdaLauncherActivity : Activity() {
         view.onObjectFoundListener = { id, gain ->
             view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${campaign?.points ?: scene?.score?.points}")
-            Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Â¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
             autoSave()
         }
 
@@ -373,7 +387,7 @@ class SdaLauncherActivity : Activity() {
             val camp = campaign
             if (camp != null) {
                 if (camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
-                    Toast.makeText(this, "¡Todos los objetos del nivel encontrados!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Â¡Todos los objetos del nivel encontrados!", Toast.LENGTH_SHORT).show()
                 } else if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE) {
                     Toast.makeText(this, "Lote de escena completado. Regresa al mapa.", Toast.LENGTH_SHORT).show()
                 }
@@ -382,22 +396,14 @@ class SdaLauncherActivity : Activity() {
         }
     }
 
-    private fun autoSave() {
-        val camp = campaign
-        if (camp != null) {
-            try {
-                repository.saveCampaignCheckpoint(camp.snapshot().toJson())
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to auto-save campaign checkpoint", e)
-            }
-        } else {
-            scene?.let { sc ->
-                try {
-                    repository.saveCheckpoint(sc.snapshot().toJson())
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to auto-save SDA checkpoint", e)
-                }
-            }
+    private fun autoSave():Boolean {
+        return try {
+            val camp=campaign
+            if(camp!=null) repository.saveCampaignCheckpoint(camp.snapshot().toJson())
+            else scene?.let { repository.saveCheckpoint(it.snapshot().toJson()) } ?: true
+        } catch(e:Exception) {
+            Log.w(TAG,"Failed to auto-save SDA checkpoint",e)
+            false
         }
     }
 
@@ -405,7 +411,7 @@ class SdaLauncherActivity : Activity() {
         view.onObjectFoundListener = { id, gain ->
             view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${scene?.score?.points}")
-            Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Â¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
         }
         view.onMissListener = { penalty ->
             view.visuals?.sceneFeedback(false)?.let { audioSession?.playEffect(it) }
@@ -421,7 +427,7 @@ class SdaLauncherActivity : Activity() {
             } else {
                 repository.clearCheckpoint()
                 Log.i(TAG, "Scene completed! Final score: ${sc?.score?.points}")
-                Toast.makeText(this, "¡Escena completada! Puntuación final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Â¡Escena completada! PuntuaciÃ³n final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
             }
         }
     }

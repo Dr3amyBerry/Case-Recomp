@@ -128,8 +128,8 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 }
 
-enum class SdaMenuAction { SWITCH_PROFILE, RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
-enum class SdaMenuEntry { PAUSE, MAIN }
+enum class SdaMenuAction { DELETE_PROFILE, SWITCH_PROFILE, RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
+enum class SdaMenuEntry { PAUSE, MAIN, PLAYER_SELECTION }
 
 data class SdaMusicRequest(val stream:String,val loop:Boolean)
 
