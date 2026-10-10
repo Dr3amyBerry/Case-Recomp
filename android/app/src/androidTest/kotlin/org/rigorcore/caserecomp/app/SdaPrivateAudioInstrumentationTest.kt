@@ -105,6 +105,38 @@ class SdaPrivateAudioInstrumentationTest {
      assertTrue(scene.objects.getValue(foundId).found)
     }
     awaitEffect(started,"ispyobjectnotfoundsfx")
+    started=audio.effectsStarted
+    scenario.onActivity {
+     val campaign=checkNotNull(game.campaign);val hint=checkNotNull(campaign.hint)
+     val rect=checkNotNull(game.visuals?.hintRect(campaign))
+     val scale=minOf(game.width/800f,game.height/600f)
+     for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_CANCEL)) {
+      val event=android.view.MotionEvent.obtain(0,android.os.SystemClock.uptimeMillis(),action,
+       (game.width-800*scale)/2+rect.centerX()*scale,(game.height-600*scale)/2+rect.centerY()*scale,0)
+      try { assertTrue(game.dispatchTouchEvent(event)) } finally { event.recycle() }
+     }
+     assertTrue("cancelled hint does not charge or recharge",hint.ready)
+     val points=campaign.points;val found=game.scene.objects.values.count { it.found }
+     click(game,rect.centerX(),rect.centerY())
+     assertFalse(hint.ready);assertEquals(maxOf(0,points-7500),campaign.points)
+     assertEquals("hint reveals without collecting",found,game.scene.objects.values.count { it.found })
+     val target=checkNotNull(game.scene.objects[hint.target]);assertFalse(target.found);assertFalse(target.hidden)
+     assertNull("recharging hint is not enabled",game.visuals?.hintRect(campaign))
+     val saved=SdaCampaignState.fromJson(checkNotNull(PrivateSdaRepository(context).loadCampaignCheckpoint()))
+     assertNotNull("actual repository checkpoint includes recharge",saved.hintState)
+     val evidence=org.json.JSONObject().put("target",hint.target).put("scoreBefore",points).put("scoreAfter",campaign.points)
+      .put("delay",hint.delay).put("ready",hint.ready).put("cancelledGestureVerified",true).put("display",display)
+     File(context.getExternalFilesDir(null),"vegas-hint-evidence.json").writeText(evidence.toString(2))
+    }
+    awaitEffect(started,"hintsfx")
+    lateinit var capture:android.graphics.Bitmap
+    val copied=java.util.concurrent.CountDownLatch(1);var copyStatus=-1
+    scenario.onActivity { activity ->
+     val decor=activity.window.decorView;capture=android.graphics.Bitmap.createBitmap(decor.width,decor.height,android.graphics.Bitmap.Config.ARGB_8888)
+     android.view.PixelCopy.request(activity.window,capture,{ result -> copyStatus=result;copied.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
+    }
+    assertTrue(copied.await(5,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,copyStatus)
+    File(context.getExternalFilesDir(null),"vegas-hint.png").outputStream().use { capture.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) };capture.recycle()
     scenario.onActivity {
      val evidence=org.json.JSONObject().put("route","launcher -> main menu -> map -> scene").put("scene",game.campaign?.currentSceneName)
       .put("foundObject",foundId).put("foundEffect","ispyobjectfoundsfx").put("missEffect",audio.lastEffectStarted)
@@ -112,6 +144,28 @@ class SdaPrivateAudioInstrumentationTest {
      File(context.getExternalFilesDir(null),"vegas-scene-audio.json").writeText(evidence.toString(2))
     }
     // This is launcher -> map -> scene input coverage, not catalogue/import or campaign completion.
+   }
+   val reopened=android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
+   androidx.test.core.app.ActivityScenario.launch<SdaLauncherActivity>(reopened,android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle()).use { restored ->
+    lateinit var recharge:SdaHint
+    restored.onActivity { activity ->
+     val restoredGame=checkNotNull(find(activity.window.decorView));val campaign=checkNotNull(restoredGame.campaign)
+     assertEquals(SdaCampaignPhase.SCENE,campaign.phase);assertFalse(checkNotNull(campaign.hint).ready)
+     assertNotNull(campaign.hint?.target);recharge=checkNotNull(campaign.hint)
+     val restoredAudio=SdaLauncherActivity::class.java.getDeclaredField("audioSession").apply { isAccessible=true }.get(activity) as SdaAudioSession
+     restoredAudio.setMusicVolume(0);restoredAudio.setEffectsVolume(0)
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+     val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+     val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==299 });click(menu,rect.centerX(),rect.centerY())
+    }
+    // Wait for real frame/time progression: no clock assignment or forced recharge.
+    val deadline=android.os.SystemClock.uptimeMillis()+25000
+    while(!recharge.ready && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(100)
+    assertTrue("hint recharges on real Android frames",recharge.ready);assertEquals(30f,recharge.delay,0f)
+    restored.onActivity { activity ->
+     val restoredGame=checkNotNull(find(activity.window.decorView))
+     assertNotNull(restoredGame.visuals?.hintRect(checkNotNull(restoredGame.campaign)))
+    }
    }
   } finally {
    val edit=prefs.edit();for(key in keys) before[key]?.let { edit.putString(key,it) } ?: edit.remove(key)

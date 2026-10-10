@@ -93,12 +93,14 @@ class SdaGameView(
     fun resumeFromMenu() {
         isPaused=false;onPauseChangedListener?.invoke();invalidate()
     }
-    private enum class CapturedControl { MENU, PAUSE, RETURN_MAP, NEXT_LEVEL }
+    private enum class CapturedControl { MENU, PAUSE, RETURN_MAP, NEXT_LEVEL, HINT }
+    var onHintListener:(()->Unit)?=null
     private var controlPointerId: Int? = null
     private var capturedControl: CapturedControl? = null
     private fun controlRect(control:CapturedControl,camp:SdaCampaign):Rect? {
         val profile=visuals ?: return null
         return when(control) {
+            CapturedControl.HINT -> if(onHintListener!=null) profile.hintRect(camp) else null
             CapturedControl.MENU -> if(onMenuListener!=null) profile.menuRect(camp) else null
             CapturedControl.NEXT_LEVEL -> if(camp.phase==SdaCampaignPhase.LEVEL_COMPLETE) profile.levelCompleteRect(camp) else null
             CapturedControl.PAUSE -> profile.pauseRect(camp)
@@ -136,6 +138,7 @@ class SdaGameView(
         canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
+        canvas.clipRect(0f,0f,800f,600f)
 
         val camp = campaign
         if (camp != null) {
@@ -546,6 +549,7 @@ class SdaGameView(
                         CapturedControl.PAUSE -> { isPaused=true;onPauseChangedListener?.invoke() }
                         CapturedControl.RETURN_MAP -> onReturnToMapListener?.invoke()
                         CapturedControl.NEXT_LEVEL -> onNextLevelListener?.invoke()
+                        CapturedControl.HINT -> onHintListener?.invoke()
                     }
                 }
             }

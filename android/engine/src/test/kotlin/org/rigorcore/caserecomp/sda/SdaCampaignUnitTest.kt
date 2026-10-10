@@ -105,6 +105,34 @@ class SdaCampaignUnitTest {
         assertEquals(saved, camp.snapshot().toJson())
     }
 
+    @Test fun hint_preserves_progress_score_and_old_checkpoints() = withContent { content ->
+        val policy=SdaHintPolicy(20f,1.5f,67.5f)
+        val camp=SdaCampaign(levels(),seed=8,hintPolicy=policy)
+        val scene=camp.enterScene("one",content)
+        val first=scene.objects.getValue(scene.targets.first())
+        camp.clickScene(first.x+1,first.y+1)
+        val foundBefore=scene.objects.values.count { it.found };val points=camp.points
+        assertTrue(camp.requestHint { 0 })
+        assertEquals(maxOf(0,points-7500),camp.points)
+        assertEquals(foundBefore,scene.objects.values.count { it.found })
+        assertFalse(scene.objects.getValue(checkNotNull(camp.hint?.target)).found)
+        assertFalse(camp.requestHint { fail("cooldown must not select");0 })
+        camp.advance(7f)
+        val saved=SdaCampaignState.fromJson(camp.snapshot().toJson())
+        val restored=SdaCampaign(levels(),hintPolicy=policy)
+        restored.restore(saved,content)
+        assertEquals(camp.snapshot().toJson(),restored.snapshot().toJson())
+        val valid=restored.snapshot().toJson()
+        try { restored.restore(saved.copy(hintState=saved.hintState!!+mapOf("elapsed" to -1f)),content);fail("corrupt recharge") } catch(expected:IllegalArgumentException) {}
+        assertEquals(valid,restored.snapshot().toJson())
+        val old=SdaCampaign(levels(),seed=8).snapshot().toJson()
+        val map=MiniJson.parse(old) as Map<*,*>
+        val withoutHint=MiniJson.canonical(map.filterKeys { it!="hintState" })
+        val legacy=SdaCampaign(levels(),hintPolicy=policy)
+        legacy.restore(SdaCampaignState.fromJson(withoutHint),content)
+        assertTrue(checkNotNull(legacy.hint).ready)
+    }
+
     @Test fun compound_objective_counts_once_after_all_components_retire() = withContent { content ->
         val camp = SdaCampaign(levels(), seed = 8)
         val scene = camp.enterScene("one", content)

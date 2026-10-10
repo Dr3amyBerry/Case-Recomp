@@ -26,6 +26,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  }
  override fun sceneFeedback(found:Boolean):String? =
   doc.component("eyespypauseunderlay").attributes[if(found) "foundsfx" else "notfoundsfx"]
+ override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
+ override fun hintRect(campaign:SdaCampaign):Rect? =
+  if(campaign.phase==SdaCampaignPhase.SCENE && campaign.hint?.ready==true) ui.rect(doc.component("hintbutton")) else null
+ override fun hintSound():String?=doc.component("hintbutton").attributes["sfx"]
  // Native resource IDs, visibility and dialog action adapters remain title-specific.
  override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
   val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",
@@ -208,6 +212,24 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean) {
   base(canvas,campaign,campaign?.clock ?: clock)
   campaign?.let { levelLabel(canvas,it) }
+  if(!paused && campaign?.phase==SdaCampaignPhase.SCENE) campaign.hint?.let { hint ->
+   val node=doc.component("hintbutton");val bounds=ui.rect(node)
+   if(hint.ready) button(canvas,node) else {
+    canvas.saveLayerAlpha(RectF(bounds),40);ui.button(canvas,node);canvas.restore()
+    canvas.save();canvas.clipRect(bounds.left,bounds.top,bounds.left+(bounds.width()*hint.progress).toInt(),bounds.bottom)
+    ui.button(canvas,node);canvas.restore()
+   }
+   hint.target?.let(scene.objects::get)?.takeIf { !it.found && !it.hidden }?.let { sprite ->
+    val animation=doc.component("eyespyanimhint");val bitmap=ui.bitmap(animation.attributes.getValue("tex"))
+    val w=animation.number("framew");val h=animation.number("frameh")
+    val cols=bitmap.width/w;val frames=cols*(bitmap.height/h);val frame=(hint.animationAge/.14f).toInt()
+    if(cols>0 && frame in 0 until frames) {
+     val x=sprite.x+(sprite.image.width-w)/2;val y=sprite.y+(sprite.image.height-h)/2
+     canvas.save();canvas.clipRect(ui.rect(doc.component("pdacontrol")).right,0,800,600)
+     canvas.drawBitmap(bitmap,Rect(frame%cols*w,frame/cols*h,frame%cols*w+w,frame/cols*h+h),Rect(x,y,x+w,y+h),null);canvas.restore()
+    }
+   }
+  }
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }

@@ -134,7 +134,8 @@ class SdaLauncherActivity : Activity() {
                 // Full campaign mode
                 val levels = SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding)
+                val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy())
                 campaign = camp
 
                 // Restore campaign checkpoint if saved
@@ -158,7 +159,7 @@ class SdaLauncherActivity : Activity() {
                 clock = camp.clock
                 cacheBitmaps(loadedScene)
 
-                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp, if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null)
+                val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp, profile)
                 audioSession=view.visuals?.audioSession(this)
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
@@ -260,6 +261,13 @@ class SdaLauncherActivity : Activity() {
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
         view.onMenuListener = { showResourceMenu(view,SdaMenuEntry.PAUSE) }
+        view.onHintListener = {
+            val random=org.rigorcore.caserecomp.sda.SdaRng(android.os.SystemClock.uptimeMillis() and 0xFFFFFFFFL)
+            if(campaign?.requestHint { size -> random.next()%size }==true) {
+                view.visuals?.hintSound()?.let { audioSession?.playEffect(it) }
+                autoSave()
+            }
+        }
         view.onPauseChangedListener = { autoSave() }
         view.onBonusInputListener = { autoSave() }
         view.onSceneSelectedListener = { sceneName ->

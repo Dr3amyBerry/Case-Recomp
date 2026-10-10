@@ -41,6 +41,7 @@ data class SdaCampaignState(
     val scenes: Map<String, SdaSceneState>,
     val countedSets: Map<String, List<List<String>>>,
     val bonusGameState: Map<String, Any?>?,
+    val hintState: Map<String, Any?>? = null,
 ) {
     fun toJson(): String {
         val map = mapOf(
@@ -56,6 +57,7 @@ data class SdaCampaignState(
             "scenes" to scenes.mapValues { MiniJson.parse(it.value.toJson()) },
             "countedSets" to countedSets,
             "bonusGameState" to bonusGameState,
+            "hintState" to hintState,
         )
         return MiniJson.canonical(map)
     }
@@ -83,6 +85,7 @@ data class SdaCampaignState(
                 scenes = parsedScenes,
                 countedSets = countedRaw,
                 bonusGameState = raw["bonusGameState"] as? Map<String, Any?>,
+                hintState = raw["hintState"] as? Map<String, Any?>,
             )
         }
     }
@@ -97,11 +100,14 @@ class SdaCampaign(
     var seed: Long = 0L,
     var levelIndex: Int = 0,
     val firstRiddle: SdaRiddleBinding? = null,
+    private val hintPolicy:SdaHintPolicy? = null,
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
         require(levelIndex in levels.indices) { "invalid level index" }
     }
+
+    var hint:SdaHint?=hintPolicy?.let(::SdaHint);private set
 
     val currentLevel: SdaLevel
         get() = levels[levelIndex]
@@ -159,6 +165,7 @@ class SdaCampaign(
         }
         counted.getOrPut(normalized) { mutableSetOf() }
 
+        hint?.clearTarget()
         currentSceneName = normalized
         phase = SdaCampaignPhase.SCENE
 
@@ -177,6 +184,7 @@ class SdaCampaign(
 
     fun toInvestigationMap() {
         require(phase == SdaCampaignPhase.SCENE || phase == SdaCampaignPhase.SCENE_COMPLETE) { "not in a scene" }
+        hint?.clearTarget()
         currentScene?.let { sc ->
             points = sc.score.points
         }
@@ -194,6 +202,7 @@ class SdaCampaign(
             val sc = currentScene ?: return
             val clockEvents = clock.advance(seconds)
             sc.advance(seconds)
+            hint?.advance(seconds)
 
             // Check active sets retired
             val sceneCounted = counted.getOrPut(currentSceneName!!) { mutableSetOf() }
@@ -218,6 +227,18 @@ class SdaCampaign(
                 phase = SdaCampaignPhase.TIMEOUT
             }
         }
+    }
+
+    fun requestHint(randomIndex:(Int)->Int):Boolean {
+        if(phase!=SdaCampaignPhase.SCENE) return false
+        val sc=currentScene ?: return false
+        if(hint?.consume()!=true) return false
+        sc.score.hint();points=sc.score.points
+        // Native 00421800 samples an unfinished row, then one unfinished member.
+        val rows=sc.activeSets.map { set -> set.filter { id -> sc.objects[id]?.let { !it.found && !it.hidden }==true } }.filter { it.isNotEmpty() }
+        val row=rows.takeIf { it.isNotEmpty() }?.let { it[randomIndex(it.size)] }
+        hint?.reveal(row?.let { it[randomIndex(it.size)] })
+        return true
     }
 
     fun clickScene(x: Int, y: Int): SdaClickResult {
@@ -354,11 +375,14 @@ class SdaCampaign(
             scenes = sceneSnapshots,
             countedSets = countedMap,
             bonusGameState = bonusGame?.state(),
+            hintState = hint?.state(),
         )
     }
 
     fun restore(state: SdaCampaignState, content: SdaContent) {
         // Build and validate everything first. Failed restoration must not corrupt a live session.
+        val restoredHint=hintPolicy?.let(::SdaHint)
+        state.hintState?.let { saved -> require(restoredHint!=null) { "checkpoint requires hint policy" };restoredHint.restore(saved) }
         require(state.levelIndex in levels.indices && state.seed in 0..0xFFFFFFFFL) { "invalid campaign identity" }
         val level = levels[state.levelIndex]
         require(state.points >= 0 && state.completedObjects >= 0 &&
@@ -421,6 +445,7 @@ class SdaCampaign(
         if (restoredPhase == SdaCampaignPhase.CAMPAIGN_COMPLETE)
             require(restoredBonus == null) { "unexpected finished finale bonus" }
 
+        hint=restoredHint
         levelIndex = state.levelIndex
         seed = state.seed
         points = state.points

@@ -343,3 +343,8 @@ Pendientes: playlist/musica gameplay, crossfades, bonus/finale/penalizaciones, c
 Tiempo, etiqueta de puntuacion y cifra usan ahora el 55% de las metricas originales (antes 70%), conservando filas separadas y centradas. Es una adaptacion Android solicitada, exclusiva de `VegasVisualProfile.compactInfo`; no altera fuentes, Director ni Huntsville. APK y comprobaciones locales: `local-output/vegas-hud-compact/`. La aceptacion visual humana sigue pendiente.
 
 Verificacion: compilacion y pruebas JVM correctas; prueba Android de mapa, escena y cuatro bonus correcta (70,351 s). Captura real: local-output/vegas-hud-compact/scene.png. No acredita cobertura completa de campana.
+
+
+### PDA: pista original recuperada (V3)
+
+La zona vacia encima de MAPA ahora contiene PISTA durante la escena. Utiliza sus texturas y atlas originales; muestra recarga y efecto sobre un objeto aun pendiente. Captura Android real y comparacion local: `local-output/vegas-hints/comparison.html`. El informe diferencia recursos extraidos de capturas Android, y el antes/despues contiene estados y objetivos distintos: no calcula una diferencia de pixeles enga?osa. No hay nueva referencia Windows equivalente; la fidelidad de la animacion y de todos los estados queda PARCIAL. El efecto ya no invade el PDA ni el letterboxing. Pruebas y pendientes detallados en el informe de auditoria.
