@@ -265,12 +265,25 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    "label" -> ui.label(canvas,node)
   }
  }
+ fun drawCollectionMeters(canvas:Canvas,keys:Int,chips:Int) {
+  for((id,top) in listOf("keyfull" to VegasCollectionMeterRules.keyCropTop(keys),"chipsfull" to VegasCollectionMeterRules.chipCropTop(chips))) {
+   // The chip component starts with a zero-height image until its first count update.
+   if(id=="chipsfull" && chips==0) continue
+   val node=doc.component(id);val image=ui.bitmap(node.attributes.getValue("tex"))
+   val width=minOf(node.number("w",image.width),image.width)
+   if(top>=image.height) continue
+   val source=Rect(0,top,width,image.height)
+   val destination=Rect(node.number("x"),node.number("y")+top,node.number("x")+width,node.number("y")+image.height)
+   canvas.drawBitmap(image,source,destination,null)
+  }
+ }
  private fun base(canvas:Canvas,c:SdaCampaign?,clock:SdaClock?) {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
   // User-requested Android layout: one centered clock line, separated from score.
   compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),timer.number("y")-5)
   if(c!=null) {
+   drawCollectionMeters(canvas,c.collectedCount("key"),c.collectedCount("chip"))
    for((kind,id) in listOf("key" to "keyscollected","chip" to "chipscollected")) {
     val label=doc.component(id)
     ui.label(canvas,label,c.collectedCount(kind).toString()+doc.caption(label))
