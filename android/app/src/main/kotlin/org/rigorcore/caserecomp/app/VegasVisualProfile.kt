@@ -7,6 +7,13 @@ import org.rigorcore.caserecomp.sda.*
 class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
+ // Native dialogimg factory binds these nine textures in row-major order.
+ override fun menuView(context:android.content.Context,onAction:(SdaMenuAction)->Unit)=SdaResourceMenuView(context,ui,
+  doc.component("menudlg2"),listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+  "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { value ->
+   onAction(when(value) { 215 -> SdaMenuAction.RESUME;80 -> SdaMenuAction.RETURN_TO_CATALOGUE
+    34 -> SdaMenuAction.OPTIONS;209 -> SdaMenuAction.INSTRUCTIONS;else -> error("unknown menu action") })
+  }
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
  private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
  private val tileCanvases=mutableMapOf<String,SdaResourceCanvas>()

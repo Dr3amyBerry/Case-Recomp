@@ -40,7 +40,7 @@ class SdaLauncherActivity : Activity() {
     private var scene: SdaScene? = null
     private var campaign: SdaCampaign? = null
     private var gameView: SdaGameView? = null
-    private var hostMenu: android.app.AlertDialog? = null
+    private var hostMenu: android.app.Dialog? = null
     private var clock: SdaClock? = null
     private var isFrameLoopRunning = false
     private var lastFrameNanos: Long = 0L
@@ -212,18 +212,33 @@ class SdaLauncherActivity : Activity() {
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
-        // Host navigation adapter; the original game's options/instructions dialogs remain pending.
         view.onMenuListener = {
             autoSave()
-            val dialog=android.app.AlertDialog.Builder(this)
-                .setTitle("Case-Recomp")
-                .setItems(arrayOf("Continuar partida", "Guardar y volver al catálogo")) { _, item ->
-                    if(item==1) { autoSave();finish() }
+            val dialog=android.app.Dialog(this)
+            val nativeMenu=view.visuals?.menuView(this) { action ->
+                when(action) {
+                    SdaMenuAction.RESUME -> dialog.dismiss()
+                    // Host navigation remains a catalogue return until the original main menu is integrated.
+                    SdaMenuAction.RETURN_TO_CATALOGUE -> { autoSave();dialog.dismiss();finish() }
+                    else -> Toast.makeText(this,"Pantalla pendiente de implementar",Toast.LENGTH_SHORT).show()
                 }
-                .setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
-                .create()
-            hostMenu=dialog
-            dialog.show()
+            }
+            if(nativeMenu!=null) {
+                dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+                dialog.setContentView(nativeMenu)
+                dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
+                hostMenu=dialog;dialog.show()
+                dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+                dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+            } else {
+                val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
+                    .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
+                        if(item==1) { autoSave();finish() }
+                    }.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }.create()
+                hostMenu=fallback;fallback.show()
+            }
         }
         view.onPauseChangedListener = { autoSave() }
         view.onBonusInputListener = { autoSave() }

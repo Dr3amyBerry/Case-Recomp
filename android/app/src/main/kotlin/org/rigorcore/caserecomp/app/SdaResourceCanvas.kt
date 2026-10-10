@@ -36,6 +36,30 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val source=Rect(0,0,minOf(w,bitmap.width),minOf(h,bitmap.height))
   canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),if(photographic) photographs else null)
  }
+ /** Native-size nine-part panel: repeat edges/center and crop the last tile, never stretch. */
+ fun tiledPanel(canvas:Canvas,textures:List<String>,bounds:Rect) {
+  require(textures.size==9)
+  val parts=textures.map(::bitmap)
+  val left=parts[0].width;val right=parts[2].width
+  val top=parts[0].height;val bottom=parts[6].height
+  require(bounds.width()>=left+right && bounds.height()>=top+bottom)
+  val xs=listOf(bounds.left,bounds.left+left,bounds.right-right,bounds.right)
+  val ys=listOf(bounds.top,bounds.top+top,bounds.bottom-bottom,bounds.bottom)
+  for(row in 0..2) for(col in 0..2) {
+   val image=parts[row*3+col]
+   val region=Rect(xs[col],ys[row],xs[col+1],ys[row+1])
+   var y=region.top
+   while(y<region.bottom) {
+    var x=region.left
+    while(x<region.right) {
+     val w=minOf(image.width,region.right-x);val h=minOf(image.height,region.bottom-y)
+     canvas.drawBitmap(image,Rect(0,0,w,h),Rect(x,y,x+w,y+h),null)
+     x+=w
+    }
+    y+=minOf(image.height,region.bottom-y)
+   }
+  }
+ }
  /** Draw atlas text at an explicit anchor; clipping and title-specific offsets belong to callers. */
  fun atlasText(canvas:Canvas,name:String,text:String,x:Int,y:Int,halign:Int=0,valign:Int=0,opacity:Float=1f) {
   require(opacity.isFinite() && opacity in 0f..1f)
@@ -91,7 +115,10 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 }
 
+enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS }
+
 interface SdaVisualProfile {
+ fun menuView(context:android.content.Context,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun pointer(x:Int?,y:Int?,pressed:Boolean) {}
  fun menuRect(campaign:SdaCampaign):Rect? = null
  fun pauseRect(campaign:SdaCampaign):Rect? = null

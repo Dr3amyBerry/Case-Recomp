@@ -50,19 +50,18 @@ class SdaPrivateVisualInstrumentationTest {
      }
      instrumentation.waitForIdleSync()
     }
-    fun menu():android.app.AlertDialog {
-     lateinit var dialog:android.app.AlertDialog
+    fun menu():android.app.Dialog {
+     lateinit var dialog:android.app.Dialog
      scenario.onActivity { activity ->
       val field=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }
-      dialog=field.get(activity) as android.app.AlertDialog
+      dialog=field.get(activity) as android.app.Dialog
      }
      return dialog
     }
     clickMenu();val dialog=menu()
     scenario.onActivity {
      assertTrue(shown.isPaused)
-     assertEquals("Continuar partida",dialog.listView.adapter.getItem(0))
-     assertEquals("Guardar y volver al cat\u00e1logo",dialog.listView.adapter.getItem(1))
+     assertTrue(dialog.window!!.decorView.findViewWithTag<android.view.View>("sda-resource-menu") is SdaResourceMenuView)
     }
     SystemClock.sleep(500)
     lateinit var bitmap:Bitmap
@@ -72,13 +71,17 @@ class SdaPrivateVisualInstrumentationTest {
     android.view.PixelCopy.request(window,bitmap,{ status=it;done.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
     assertTrue(done.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,status)
     File(context.getExternalFilesDir(null),"vegas-host-menu.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
-    fun select(dialog:android.app.AlertDialog,index:Int) {
+    fun select(dialog:android.app.Dialog,index:Int) {
      scenario.onActivity {
-      val list=dialog.listView;val child=list.getChildAt(index)
-      val x=list.width/2f;val y=child.top+child.height/2f
+      val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+      val node=menu.buttons.single { it.number("value")==index }
+      val bounds=menu.buttonBounds(node)
+      val scale=minOf(menu.width/800f,menu.height/600f)
+      val x=(menu.width-800*scale)/2+bounds.centerX()*scale
+      val y=(menu.height-600*scale)/2+bounds.centerY()*scale
       for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
        val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,x,y,0)
-       try { list.dispatchTouchEvent(event) } finally { event.recycle() }
+       try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
       }
      }
      val deadline=SystemClock.uptimeMillis()+3000
@@ -86,9 +89,24 @@ class SdaPrivateVisualInstrumentationTest {
      assertFalse("menu selection must dismiss the real dialog",dialog.isShowing)
      instrumentation.waitForIdleSync()
     }
-    select(dialog,0)
+    // Release outside and CANCEL must leave the menu open and campaign paused.
+    scenario.onActivity {
+     val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+     val resume=menu.buttonBounds(menu.buttons.single { it.number("value")==215 })
+     val scale=minOf(menu.width/800f,menu.height/600f)
+     val x=(menu.width-800*scale)/2+resume.centerX()*scale
+     val y=(menu.height-600*scale)/2+resume.centerY()*scale
+     for(ending in listOf(MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL)) {
+      for((action,xx,yy) in listOf(Triple(MotionEvent.ACTION_DOWN,x,y),Triple(ending,0f,0f))) {
+       val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,xx,yy,0)
+       try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
+      }
+      assertTrue(dialog.isShowing);assertTrue(shown.isPaused)
+     }
+    }
+    select(dialog,215)
     scenario.onActivity { assertFalse(shown.isPaused) }
-    clickMenu();select(menu(),1)
+    clickMenu();select(menu(),80)
     val deadline=SystemClock.uptimeMillis()+3000
     while(scenario.state!=androidx.lifecycle.Lifecycle.State.DESTROYED && SystemClock.uptimeMillis()<deadline) { instrumentation.waitForIdleSync();SystemClock.sleep(50) }
     assertEquals(androidx.lifecycle.Lifecycle.State.DESTROYED,scenario.state)
@@ -100,6 +118,36 @@ class SdaPrivateVisualInstrumentationTest {
    for(key in keys) saved[key]?.let { edit.putString(key,it) } ?: edit.remove(key)
    assertTrue(edit.commit())
    for(key in keys) assertEquals("preserve preexisting checkpoint",saved[key],preferences.getString(key,null))
+  }
+ }
+
+ @Test fun original_dialog_tiles_repeat_without_stretching() {
+  val path=InstrumentationRegistry.getArguments().getString("privateSdaPackage")
+  assumeTrue(path!=null && File(path).isFile)
+  SdaContent.open(File(path!!),SdaImageDecoder { bytes ->
+   BitmapFactory.decodeByteArray(bytes,0,bytes.size)?.let { bmp -> object:SdaPixelSource {
+    override val width=bmp.width;override val height=bmp.height
+    override fun getArgb(px:Int,py:Int)=bmp.getPixel(px,py)
+    override fun getAlpha(px:Int,py:Int)=getArgb(px,py) ushr 24
+    override val nativeImage:Any=bmp
+   } }
+  }).use { content ->
+   val ui=SdaResourceCanvas(SdaUiDocument(content.read("ENVS.MSE")!!,content.loadStrings("ENVS.MSE")),content)
+   val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",
+    "mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright")
+   val parts=textures.map(ui::bitmap)
+   for((width,height) in listOf(325 to 320,470 to 430,560 to 420)) {
+    val bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888)
+    ui.tiledPanel(Canvas(bitmap),textures,android.graphics.Rect(0,0,width,height))
+    val xs=listOf(0,83,width-83,width);val ys=listOf(0,83,height-83,height)
+    for(row in 0..2) for(col in 0..2) {
+     val source=parts[row*3+col]
+     for(y in ys[row] until ys[row+1] step 3) for(x in xs[col] until xs[col+1] step 3) {
+      assertEquals("panel $width x $height at $x,$y",source.getPixel((x-xs[col])%source.width,(y-ys[row])%source.height),bitmap.getPixel(x,y))
+     }
+    }
+    bitmap.recycle()
+   }
   }
  }
 
