@@ -9,7 +9,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val ui=SdaResourceCanvas(doc,content)
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
  private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
- private val selected=Paint().apply { color=Color.YELLOW;style=Paint.Style.STROKE;strokeWidth=2f }
+ private val tileCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override val returnMapRect get()=ui.rect(doc.component("mapbutton"))
  override val solveRect get()=ui.rect(doc.component("solvebutton"))
  // 0046ac50 registers slot 2; 00410300 hides it on bonus entry.
@@ -155,14 +155,34 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val node=doc.component((if(rotation!=null) "tilerotgame_" else "tilegame_")+campaign.currentLevel.bonusImage)
   val image=ui.bitmap(node.attributes.getValue("tex"));val cols=rotation?.cols ?: swap!!.cols;val rows=rotation?.rows ?: swap!!.rows
   val w=612/cols;val h=408/rows;val ox=node.number("x");val oy=node.number("y")
+  val resource=campaign.currentLevel.bonus
+  if(resource !in tileCanvases) tileCanvases.clear()
+  val tiles=tileCanvases.getOrPut(resource) {
+   SdaResourceCanvas(SdaUiDocument(requireNotNull(content.read(resource)),content.loadStrings(resource)),content)
+  }
+  val emboss=tiles.document.component("overlay0")
+  val shadow=if(rotation!=null) tiles.document.component("shadow0") else null
+  val selection=tiles.document.component(if(swap!=null) "tile_selected" else "tile_select")
+  // XUI shadows form a separate layer below all tiles and emboss overlays.
+  shadow?.let { layer ->
+   for(i in 0 until cols*rows) if(rotation!!.lockedTiles[i].not()) {
+    tiles.image(canvas,layer,x=ox+i%cols*w-6,y=oy+i/cols*h-4)
+   }
+  }
   for(i in 0 until cols*rows) {
+   // 0045a780 / 00458e30 remove both the tile and its relief when retired.
+   if(rotation?.lockedTiles?.get(i)==true || swap?.lockedTiles?.get(i)==true) continue
    val source=swap?.tilePositions?.get(i) ?: i
    val x=ox+i%cols*w;val y=oy+i/cols*h
+   // 00459400 places rotation relief at native (-6,-4); swap uses tile origin.
+   val reliefX=x+if(rotation!=null) -6 else 0
+   val reliefY=y+if(rotation!=null) -4 else 0
    canvas.save();canvas.clipRect(x,y,x+w,y+h)
    canvas.rotate((rotation?.tileRotations?.get(i) ?: 0)*90f,x+w/2f,y+h/2f)
    canvas.drawBitmap(image,Rect(source%cols*w,source/cols*h,source%cols*w+w,source/cols*h+h),Rect(x,y,x+w,y+h),photos)
    canvas.restore()
-   if(swap?.selectedIndex==i) canvas.drawRect(x.toFloat(),y.toFloat(),(x+w).toFloat(),(y+h).toFloat(),selected)
+   tiles.image(canvas,emboss,x=reliefX,y=reliefY)
+   if(swap?.selectedIndex==i) tiles.image(canvas,selection,x=x,y=y)
   }
   return true
  }

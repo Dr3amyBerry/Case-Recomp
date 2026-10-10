@@ -288,8 +288,15 @@ class SdaPrivateVisualInstrumentationTest {
      finishObjects();campaign.startBonus(content)
      display(listOf("rotation","wordsearch","jigsaw","swap")[level])
      when(val game=campaign.bonusGame) {
-      is SdaTileRotGame -> for(i in game.tileRotations.indices) repeat(game.tileRotations[i]) {
-       touch(MotionEvent.ACTION_DOWN,172+i%game.cols*612/game.cols+1,95+i/game.cols*408/game.rows+1)
+      is SdaTileRotGame -> {
+       var captured=false
+       for(i in game.tileRotations.indices) repeat(game.tileRotations[i]) {
+        touch(MotionEvent.ACTION_DOWN,172+i%game.cols*612/game.cols+1,95+i/game.cols*408/game.rows+1)
+        if(!captured && game.lockedTiles.any { it } && !game.isSolved) {
+         captureState("rotation-retired");captured=true
+        }
+       }
+       assertTrue("capture an earned retired row",captured)
       }
       is SdaWordSearchGame -> for((wordIndex,cells) in game.board.placements.values.withIndex()) {
        fun x(c:Int)=game.originX+c%game.cols*game.cellWidth+1
@@ -334,6 +341,7 @@ class SdaPrivateVisualInstrumentationTest {
        if(game.lockedTiles[i]) continue
        val source=game.tilePositions.indexOf(i)
        touch(MotionEvent.ACTION_DOWN,172+i%game.cols*612/game.cols+1,96+i/game.cols*408/game.rows+1)
+       if(!game.lockedTiles.any { it }) captureState("swap-selected")
        touch(MotionEvent.ACTION_DOWN,172+source%game.cols*612/game.cols+1,96+source/game.cols*408/game.rows+1)
       }
       else -> fail("unexpected bonus")
