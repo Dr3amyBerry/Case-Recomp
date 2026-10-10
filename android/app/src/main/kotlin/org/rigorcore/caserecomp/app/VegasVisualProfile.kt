@@ -7,6 +7,7 @@ import org.rigorcore.caserecomp.sda.*
 class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
+ fun bonusTimeReward(remainingSeconds:Float):Int = VegasScoreRules.bonusTimeReward(remainingSeconds)
  private val musicState=VegasMusicState()
  private val musicTracks=doc.nodes("musictrack").associate { it.attributes.getValue("name") to it.attributes.getValue("audiostream") }
  private val musicRequests=musicTracks.mapValues { SdaMusicRequest(it.value,true) }

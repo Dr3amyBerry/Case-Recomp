@@ -104,6 +104,7 @@ class SdaCampaign(
     var hintRechargeImmediately:Boolean=false,
     val secondRiddle:SdaRiddleBinding? = null,
     val interactiveRiddleFactory:((SdaContent,Long,Map<String,Any?>?)->SdaInteractiveRiddleGame)? = null,
+    private val bonusTimeReward:(Float)->Int = { 0 },
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
@@ -322,7 +323,9 @@ class SdaCampaign(
     private fun finishBonusInput(bg: SdaBonusGame, before: Int, moved: Boolean): Boolean {
         points += placementScore(bg) - before
         if (bg.isSolved) {
-            points += bg.points
+            val timeReward = if(phase==SdaCampaignPhase.BONUS) bonusTimeReward(maxOf(0f,clock.limit-clock.elapsed)) else 0
+            require(timeReward>=0) { "invalid bonus time reward" }
+            points += bg.points + timeReward
             if (phase == SdaCampaignPhase.BONUS) phase = SdaCampaignPhase.LEVEL_COMPLETE
         }
         return moved

@@ -1,4 +1,4 @@
-﻿package org.rigorcore.caserecomp.app
+package org.rigorcore.caserecomp.app
 
 import android.app.Activity
 import android.app.ActivityOptions
@@ -198,6 +198,7 @@ class SdaPrivateCampaignE2EInstrumentationTest {
     main { click(game(),470,370) }
     waitFor("level$level bonus") { campaign().phase==SdaCampaignPhase.BONUS }
     capture("level-%02d-bonus".format(level))
+    val beforeBonusPoints=main { campaign().points }
     val bonus=main { campaign().bonusGame!! }
     when(bonus) {
      is SdaTileRotGame -> for(i in bonus.tileRotations.indices) repeat(main { bonus.tileRotations[i] }) { main { click(game(),172+i%bonus.cols*612/bonus.cols+1,95+i/bonus.cols*408/bonus.rows+1) } }
@@ -227,6 +228,16 @@ class SdaPrivateCampaignE2EInstrumentationTest {
      else -> error("unsupported native bonus at level$level: $bonus")
     }
     waitFor("level$level result") { campaign().phase==SdaCampaignPhase.LEVEL_COMPLETE && bonus.isSolved }
+    val expectedTimeReward=main { VegasScoreRules.bonusTimeReward(maxOf(0f,campaign().clock.limit-campaign().clock.elapsed)) }
+    val placementPoints=when(bonus) {
+     is SdaTileRotGame -> bonus.linePoints
+     is SdaTileSwapGame -> bonus.placementPoints
+     is SdaWordSearchGame -> bonus.placementPoints
+     is SdaJigsawGame -> bonus.placementPoints
+     else -> error("unsupported bonus score")
+    }
+    assertEquals("native bonus reward must be credited once",beforeBonusPoints+placementPoints+bonus.points+expectedTimeReward,main { campaign().points })
+    record("bonus-reward-verified",mapOf("level" to level,"placementPoints" to placementPoints,"completionPoints" to bonus.points,"timePoints" to expectedTimeReward))
     capture("level-%02d-result".format(level))
     val info=android.os.Debug.MemoryInfo();android.os.Debug.getMemoryInfo(info)
     record("level-completed",main { mapOf("level" to level,"bonusResource" to campaign().currentLevel.bonus,"bonusImage" to campaign().currentLevel.bonusImage,"family" to bonus.javaClass.simpleName,"points" to campaign().points,"elapsed" to campaign().clock.elapsed,"pss_kib" to info.totalPss,"availableScenes" to campaign().currentLevel.scenes,"javaHeapBytes" to Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory(),"nativeHeapBytes" to android.os.Debug.getNativeHeapAllocatedSize(),"duration_ms" to SystemClock.uptimeMillis()-started) })
