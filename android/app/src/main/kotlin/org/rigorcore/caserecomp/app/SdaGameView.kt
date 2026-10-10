@@ -128,7 +128,24 @@ class SdaGameView(
     private var offsetX = 0.0f
     private var offsetY = 0.0f
 
+    private fun releaseJigsawRasters() {
+        // These copies belong to this View; nativeImage bitmaps never enter this map.
+        jigsawBitmaps.values.forEach { it.recycle() }
+        jigsawBitmaps.clear()
+        jigsawRasterOwner = null
+    }
+
+    override fun onDetachedFromWindow() {
+        releaseJigsawRasters()
+        super.onDetachedFromWindow()
+    }
+
     override fun onDraw(canvas: Canvas) {
+        val activeJigsaw = campaign?.takeIf { it.phase == SdaCampaignPhase.BONUS }?.bonusGame as? SdaJigsawGame
+        if (jigsawRasterOwner !== activeJigsaw) {
+            releaseJigsawRasters()
+            jigsawRasterOwner = activeJigsaw
+        }
         super.onDraw(canvas)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
@@ -358,9 +375,6 @@ class SdaGameView(
                 }
             }
         } else if (bonus is SdaJigsawGame) {
-            if (jigsawRasterOwner !== bonus) {
-                jigsawBitmaps.values.forEach { it.recycle() }; jigsawBitmaps.clear(); jigsawRasterOwner = bonus
-            }
             val board = bonus.interaction.board
             bonus.referenceImage?.let {
                 canvas.drawBitmap(jigsawBitmap(it), bonus.originX.toFloat(), bonus.originY.toFloat(), Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 102 })
