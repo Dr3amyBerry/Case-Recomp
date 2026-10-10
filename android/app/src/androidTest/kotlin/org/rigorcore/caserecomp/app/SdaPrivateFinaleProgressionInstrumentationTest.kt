@@ -18,7 +18,7 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/** Android input journey from an earned JVM checkpoint, not catalogue/25-level Android E2E. */
+/** Android ending replay from an explicitly supplied earned checkpoint; not catalogue E2E. */
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateFinaleProgressionInstrumentationTest {
  @Test fun earned_first_phase_dialog_to_eight_second_phase_placements_and_saved_reopen() {
@@ -34,7 +34,11 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
   val before=keys.associateWith { prefs.getString(it,null) }
   val settings=context.getSharedPreferences("case-recomp-vegas-options",0)
   val optionsBefore=settings.all.toMap()
-  assertTrue(prefs.edit().putString("active_campaign_checkpoint",File(earned!!).readText()).remove("session-checkpoint").commit())
+  val qaId="endingqa-"+java.util.UUID.randomUUID()
+  val repository=PrivateSdaRepository(context)
+  val qaProfile=File(context.filesDir,"private-sda/profiles/$qaId.json")
+  val qaSlot=File(context.filesDir,"private-sda/campaigns/vegas_heist/$qaId.json")
+  check(!qaProfile.exists() && !qaSlot.exists())
   val intent=Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
   fun launch()=ActivityScenario.launch<SdaLauncherActivity>(intent,ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
   fun game(activity:SdaLauncherActivity)=SdaLauncherActivity::class.java.getDeclaredField("gameView").apply { isAccessible=true }.get(activity) as SdaGameView
@@ -103,6 +107,8 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
   var originalPoints=0
   var heldId:String?=null
   try {
+   assertTrue(repository.profileStorage.saveProfile(SdaProfile(qaId,"Ending replay QA")))
+   assertTrue(prefs.edit().putString("active_profile_id",qaId).putString("campaign_checkpoint_namespace","vegas_heist").putString("active_campaign_checkpoint",File(earned!!).readText()).remove("session-checkpoint").commit())
    launch().use { scenario ->
     confirm(scenario,299)
     scenario.onActivity { activity ->
@@ -132,6 +138,7 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
     memory(scenario,"second-entry")
     scenario.onActivity { activity -> heldId=(game(activity).campaign!!.bonusGame as SdaSecondRiddleGame).interaction.cells().first().id }
     select(scenario,heldId!!)
+    scenario.onActivity { File(context.getExternalFilesDir(null),"finale-second-earned-held.json").writeText(game(it).campaign!!.snapshot().toJson()) }
     capture(scenario,"finale-second-held-real.png")
    }
    launch().use { scenario ->
@@ -327,6 +334,7 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
    }
   } finally {
    val editor=prefs.edit();before.forEach { (key,value) -> if(value==null) editor.remove(key) else editor.putString(key,value) };assertTrue(editor.commit())
+   for(file in listOf(qaProfile,qaSlot)) if(file.exists()) assertTrue(file.delete())
    assertEquals(optionsBefore,settings.all.toMap())
    before.forEach { (key,value) -> assertEquals(value,prefs.getString(key,null)) }
   }

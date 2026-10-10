@@ -200,15 +200,23 @@ class SdaPrivateCampaignE2EInstrumentationTest {
     capture("level-%02d-bonus".format(level))
     val beforeBonusPoints=main { campaign().points }
     val bonus=main { campaign().bonusGame!! }
+    File(output,"earned-level-$level-bonus-entry.json").writeText(main { campaign().snapshot().toJson() })
+    var partialSaved=false
+    fun partialCheckpoint() {
+     if(!partialSaved) {
+      File(output,"earned-level-$level-bonus-partial.json").writeText(campaign().snapshot().toJson())
+      partialSaved=true
+     }
+    }
     when(bonus) {
-     is SdaTileRotGame -> for(i in bonus.tileRotations.indices) repeat(main { bonus.tileRotations[i] }) { main { click(game(),172+i%bonus.cols*612/bonus.cols+1,95+i/bonus.cols*408/bonus.rows+1) } }
+     is SdaTileRotGame -> for(i in bonus.tileRotations.indices) repeat(main { bonus.tileRotations[i] }) { main { click(game(),172+i%bonus.cols*612/bonus.cols+1,95+i/bonus.cols*408/bonus.rows+1);partialCheckpoint() } }
      is SdaWordSearchGame -> for(cells in bonus.board.placements.values) main {
       fun x(c:Int)=bonus.originX+c%bonus.cols*bonus.cellWidth+1
       fun y(c:Int)=bonus.originY+c/bonus.cols*bonus.cellHeight+1
-      touch(game(),MotionEvent.ACTION_DOWN,x(cells.first()),y(cells.first()));touch(game(),MotionEvent.ACTION_MOVE,x(cells.last()),y(cells.last()));touch(game(),MotionEvent.ACTION_UP,x(cells.last()),y(cells.last()))
+      touch(game(),MotionEvent.ACTION_DOWN,x(cells.first()),y(cells.first()));touch(game(),MotionEvent.ACTION_MOVE,x(cells.last()),y(cells.last()));partialCheckpoint();touch(game(),MotionEvent.ACTION_UP,x(cells.last()),y(cells.last()))
      }
      is SdaTileSwapGame -> for(i in bonus.tilePositions.indices) main {
-      if(!bonus.lockedTiles[i]) { val source=bonus.tilePositions.indexOf(i);click(game(),172+i%bonus.cols*612/bonus.cols+1,96+i/bonus.cols*408/bonus.rows+1);click(game(),172+source%bonus.cols*612/bonus.cols+1,96+source/bonus.cols*408/bonus.rows+1) }
+      if(!bonus.lockedTiles[i]) { val source=bonus.tilePositions.indexOf(i);click(game(),172+i%bonus.cols*612/bonus.cols+1,96+i/bonus.cols*408/bonus.rows+1);partialCheckpoint();click(game(),172+source%bonus.cols*612/bonus.cols+1,96+source/bonus.cols*408/bonus.rows+1) }
      }
      is SdaJigsawGame -> for(id in bonus.interaction.board.trayOrder) {
       repeat(40) {
@@ -220,6 +228,7 @@ class SdaPrivateCampaignE2EInstrumentationTest {
       }
       main {
        assertEquals(id,bonus.interaction.board.selected)
+       partialCheckpoint()
        while(bonus.interaction.board.quarterTurns.getValue(id)!=0) { touch(game(),MotionEvent.ACTION_DOWN,0,0,MotionEvent.BUTTON_SECONDARY);touch(game(),MotionEvent.ACTION_UP,0,0,MotionEvent.BUTTON_SECONDARY) }
        val piece=bonus.interaction.board.pieces.getValue(id);touch(game(),MotionEvent.ACTION_MOVE,piece.x+piece.width/2,piece.y+piece.height/2);click(game(),piece.x+piece.width/2,piece.y+piece.height/2)
        assertTrue("Jigsaw$id must be earned",id in bonus.interaction.board.placed)
@@ -238,6 +247,7 @@ class SdaPrivateCampaignE2EInstrumentationTest {
     }
     assertEquals("native bonus reward must be credited once",beforeBonusPoints+placementPoints+bonus.points+expectedTimeReward,main { campaign().points })
     record("bonus-reward-verified",mapOf("level" to level,"placementPoints" to placementPoints,"completionPoints" to bonus.points,"timePoints" to expectedTimeReward))
+    File(output,"earned-level-$level-result.json").writeText(main { campaign().snapshot().toJson() })
     capture("level-%02d-result".format(level))
     val info=android.os.Debug.MemoryInfo();android.os.Debug.getMemoryInfo(info)
     record("level-completed",main { mapOf("level" to level,"bonusResource" to campaign().currentLevel.bonus,"bonusImage" to campaign().currentLevel.bonusImage,"family" to bonus.javaClass.simpleName,"points" to campaign().points,"elapsed" to campaign().clock.elapsed,"pss_kib" to info.totalPss,"availableScenes" to campaign().currentLevel.scenes,"javaHeapBytes" to Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory(),"nativeHeapBytes" to android.os.Debug.getNativeHeapAllocatedSize(),"duration_ms" to SystemClock.uptimeMillis()-started) })
