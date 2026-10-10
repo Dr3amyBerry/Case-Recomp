@@ -116,7 +116,8 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  private var pressed=false
  private var gesturePointer:Int?=null
  init { tag="sda-resource-menu";isFocusable=true }
- fun buttonBounds(node:SdaUiNode)=ui.rect(node).apply { offset(container.number("x"),container.number("y")) }
+ private fun containerWidth()=container.children.singleOrNull { it.type=="dialogimg" }?.number("w") ?: container.number("w",logicalWidth)
+ fun buttonBounds(node:SdaUiNode)=ui.rect(node,containerWidth()).apply { offset(container.number("x"),container.number("y")) }
  override fun onDraw(canvas:Canvas) {
   super.onDraw(canvas)
   val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat())
@@ -147,7 +148,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
     }
     canvas.drawBitmap(ui.bitmap(texture),knob.left.toFloat(),knob.top.toFloat(),null)
    }
-   "allbutton","quitbutton" -> ui.button(canvas,node,enabled=enabled(node),state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
+   "allbutton","quitbutton" -> ui.button(canvas,node,parentWidth=containerWidth(),enabled=enabled(node),state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
   }
   // Dynamic text and rows sit above their original frame textures.
   listNode()?.let { node ->

@@ -142,31 +142,47 @@ class SdaPrivateProcessPersistenceInstrumentationTest {
      click(view,card.first,card.second)
     }
     instrumentation.waitForIdleSync();SystemClock.sleep(100)
-    scenario.onActivity { activity->
-     val view=game(activity);val camp=view.campaign!!;val scene=camp.currentScene!!
-     val target=scene.targets.map { scene.objects.getValue(it) }.first { obj->(obj.y until obj.y+obj.image.height).any { y->y in 0 until 550 && (obj.x until obj.x+obj.image.width).any { x->x in 144 until 800 && obj.hit(x,y) } } }
-     val pixel=(target.y until target.y+target.image.height).asSequence().flatMap { y->(target.x until target.x+target.image.width).asSequence().map { x->x to y } }.first { (x,y)->x in 144 until 800 && y in 0 until 550 && target.hit(x,y) }
-     if(metadata.getString("case")=="collectors") {
-      val before=camp.points;val completed=camp.completedObjects
-      for(item in scene.collectibles) {
+    if(metadata.getString("case")=="collectors") {
+     var beforePoints=0;var beforeCompleted=0
+     scenario.onActivity { activity -> beforePoints=game(activity).campaign!!.points;beforeCompleted=game(activity).campaign!!.completedObjects }
+     for(kind in listOf("key","chip")) {
+      scenario.onActivity { activity ->
+       val view=game(activity);val camp=view.campaign!!;val scene=camp.currentScene!!
+       val item=scene.collectibles.single { it.definition.kind==kind }
        assertTrue(camp.collectibleAvailable(item))
        val image=item.sprite.image
-       val point=(0 until image.width*image.height).asSequence().map { item.sprite.x+it%image.width to item.sprite.y+it/image.width }.first { (x,y)->
-        x in 174 until 800 && y in 0 until 600 && item.sprite.hit(x,y)
-       }
+       val point=(0 until image.width*image.height).asSequence().map { item.sprite.x+it%image.width to item.sprite.y+it/image.width }.first { (x,y)->x in 174 until 800 && y in 0 until 600 && item.sprite.hit(x,y) }
        click(view,point.first,point.second)
-       assertEquals(1,camp.collectedCount(item.definition.kind))
-       assertFalse(camp.collectibleAvailable(item))
+       assertEquals(1,camp.collectedCount(kind));assertFalse(camp.collectibleAvailable(item))
       }
-      assertEquals(setOf("key","chip"),scene.collectibles.map { it.definition.kind }.toSet())
-      assertEquals(before,camp.points);assertEquals(completed,camp.completedObjects)
-     } else {
+      instrumentation.waitForIdleSync();SystemClock.sleep(100)
+      scenario.onActivity { activity ->
+       val view=game(activity);assertTrue(view.isPaused)
+       val menu=panel(activity)
+       assertEquals(if(kind=="key") "foundthekey" else "foundthepokerchip",menu.screenId)
+       val bounds=menu.buttonBounds(menu.buttons.single())
+       assertTrue(kotlin.math.abs(bounds.centerX()-400)<=1)
+       click(menu,bounds.centerX(),bounds.centerY())
+      }
+      instrumentation.waitForIdleSync()
+      scenario.onActivity { activity -> assertFalse(game(activity).isPaused) }
+     }
+     scenario.onActivity { activity ->
+      val camp=game(activity).campaign!!;assertEquals(beforePoints,camp.points);assertEquals(beforeCompleted,camp.completedObjects)
+     }
+    } else {
+     scenario.onActivity { activity ->
+      val view=game(activity);val camp=view.campaign!!;val scene=camp.currentScene!!
+      val target=scene.targets.map { scene.objects.getValue(it) }.first { obj->(obj.y until obj.y+obj.image.height).any { y->y in 0 until 550 && (obj.x until obj.x+obj.image.width).any { x->x in 144 until 800 && obj.hit(x,y) && scene.collectibles.none { camp.collectibleAvailable(it) && it.sprite.hit(x,y) } } } }
+      val pixel=(target.y until target.y+target.image.height).asSequence().flatMap { y->(target.x until target.x+target.image.width).asSequence().map { x->x to y } }.first { (x,y)->x in 144 until 800 && y in 0 until 550 && target.hit(x,y) && scene.collectibles.none { camp.collectibleAvailable(it) && it.sprite.hit(x,y) } }
       val before=camp.points;click(view,pixel.first,pixel.second)
       var optionalInputs=0
       while(!target.found && optionalInputs++<scene.collectibles.size) click(view,pixel.first,pixel.second)
       assertTrue(camp.points>before)
      }
-     val menu=view.visuals!!.menuRect(camp)!!;click(view,menu.centerX(),menu.centerY())
+    }
+    scenario.onActivity { activity ->
+     val view=game(activity);val menu=view.visuals!!.menuRect(view.campaign!!)!!;click(view,menu.centerX(),menu.centerY())
     }
    }
    instrumentation.waitForIdleSync()

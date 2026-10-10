@@ -318,6 +318,22 @@ class SdaLauncherActivity : Activity() {
         dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
     }
 
+    private fun showCollectibleDialog(view:SdaGameView,kind:String) {
+        if(hostMenu!=null || isFinishing || isDestroyed) return
+        val dialog=android.app.Dialog(this)
+        val panel=view.visuals?.collectibleDialog(this,kind) { dialog.dismiss() } ?: return
+        panel.onSoundEffect={ audioSession?.playEffect(it) }
+        view.pauseForMenu()
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(panel)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave() }
+        hostMenu=dialog;dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+    }
+
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
         view.onMenuListener = { showResourceMenu(view,SdaMenuEntry.PAUSE) }
         view.onHintListener = {
@@ -370,6 +386,7 @@ class SdaLauncherActivity : Activity() {
         view.onCollectibleFoundListener = { kind ->
             view.visuals?.collectibleSound(kind)?.let { audioSession?.playEffect(it) }
             autoSave()
+            if(campaign?.collectedCount(kind)==1) showCollectibleDialog(view,kind)
         }
 
         view.onObjectFoundListener = { id, gain ->

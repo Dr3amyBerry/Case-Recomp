@@ -27,6 +27,23 @@ class SdaPrivateObjectsCompleteInstrumentationTest {
     }
    }).use { content ->
     val profile=VegasVisualProfile(content)
+    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+     for(kind in listOf("key","chip")) {
+      var confirmations=0
+      val panel=requireNotNull(profile.collectibleDialog(InstrumentationRegistry.getInstrumentation().targetContext,kind) { confirmations++ })
+      panel.layout(0,0,800,600)
+      val button=panel.buttons.single()
+      val bounds=panel.buttonBounds(button)
+      assertTrue(kotlin.math.abs(bounds.centerX()-400)<=1)
+      val rendered=Bitmap.createBitmap(800,600,Bitmap.Config.ARGB_8888)
+      try { panel.draw(Canvas(rendered));assertNotEquals(0,rendered.getPixel(bounds.centerX(),bounds.centerY()).ushr(24)) } finally { rendered.recycle() }
+      for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+       val event=android.view.MotionEvent.obtain(0,1,action,bounds.centerX().toFloat(),bounds.centerY().toFloat(),0)
+       try { assertTrue(panel.onTouchEvent(event)) } finally { event.recycle() }
+      }
+      assertEquals(1,confirmations)
+     }
+    }
     val output=Bitmap.createBitmap(800,600,Bitmap.Config.ARGB_8888)
     try {
      assertTrue(profile.drawObjectsComplete(Canvas(output)))

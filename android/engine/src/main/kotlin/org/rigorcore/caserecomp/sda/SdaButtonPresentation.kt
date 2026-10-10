@@ -10,3 +10,8 @@ fun SdaUiNode.buttonPresentation(state:SdaButtonState):SdaButtonPresentation = S
  attributes[state.textureKey],attributes[state.fontKey] ?: attributes["font"],
  number("globalcaptionoffsetx")+if(state==SdaButtonState.PRESSED) number("captionoffsetx") else 0,
  number("globalcaptionoffsety")+if(state==SdaButtonState.PRESSED) number("captionoffsety") else 0)
+
+
+/** Native center attribute: parent width / 2 minus control width / 2; preserve y. */
+fun SdaUiNode.buttonX(parentWidth:Int?,buttonWidth:Int):Int =
+ if(attributes["center"]=="true" && parentWidth!=null) parentWidth/2-buttonWidth/2 else number("x")

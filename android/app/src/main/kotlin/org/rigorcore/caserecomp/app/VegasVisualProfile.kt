@@ -32,6 +32,17 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val attribute=when(kind) { "key" -> "keybonussfx";"chip" -> "chipbonussfx";else -> return null }
   return doc.component("pdacontrol").attributes[attribute]
  }
+ override fun collectibleDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? {
+  val reference=when(kind) { "key" -> "foundthekeydialog";"chip" -> "chipfirstfounddialog";else -> return null }
+  val original=doc.component(doc.component(reference).attributes.getValue("overlay"))
+  val panel=original.children.single { it.type=="dialogimg" }
+  val container=original.copy(attributes=original.attributes+mapOf("x" to ((800-panel.number("w"))/2).toString(),"y" to ((600-panel.number("h"))/2).toString()))
+  val confirm=original.children.single { it.type=="allbutton" }.number("value")
+  return SdaResourceMenuView(context,ui,container,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+   "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
+   if(action==confirm) onConfirm()
+  }
+ }
  override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
  override fun immediateHintRecharge(context:android.content.Context)=context.getSharedPreferences("case-recomp-vegas-options",0).getBoolean("rapidhints",false)
  override fun hintRect(campaign:SdaCampaign):Rect? =
@@ -494,7 +505,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun objectsCompleteRect():Rect {
   val node=doc.component("allobjectspickeddialog").children.single { it.type=="allbutton" && it.number("value")==334 }
   val (x,y)=objectsCompleteOrigin()
-  return ui.rect(node).apply { offset(x,y) }
+  val width=doc.component("allobjectspickeddialog").children.single { it.type=="dialogimg" }.number("w")
+  return ui.rect(node,width).apply { offset(x,y) }
  }
  override fun drawObjectsComplete(canvas:Canvas):Boolean {
   val container=doc.component("allobjectspickeddialog")
@@ -506,7 +518,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   container.children.forEach { node -> when(node.type) {
    "image" -> ui.image(canvas,node)
    "label" -> ui.label(canvas,node)
-   "allbutton" -> ui.button(canvas,node)
+   "allbutton" -> ui.button(canvas,node,parentWidth=panel.number("w"))
   } }
   canvas.restore()
   return true

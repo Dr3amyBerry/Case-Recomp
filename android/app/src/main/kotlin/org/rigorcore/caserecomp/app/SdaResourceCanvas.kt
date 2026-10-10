@@ -110,20 +110,21 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val x=node.number("x");val y=node.number("y")
   canvas.drawRect(x.toFloat(),y.toFloat(),(x+node.number("w")).toFloat(),(y+node.number("h")).toFloat(),paint)
  }
- fun button(canvas:Canvas,node:SdaUiNode,enabled:Boolean=true,state:SdaButtonState=SdaButtonState.NORMAL) {
+ fun button(canvas:Canvas,node:SdaUiNode,enabled:Boolean=true,state:SdaButtonState=SdaButtonState.NORMAL,parentWidth:Int?=null) {
   val binding=node.buttonPresentation(if(enabled) state else SdaButtonState.DISABLED)
-  val bounds=rect(node)
+  val bounds=rect(node,parentWidth)
   binding.texture?.let { canvas.drawBitmap(bitmap(it),bounds.left.toFloat(),bounds.top.toFloat(),null) }
   val attributes=node.attributes+mapOf("halign" to "center","valign" to "middle")
   val font=binding.font
   val labelNode=node.copy(attributes=if(font==null) attributes-"font" else attributes+("font" to font))
   label(canvas,labelNode,x=bounds.left+binding.captionX,y=bounds.top+binding.captionY,width=bounds.width(),height=bounds.height())
  }
- fun rect(node:SdaUiNode):Rect {
+ fun rect(node:SdaUiNode,parentWidth:Int?=null):Rect {
   val images=SdaButtonState.entries.mapNotNull { node.attributes[it.textureKey] }.distinct().map(::bitmap)
   val x=node.number("x");val y=node.number("y")
   val w=node.number("w",images.maxOfOrNull { it.width } ?: 0);val h=node.number("h",images.maxOfOrNull { it.height } ?: 0)
-  return Rect(x,y,x+w,y+h)
+  val buttonX=node.buttonX(parentWidth,w)
+  return Rect(buttonX,y,buttonX+w,y+h)
  }
 
 }
@@ -140,6 +141,7 @@ interface SdaVisualProfile {
  fun sceneFeedback(found:Boolean):String? = null
  fun collectibleLimit(kind:String):Int = Int.MAX_VALUE
  fun collectibleSound(kind:String):String? = null
+ fun collectibleDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? = null
  fun hintPolicy():SdaHintPolicy? = null
  fun immediateHintRecharge(context:android.content.Context):Boolean = false
  fun hintRect(campaign:SdaCampaign):Rect? = null

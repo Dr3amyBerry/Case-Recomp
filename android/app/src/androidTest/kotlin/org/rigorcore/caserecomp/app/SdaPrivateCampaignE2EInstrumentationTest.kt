@@ -181,18 +181,25 @@ class SdaPrivateCampaignE2EInstrumentationTest {
      capture("level-%02d-scene-%s".format(level,name))
      val ids=main { campaign().currentScene!!.activeSets.take(campaign().remainingObjects).flatten() }
      val beforeEvents=main { completionEvents }
-     for(id in ids) main {
-      val view=game();val scene=campaign().currentScene!!;val sprite=scene.objects.getValue(id)
-      if(!sprite.found) {
-       val p=(0 until sprite.image.width*sprite.image.height).asSequence().map { sprite.x+it%sprite.image.width to sprite.y+it/sprite.image.width }.firstOrNull { (x,y) -> x in 144 until 800 && y in 0 until 600 && scene.targets.firstOrNull { scene.objects.getValue(it).hit(x,y) }==id }
-       if(p==null) { record("unreachable-object",mapOf("level" to level,"scene" to name,"id" to id,"x" to sprite.x,"y" to sprite.y,"width" to sprite.image.width,"height" to sprite.image.height));error("no visible Android hit pixel for $id in $name") }
-       click(view,p.first,p.second)
-       var optionalInputs=0
-       while(!sprite.found && optionalInputs<scene.collectibles.size && campaign().phase==SdaCampaignPhase.SCENE) {
-        optionalInputs++;click(view,p.first,p.second)
+     for(id in ids) {
+      val p=main {
+       val scene=campaign().currentScene!!;val sprite=scene.objects.getValue(id)
+       if(sprite.found) null else {
+        val point=(0 until sprite.image.width*sprite.image.height).asSequence().map { sprite.x+it%sprite.image.width to sprite.y+it/sprite.image.width }.firstOrNull { (x,y) -> x in 144 until 800 && y in 0 until 600 && scene.targets.firstOrNull { scene.objects.getValue(it).hit(x,y) }==id }
+        if(point==null) { record("unreachable-object",mapOf("level" to level,"scene" to name,"id" to id));error("no visible Android hit pixel for $id in $name") }
+        point
        }
-       assertTrue("object$id must be found by Android touch",sprite.found)
+      } ?: continue
+      var inputs=0
+      while(main { !campaign().currentScene!!.objects.getValue(id).found }) {
+       assertTrue("optional overlays must eventually expose $id",inputs++<=main { campaign().currentScene!!.collectibles.size })
+       main { click(game(),p.first,p.second) }
+       instrumentation.waitForIdleSync()
+       val screen=main { if(menuPresent()) panel().screenId else null }
+       if(screen=="foundthekey") menuButton(338,screen)
+       if(screen=="foundthepokerchip") menuButton(1011,screen)
       }
+      assertTrue(main { campaign().currentScene!!.objects.getValue(id).found })
      }
      waitFor("level$level scene retirement",20) { campaign().phase in setOf(SdaCampaignPhase.SCENE_COMPLETE,SdaCampaignPhase.OBJECTS_COMPLETE) }
      SystemClock.sleep(350)
