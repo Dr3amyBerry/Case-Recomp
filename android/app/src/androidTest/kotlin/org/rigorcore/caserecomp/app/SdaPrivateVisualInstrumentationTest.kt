@@ -252,6 +252,12 @@ class SdaPrivateVisualInstrumentationTest {
        android.graphics.Color.red(p)>160 && android.graphics.Color.green(p)>160 && android.graphics.Color.blue(p)>160
       } }
       assertTrue("original PDA level header missing: $levelInk",levelInk>100)
+      val numericInk=(20 until 132).sumOf { x -> (81 until 86).count { y ->
+       val p=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
+       android.graphics.Color.red(p)>75 && android.graphics.Color.green(p)>110 && android.graphics.Color.blue(p)>150
+      } }
+      assertTrue("numeric score must be visible below its caption and above instructions: $numericInk",numericInk>8)
+
      }
      if(name in listOf("rotation","wordsearch","jigsaw","swap")) {
       val background=content.decodeImage("minigame_background.jpg")

@@ -54,13 +54,20 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
   // User-requested Android layout: one centered clock line, separated from score.
-  ui.label(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),y=timer.number("y")-2)
+  compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),timer.number("y")-5)
   button(canvas,doc.component("pdadownmenubutton"))
   button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")
-  // 00453ee0 concatenates the caption and formatted value directly; 0048aad0
-  // uses label width for alignment, without clipping glyphs to that rectangle.
-  ui.label(canvas,score,doc.caption(score)+String.format(java.util.Locale.US,"%,d",c?.points ?: 0),y=score.number("y")+4,clipToBounds=false)
+  // Explicit user adaptation: caption above a smaller, centered numeric row.
+  compactInfo(canvas,score,doc.caption(score),score.number("y")-6)
+  compactInfo(canvas,score,String.format(java.util.Locale.US,"%,d",c?.points ?: 0),score.number("y")+5)
+ }
+ private fun compactInfo(canvas:Canvas,node:SdaUiNode,text:String,y:Int) {
+  // Requested compact header: leave the level and objective instructions untouched.
+  canvas.save()
+  canvas.scale(.85f,.85f,node.number("x")+node.number("w")/2f,y+node.number("h")/2f)
+  ui.label(canvas,node,text,y=y,clipToBounds=false)
+  canvas.restore()
  }
  private fun levelLabel(canvas:Canvas,campaign:SdaCampaign) {
   // 004433d0 slot 0 formats the original caption as "%s: %d".
