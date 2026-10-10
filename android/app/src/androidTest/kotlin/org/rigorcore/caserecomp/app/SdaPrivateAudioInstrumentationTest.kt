@@ -13,6 +13,123 @@ import java.io.File
 /** Codec/reference test with authentic private audio. Not an audible or campaign UI acceptance test. */
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateAudioInstrumentationTest {
+ @Test fun original_options_volume_preview_cancel_save_and_reopen() {
+  val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext
+  val path=InstrumentationRegistry.getArguments().getString("privateAudioPackage")
+  assumeTrue(path!=null && File(path).isFile)
+  val display=InstrumentationRegistry.getArguments().getString("visualDisplayId")?.toInt() ?: 0
+  val checkpoint=context.getSharedPreferences("case-recomp-sda",0)
+  val keys=listOf("active_campaign_checkpoint","session-checkpoint");val before=keys.associateWith { checkpoint.getString(it,null) }
+  val prefs=context.getSharedPreferences("case-recomp-vegas-options",0)
+  val settingsBefore=prefs.all.toMap()
+  assertTrue(prefs.edit().putInt("music",50).putInt("effects",75).commit())
+  fun launch()=androidx.test.core.app.ActivityScenario.launch<SdaLauncherActivity>(
+   android.content.Intent(context,SdaLauncherActivity::class.java).putExtra("private_sda_package",path),
+   android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
+  lateinit var audio:SdaAudioSession
+  lateinit var menu:SdaResourceMenuView
+  fun touch(action:Int,x:Float,y:Float) {
+   val scale=minOf(menu.width/800f,menu.height/600f)
+   val event=android.view.MotionEvent.obtain(0,android.os.SystemClock.uptimeMillis(),action,
+    (menu.width-800*scale)/2+x*scale,(menu.height-600*scale)/2+y*scale,0)
+   try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
+  }
+  fun button(value:Int) {
+   val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==value })
+   touch(android.view.MotionEvent.ACTION_DOWN,rect.centerX().toFloat(),rect.centerY().toFloat())
+   touch(android.view.MotionEvent.ACTION_UP,rect.centerX().toFloat(),rect.centerY().toFloat())
+  }
+  fun bind(activity:SdaLauncherActivity) {
+   audio=SdaLauncherActivity::class.java.getDeclaredField("audioSession").apply { isAccessible=true }.get(activity) as SdaAudioSession
+   val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+   menu=dialog.window!!.decorView.findViewWithTag("sda-resource-menu")
+   assertEquals(display,activity.display!!.displayId)
+  }
+  try {
+   launch().use { scenario ->
+    scenario.onActivity { bind(it);button(30);assertEquals("mainoptionsdlg",menu.screenId) }
+    // Real Android gestures: drag captured knobs beyond both track ends; values must clamp.
+    scenario.onActivity {
+     touch(android.view.MotionEvent.ACTION_DOWN,555f,184f)
+     touch(android.view.MotionEvent.ACTION_MOVE,390f,184f)
+     touch(android.view.MotionEvent.ACTION_UP,390f,184f)
+     assertEquals(0,audio.musicVolume)
+     touch(android.view.MotionEvent.ACTION_DOWN,586f,229f)
+     touch(android.view.MotionEvent.ACTION_MOVE,720f,229f)
+     touch(android.view.MotionEvent.ACTION_UP,720f,229f)
+     assertEquals(100,audio.effectsVolume)
+     button(36);assertEquals("mainmenuunderlay",menu.screenId)
+     assertEquals(50,audio.musicVolume);assertEquals(75,audio.effectsVolume)
+     assertEquals(50,prefs.getInt("music",-1));assertEquals(75,prefs.getInt("effects",-1))
+     button(30)
+     touch(android.view.MotionEvent.ACTION_DOWN,555f,184f)
+     touch(android.view.MotionEvent.ACTION_MOVE,390f,184f)
+     touch(android.view.MotionEvent.ACTION_UP,390f,184f)
+     touch(android.view.MotionEvent.ACTION_DOWN,586f,229f)
+     touch(android.view.MotionEvent.ACTION_MOVE,390f,229f)
+     touch(android.view.MotionEvent.ACTION_UP,390f,229f)
+     assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume)
+     button(31);assertEquals("mainmenuunderlay",menu.screenId)
+     assertEquals(0,prefs.getInt("music",-1));assertEquals(0,prefs.getInt("effects",-1))
+     button(299)
+     fun find(view:android.view.View):SdaGameView? {
+      if(view is SdaGameView) return view
+      if(view is android.view.ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i))?.let { return it }
+      return null
+     }
+     val game=checkNotNull(find(it.window.decorView))
+     val rect=checkNotNull(game.visuals).menuRect(checkNotNull(game.campaign))
+     val scale=minOf(game.width/800f,game.height/600f)
+     for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+      val event=android.view.MotionEvent.obtain(0,0,action,(game.width-800*scale)/2+rect.centerX()*scale,(game.height-600*scale)/2+rect.centerY()*scale,0)
+      try { assertTrue(game.dispatchTouchEvent(event)) } finally { event.recycle() }
+     }
+     bind(it);assertEquals("menudlg2",menu.screenId);button(34)
+     assertEquals("mainoptionsdlgeyespy",menu.screenId)
+     val slider=menu.sliders.single { it.number("typevalue")==1 }
+     val knob=menu.sliderKnobBounds(slider)
+     touch(android.view.MotionEvent.ACTION_DOWN,knob.centerX().toFloat(),knob.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_MOVE,720f,knob.centerY().toFloat());assertEquals(100,audio.musicVolume)
+     touch(android.view.MotionEvent.ACTION_CANCEL,720f,knob.centerY().toFloat());assertEquals(0,audio.musicVolume)
+     button(220);assertEquals("menudlg2",menu.screenId)
+     button(34)
+     val next=menu.sliderKnobBounds(menu.sliders.single { it.number("typevalue")==1 })
+     touch(android.view.MotionEvent.ACTION_DOWN,next.centerX().toFloat(),next.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_MOVE,720f,next.centerY().toFloat())
+     touch(android.view.MotionEvent.ACTION_UP,720f,next.centerY().toFloat());assertEquals(100,audio.musicVolume)
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(it) as android.app.Dialog
+     dialog.cancel()
+    }
+    instrumentation.waitForIdleSync()
+    scenario.onActivity { assertEquals("closing options cancels preview",0,audio.musicVolume) }
+   }
+   launch().use { scenario ->
+    scenario.onActivity { bind(it);assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume);button(30) }
+    instrumentation.waitForIdleSync();android.os.SystemClock.sleep(150)
+    lateinit var window:android.view.Window;lateinit var bitmap:android.graphics.Bitmap
+    scenario.onActivity { activity ->
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+     window=dialog.window!!;bitmap=android.graphics.Bitmap.createBitmap(window.decorView.width,window.decorView.height,android.graphics.Bitmap.Config.ARGB_8888)
+    }
+    val done=java.util.concurrent.CountDownLatch(1);var status=-1
+    android.view.PixelCopy.request(window,bitmap,{ status=it;done.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
+    assertTrue(done.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,status)
+    File(context.getExternalFilesDir(null),"vegas-options-volume.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
+   }
+  } finally {
+   val edit=prefs.edit().clear()
+   for((key,value) in settingsBefore) when(value) {
+    is Int -> edit.putInt(key,value);is Boolean -> edit.putBoolean(key,value);is String -> edit.putString(key,value)
+    is Long -> edit.putLong(key,value);is Float -> edit.putFloat(key,value)
+    is Set<*> -> edit.putStringSet(key,value.filterIsInstance<String>().toSet())
+   }
+   assertTrue(edit.commit())
+   val save=checkpoint.edit();for(key in keys) before[key]?.let { save.putString(key,it) } ?: save.remove(key)
+   assertTrue(save.commit())
+   assertEquals(settingsBefore,prefs.all)
+  }
+ }
+
  @Test fun menu_audio_plays_pauses_resumes_and_releases() {
   val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext
   val path=InstrumentationRegistry.getArguments().getString("privateAudioPackage")

@@ -9,7 +9,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val ui=SdaResourceCanvas(doc,content)
  override fun audioSession(context:android.content.Context):SdaAudioSession {
   val sliders=doc.component("mainoptionsdlg").children.filter { it.type=="slider" }
-  return SdaAudioSession(context,content,doc,sliders.single { it.number("typevalue")==1 }.number("value"),sliders.single { it.number("typevalue")==2 }.number("value"))
+  val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
+  return SdaAudioSession(context,content,doc,prefs.getInt("music",sliders.single { it.number("typevalue")==1 }.number("value")),prefs.getInt("effects",sliders.single { it.number("typevalue")==2 }.number("value")))
  }
  // Native resource IDs, visibility and dialog action adapters remain title-specific.
  override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
@@ -28,6 +29,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    })
   }
   val backdrop=main.children.filter { it.type=="image" && it.attributes["id"]==null }
+  val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
+  var optionsReturn="mainmenuunderlay"
+  var optionsBefore:Pair<Int,Int>?=null
   var helpReturn=if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2"
   lateinit var view:SdaResourceMenuView
   var mainBackdrop=entry==SdaMenuEntry.MAIN
@@ -36,6 +40,19 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    if(id=="menudlg2") mainBackdrop=false
    view.show(if(id=="mainmenuunderlay") main else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
   }
+  fun cancelOptions() {
+   optionsBefore?.let { (music,effects) -> audio?.setMusicVolume(music);audio?.setEffectsVolume(effects) };optionsBefore=null
+  }
+  fun openOptions(from:String) {
+   optionsReturn=from;optionsBefore=(audio?.musicVolume ?: prefs.getInt("music",50)) to (audio?.effectsVolume ?: prefs.getInt("effects",75))
+   show(if(from=="menudlg2") "mainoptionsdlgeyespy" else "mainoptionsdlg")
+   // These four desktop/gameplay checkbox contracts are not recovered yet: visibly disabled.
+   val node=doc.component(view.screenId)
+   view.show(node.copy(children=node.children.map {
+    if(it.type=="checkbox" || (it.type=="label" && it.attributes["caption"] in setOf("@ID_OPTIONS_FSCREEN","@ID_OPTIONS_HINTS","@ID_OPTIONS_RELAXED","@ID_OPTIONS_HACC"))) it.copy(attributes=it.attributes+mapOf("disabled" to "true")) else it
+   }),if(mainBackdrop) backdrop else emptyList())
+   view.sliders.forEach { view.setSliderValue(it,if(it.number("typevalue")==1) optionsBefore!!.first else optionsBefore!!.second) }
+  }
   view=SdaResourceMenuView(context,ui,main,textures,800,600) { value ->
    val screen=view.screenId
    when {
@@ -43,19 +60,29 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
      299 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
-     30 -> onAction(SdaMenuAction.OPTIONS)
+     30 -> openOptions(screen)
      else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
     screen=="menudlg2" -> when(value) {
      215 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
      80 -> show("mainmenuunderlay")
-     34 -> onAction(SdaMenuAction.OPTIONS)
+     34 -> openOptions(screen)
      209 -> {
       helpReturn=screen
       val family=when(campaign?.bonusGame) { is SdaTileRotGame -> "tilerotgame";is SdaTileSwapGame -> "tilegame"
        is SdaWordSearchGame -> "wordsearchgame";is SdaJigsawGame -> "jigsawgame";else -> null }
       show(if(family==null) "mainoverlaydlg" else family+"instructionsdlgoverlay")
      }
+    }
+    screen in setOf("mainoptionsdlg","mainoptionsdlgeyespy") -> when(value) {
+     36,220 -> { cancelOptions();show(optionsReturn) }
+     31,35 -> {
+      val music=view.sliders.single { it.number("typevalue")==1 }.let(view::sliderValue)
+      val effects=view.sliders.single { it.number("typevalue")==2 }.let(view::sliderValue)
+      prefs.edit().putInt("music",music).putInt("effects",effects).apply()
+      optionsBefore=null;show(optionsReturn)
+     }
+     else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
     screen.startsWith("mainoverlaydlg") -> when(value) {
      15 -> show("mainoverlaydlg2");16 -> show("mainoverlaydlg");17,20 -> show("mainoverlaydlg3")
@@ -67,6 +94,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
     else -> onAction(SdaMenuAction.UNAVAILABLE)
    }
   }
+  view.onSliderValue={ node,value -> if(node.number("typevalue")==1) audio?.setMusicVolume(value) else audio?.setEffectsVolume(value) }
+  view.onClose={ cancelOptions() }
   view.onSoundEffect={ audio?.playEffect(it) }
   show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view

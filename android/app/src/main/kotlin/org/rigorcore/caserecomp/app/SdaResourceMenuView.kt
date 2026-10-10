@@ -12,11 +12,37 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  private var container:SdaUiNode,private val panelTextures:List<String>,
  private val logicalWidth:Int,private val logicalHeight:Int,private val onAction:(Int)->Unit):View(context) {
  var onSoundEffect:((String)->Unit)?=null
+ var onSliderValue:((SdaUiNode,Int)->Unit)?=null
+ var onClose:(()->Unit)?=null
+ private val sliderValues=mutableMapOf<SdaUiNode,Int>()
+ private var sliderCaptured:SdaUiNode?=null
+ private var sliderGrab=0
+ private var sliderInitial=0
+ val sliders get()=container.children.filter { it.type=="slider" }
+ fun sliderValue(node:SdaUiNode)=sliderValues[node] ?: node.number("value").coerceIn(node.number("min"),node.number("max"))
+ fun setSliderValue(node:SdaUiNode,value:Int) { sliderValues[node]=value.coerceIn(node.number("min"),node.number("max"));invalidate() }
+ private fun travel(node:SdaUiNode)=maxOf(0,ui.bitmap(node.attributes.getValue("texback")).width-ui.bitmap(node.attributes.getValue("texnob")).width)
+ private fun knobBounds(node:SdaUiNode):Rect {
+  val knob=ui.bitmap(node.attributes.getValue("texnob"))
+  val range=node.number("max")-node.number("min")
+  val offset=if(range>0) kotlin.math.round((sliderValue(node)-node.number("min"))*travel(node).toFloat()/range).toInt() else 0
+  val x=node.number("x")+node.number("noboffsetx")+offset
+  val y=node.number("y")+node.number("noboffsety")
+  return Rect(x,y,x+knob.width,y+knob.height)
+ }
+ fun sliderKnobBounds(node:SdaUiNode)=knobBounds(node).apply { offset(container.number("x"),container.number("y")) }
+ private fun updateSlider(node:SdaUiNode,x:Int) {
+  val width=travel(node);if(width<=0) return
+  val offset=(x-container.number("x")-node.number("x")-node.number("noboffsetx")-sliderGrab).coerceIn(0,width)
+  val value=node.number("min")+kotlin.math.round(offset*(node.number("max")-node.number("min")).toFloat()/width).toInt()
+  if(value!=sliderValue(node)) { setSliderValue(node,value);onSliderValue?.invoke(node,value) }
+ }
+ override fun onDetachedFromWindow() { onClose?.invoke();super.onDetachedFromWindow() }
  val screenId get()=container.attributes["id"].orEmpty()
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
  fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
-  container=node;this.background=background;captured=null;pressed=false;invalidate()
+  container=node;this.background=background;captured=null;sliderCaptured=null;pressed=false;invalidate()
  }
  private var captured:SdaUiNode?=null
  private var pressed=false
@@ -32,7 +58,18 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   if(panel!=null) ui.tiledPanel(canvas,panelTextures,Rect(0,0,panel.number("w"),panel.number("h")))
   for(node in container.children) when(node.type) {
    "image" -> ui.image(canvas,node,photographic=true)
-   "label" -> ui.label(canvas,node)
+   "label" -> ui.label(canvas,node,opacity=if(node.attributes["disabled"]=="true") .45f else 1f)
+   "checkbox" -> {
+    val icon=ui.bitmap(node.attributes.getValue("texoff"))
+    val paint=android.graphics.Paint().apply { alpha=if(node.attributes["disabled"]=="true") 115 else 255 }
+    canvas.drawBitmap(icon,node.number("x").toFloat(),node.number("y").toFloat(),paint)
+   }
+   "slider" -> {
+    canvas.drawBitmap(ui.bitmap(node.attributes.getValue("texback")),(node.number("x")+node.number("backoffsetx")).toFloat(),(node.number("y")+node.number("backoffsety")).toFloat(),null)
+    val knob=knobBounds(node)
+    val texture=if(node==sliderCaptured) node.attributes["texnobtrack"] ?: node.attributes.getValue("texnob") else node.attributes.getValue("texnob")
+    canvas.drawBitmap(ui.bitmap(texture),knob.left.toFloat(),knob.top.toFloat(),null)
+   }
    "allbutton","quitbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else SdaButtonState.NORMAL)
   }
   canvas.restore()
@@ -43,10 +80,15 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   val x=((event.x-(width-logicalWidth*scale)/2)/scale).toInt()
   val y=((event.y-(height-logicalHeight*scale)/2)/scale).toInt()
   when(event.actionMasked) {
-   MotionEvent.ACTION_DOWN -> { captured=buttons.firstOrNull { buttonBounds(it).contains(x,y) };pressed=captured!=null }
-   MotionEvent.ACTION_MOVE -> pressed=captured?.let { buttonBounds(it).contains(x,y) } ?: false
-   MotionEvent.ACTION_CANCEL -> { captured=null;pressed=false }
+   MotionEvent.ACTION_DOWN -> {
+    sliderCaptured=sliders.firstOrNull { sliderKnobBounds(it).contains(x,y) }
+    sliderCaptured?.let { sliderGrab=x-sliderKnobBounds(it).left;sliderInitial=sliderValue(it);it.attributes["clicknobsfx"]?.let { sound -> onSoundEffect?.invoke(sound) } }
+    captured=if(sliderCaptured==null) buttons.firstOrNull { buttonBounds(it).contains(x,y) } else null;pressed=captured!=null
+   }
+   MotionEvent.ACTION_MOVE -> { sliderCaptured?.let { updateSlider(it,x) };pressed=captured?.let { buttonBounds(it).contains(x,y) } ?: false }
+   MotionEvent.ACTION_CANCEL -> { sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;captured=null;pressed=false }
    MotionEvent.ACTION_UP -> {
+    sliderCaptured?.let { updateSlider(it,x) };sliderCaptured=null
     val selected=captured?.takeIf { buttonBounds(it).contains(x,y) }
     captured=null;pressed=false;invalidate()
     if(selected!=null) { performClick();selected.attributes["sfx"]?.let { onSoundEffect?.invoke(it) };onAction(selected.number("value",-1)) }
