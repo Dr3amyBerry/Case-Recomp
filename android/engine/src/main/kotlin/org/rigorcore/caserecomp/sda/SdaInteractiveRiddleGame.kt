@@ -7,6 +7,7 @@ interface SdaInteractiveController {
  val isSolved:Boolean
  fun start()
  fun visible(index:Int):Boolean
+ fun move(x:Int,y:Int):Boolean = false
  fun click(x:Int,y:Int):Boolean
  fun advance(seconds:Float)
  fun state():Map<String,Any?>

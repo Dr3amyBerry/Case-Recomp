@@ -78,6 +78,10 @@ class SdaInteractiveItems(val definitions:List<SdaInteractiveItemDefinition>,che
   require(index in definitions[item].steps.indices)
   items[item].index=index;items[item].elapsed[index]=0f
  }
+ /** Native return animations rearm only their initial interactive step. */
+ fun restartItem(item:Int,index:Int) {
+  rewindItem(item,index);items[item].completed[index]=false;items[item].interactive[index]=definitions[item].steps[index].interactive
+ }
  fun frame(item:Int):SdaInteractiveFrame {
   val step=definitions[item].steps[items[item].index];val image=definitions[item].images[step.imageIndex]
   val width=if(step.frameWidth==-1) image.width else step.frameWidth

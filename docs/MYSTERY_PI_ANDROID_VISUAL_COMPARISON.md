@@ -366,3 +366,8 @@ PARCIAL: di?logos originales, ocho colocaciones Android, checkpoint de pieza sos
 ### Third phase original composition and earned reel code (2026-10-10)
 
 PARCIAL. Third entry/start dialogs, original wall/PDA/clock/door and 21 interactive-item frames now render in Android. Real inputs operate hammer/hourglass/scale/reader and power/coin/arm/reels, with activity reopen retaining the same visible code. Six real PixelCopy captures, an extracted-background reference, explicit coverage and navigable report: local-output/vegas-third-riddle/comparison.html. Restored versus pre-close RGBA pixels are identical at the same viewport; this proves that one visual restore state, not Windows fidelity. No equivalent Windows third-phase capture yet. Fingerprint, clock interaction, keypad/LED, opening/end transitions and third performance validation remain pending. Tests, APK hash, initial capture failure and exact continuation functions are recorded in MYSTERY_PI_ANDROID_AUDIT.md.
+
+
+### Third phase held print, reader and LED/keypad (2026-10-10)
+
+PARCIAL. Four new Android PixelCopy captures and original extracted LED atlas at local-output/vegas-fingerprint-keypad/comparison.html. Real tactile input places the print on the powered reader, rejects an invalid boundary, shows wrong-code error and accepts the live reel symbols, producing the original green unlock indicator. No equivalent Windows capture yet; door slide, moneyroom/newspaper, clock/pre-spin behavior and final completion remain pending. Full tests/limits/continuation addresses are in MYSTERY_PI_ANDROID_AUDIT.md.

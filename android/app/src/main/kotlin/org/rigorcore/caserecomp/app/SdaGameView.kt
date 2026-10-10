@@ -532,6 +532,9 @@ class SdaGameView(
         val profile=visuals ?: return super.onHoverEvent(event)
         if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) profile.pointer(null,null,false)
         else profile.pointer(((event.x-offsetX)/scale).toInt(),((event.y-offsetY)/scale).toInt(),false)
+        if(!isPaused && event.actionMasked!=MotionEvent.ACTION_HOVER_EXIT) {
+            (campaign?.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.controller?.move(((event.x-offsetX)/scale).toInt(),((event.y-offsetY)/scale).toInt())
+        }
         invalidate();return true
     }
 
@@ -625,9 +628,10 @@ class SdaGameView(
         val interactiveCamp=campaign
         val interactive=interactiveCamp?.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame
         if(interactiveCamp?.phase==SdaCampaignPhase.FINALE_3 && interactive!=null) {
+            val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
+            if(event.actionMasked in setOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE)) interactive.controller.move(x,y)
             if(event.actionMasked==MotionEvent.ACTION_DOWN && event.buttonState and MotionEvent.BUTTON_SECONDARY==0) {
-                interactiveCamp.clickBonus(((event.x-offsetX)/scale).toInt(),((event.y-offsetY)/scale).toInt())
-                onBonusInputListener?.invoke()
+                interactiveCamp.clickBonus(x,y);onBonusInputListener?.invoke()
             }
             invalidate();return true
         }

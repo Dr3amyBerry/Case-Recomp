@@ -309,3 +309,6 @@ SdaInteractiveResources reads original item/image/step declarations through boun
 ### Interactive native finale adapter (2026-10-10)
 
 SdaInteractiveController/SdaInteractiveRiddleGame and SdaCampaign.interactiveRiddleFactory inject title behavior without game IDs in SDA. The generic graph offers callback-directed rewind and eligibility predicates, preserving flags and frame timing. Android draws native pixel sources/atlas rectangles and delegates base/overlay/dialog/audio bindings to SdaVisualProfile. games.vegas.VegasThirdRiddleController alone owns recovered slot/coin/blocked-arm callbacks and symbol/RNG state; VegasVisualProfile alone owns ENVS controller IDs and graphical layers. Second-to-third loading and restore resolve/validate before campaign mutation. No hypothetical completion/reward is introduced: the third adapter stays unsolved until authentic ending behavior is implemented. Director/Huntsville code is unchanged by this block.
+
+
+Interactive-controller move and restartItem provide generic pointer/rearm contracts. Native reader/keypad coordinates, state machine, LED frame mapping and error/return durations remain entirely in games.vegas; its v2 checkpoint keeps legacy v1 readable. Android forwards touch/hover and draws original profile resources without changing Director/Huntsville.

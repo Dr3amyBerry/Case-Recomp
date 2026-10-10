@@ -263,6 +263,39 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
      assertEquals(nativeState["symbols"],restored.symbols.map { it.toLong() })
     }
     capture(reopened,"finale-third-restored-real.png")
+    fun native(activity:SdaLauncherActivity)=(game(activity).campaign!!.bonusGame as SdaInteractiveRiddleGame).controller as org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController
+    fun awaitState(message:String,condition:(org.rigorcore.caserecomp.games.vegas.VegasThirdRiddleController)->Boolean) {
+     val deadline=SystemClock.uptimeMillis()+5000;var passed=false
+     while(!passed && SystemClock.uptimeMillis()<deadline) { reopened.onActivity { passed=condition(native(it)) };if(!passed) SystemClock.sleep(40) }
+     assertTrue(message,passed)
+    }
+    fun pickFingerprint() {
+     reopened.onActivity { activity ->
+      val c=native(activity);val index=c.items.definitions.indexOfFirst { it.name=="fingerprint" };val frame=c.items.frame(index)
+      val source=frame.image.pixels!!
+      val point=(0 until frame.height).asSequence().flatMap { y -> (0 until frame.width).asSequence().map { x -> x to y } }.first { (x,y) -> source.getAlpha(frame.sourceX+x,frame.sourceY+y)!=0 }
+      click(game(activity),frame.image.x+point.first,frame.image.y+point.second);assertTrue(c.fingerprintHeld)
+     }
+    }
+    pickFingerprint();capture(reopened,"finale-third-fingerprint-held.png")
+    reopened.onActivity { activity -> click(game(activity),651,400);assertTrue(native(activity).fingerprintReturning) }
+    awaitState("invalid reader edge returns original print") { !it.fingerprintReturning }
+    pickFingerprint()
+    reopened.onActivity { activity -> click(game(activity),620,400);assertFalse(native(activity).fingerprintHeld) }
+    awaitState("native reader/keypad enable after fingerprint") { it.keypadEnabled }
+    capture(reopened,"finale-third-keypad-enabled.png")
+    var actualCode=emptyList<Int>()
+    reopened.onActivity { actualCode=native(it).symbols }
+    val wrong=(actualCode.first()+1)%9
+    repeat(4) { reopened.onActivity { activity -> val bounds=native(activity).keyBounds[wrong];click(game(activity),bounds.x+bounds.width/2,bounds.y+bounds.height/2) } }
+    reopened.onActivity { assertTrue(native(it).keypadError);assertEquals(listOf(10,10,10,10),native(it).ledFrames) }
+    capture(reopened,"finale-third-keypad-error.png")
+    awaitState("native wrong-code timer clears error") { !it.keypadError }
+    for(symbol in actualCode) reopened.onActivity { activity -> val bounds=native(activity).keyBounds[symbol];click(game(activity),bounds.x+bounds.width/2,bounds.y+bounds.height/2) }
+    awaitState("earned reel code triggers native door step") { it.doorOpening }
+    reopened.onActivity { assertFalse(native(it).isSolved);assertEquals(originalPoints,game(it).campaign!!.points) }
+    capture(reopened,"finale-third-unlocked-pending-ending.png")
+
    }
   } finally {
    val editor=prefs.edit();before.forEach { (key,value) -> if(value==null) editor.remove(key) else editor.putString(key,value) };assertTrue(editor.commit())

@@ -47,6 +47,35 @@ class SdaPrivateInteractiveItemsUnitTest {
    assertTrue(controller.reelsFinished);assertTrue(controller.symbols.all { it in 0..8 })
    assertEquals(MiniJson.canonical(uninterrupted.state()),MiniJson.canonical(controller.state()))
    assertFalse(controller.isSolved)
+   click("fingerprint");assertTrue(controller.fingerprintHeld)
+   assertTrue(controller.move(620,400));assertFalse(controller.click(620,400)) // Reader is not powered yet.
+   assertTrue(controller.fingerprintReturning);controller.advance(.5f);assertTrue(controller.fingerprintReturning)
+   val returning=controller.state();controller=VegasThirdRiddleController(definitions,0,returning)
+   controller.advance(.001f);assertFalse(controller.fingerprintHeld);assertFalse(controller.fingerprintReturning)
+   assertTrue(click("hammer"));repeat(7) { controller.advance(.126f) }
+   assertTrue(click("hourglass"));repeat(15) { controller.advance(.126f) }
+   assertTrue(click("fingerprint"));assertTrue(controller.move(651,400))
+   assertFalse(controller.click(651,400)) // Exact native reader upper boundary excluded.
+   controller.advance(.501f)
+   assertTrue(click("fingerprint"));assertTrue(controller.move(620,400))
+   val held=MiniJson.canonical(controller.state())
+   @Suppress("UNCHECKED_CAST") val heldState=MiniJson.parse(held) as Map<String,Any?>
+   controller=VegasThirdRiddleController(definitions,0,heldState)
+   assertEquals(held,MiniJson.canonical(controller.state()));assertTrue(controller.click(620,400))
+   repeat(6) { controller.advance(.126f) }
+   assertTrue(controller.keypadEnabled);assertTrue(controller.items.completed("fingerprint","notplaced"))
+   assertEquals(listOf(0,0,0,0),controller.ledFrames)
+   val wrong=(controller.symbols.first()+1)%9
+   repeat(4) { assertTrue(controller.enterSymbol(wrong)) }
+   assertTrue(controller.keypadError);assertEquals(listOf(10,10,10,10),controller.ledFrames)
+   assertFalse(controller.enterSymbol(0));controller.advance(1.65f);assertTrue(controller.keypadError)
+   controller.advance(.001f);assertFalse(controller.keypadError);assertEquals(listOf(0,0,0,0),controller.ledFrames)
+   val code=controller.symbols
+   assertTrue(controller.enterSymbol(code[0]))
+   val partial=controller.state();controller=VegasThirdRiddleController(definitions,0,partial)
+   code.drop(1).forEach { assertTrue(controller.enterSymbol(it)) }
+   controller.advance(.126f);assertTrue(controller.doorOpening);assertFalse(controller.isSolved)
+   assertFalse(controller.click(620,400))
    assertThrows(IllegalArgumentException::class.java) { VegasThirdRiddleController(definitions,0,controller.state()+mapOf("rng" to -1L)) }
    println("PRIVATE THIRD CONTROLLER: original blocked arm, coin insertion, power, four reels, native RNG and mid-spin restore; fingerprint/keypad/ending not certified")
   }

@@ -295,6 +295,19 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   slot.children.filter { it.type=="image" }.forEachIndexed { i,node ->
    if(controller.symbolVisible(i)) ui.image(canvas,node.copy(attributes=node.attributes+mapOf("tex" to textures[controller.symbols[i]].attributes.getValue("tex"))))
   }
+  if(controller.keypadEnabled && controller.ledsVisible) {
+   val led=doc.component("riddle3leddisplay")
+   led.children.filter { it.type=="image" }.forEachIndexed { i,node ->
+    val frame=controller.ledFrames[i]
+    if(frame!=0) {
+     val atlas=ui.bitmap(node.attributes.getValue("tex"))
+     ui.spriteFrame(canvas,atlas,doc.component(game.controllerId).number("leddisplaywidth"),atlas.height,frame,
+      led.number("x")+node.number("x"),led.number("y")+node.number("y"))
+    }
+   }
+  }
+  if(controller.fingerprintHeld || controller.fingerprintReturning)
+   ui.image(canvas,doc.component("riddle3fingerprintimage"),controller.fingerprintX.toInt(),controller.fingerprintY.toInt())
  }
  override fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? {
   val game=campaign.bonusGame
