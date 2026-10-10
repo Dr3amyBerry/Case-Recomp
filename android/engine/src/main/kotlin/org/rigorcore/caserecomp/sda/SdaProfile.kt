@@ -57,29 +57,47 @@ class SdaProfileStorage(private val storageDir: File) {
         }
     }
 
-    fun listProfiles(): List<SdaProfile> {
+    private val safeId = Regex("[A-Za-z0-9][A-Za-z0-9_-]{0,79}")
+    private fun profileFile(id: String): File? =
+        if (safeId.matches(id)) File(storageDir, "$id.json") else null
+
+    @Synchronized fun listProfiles(): List<SdaProfile> {
         val files = storageDir.listFiles { f -> f.extension == "json" } ?: return emptyList()
-        return files.mapNotNull { file ->
-            runCatching { SdaProfile.fromJson(file.readText(Charsets.UTF_8)) }.getOrNull()
-        }.sortedByDescending { it.createdAt }
+        return files.mapNotNull { getProfile(it.nameWithoutExtension) }.sortedByDescending { it.createdAt }
     }
 
-    fun getProfile(id: String): SdaProfile? {
-        val file = File(storageDir, "$id.json")
+    @Synchronized fun getProfile(id: String): SdaProfile? {
+        val file = profileFile(id) ?: return null
         if (!file.isFile) return null
-        return runCatching { SdaProfile.fromJson(file.readText(Charsets.UTF_8)) }.getOrNull()
+        return runCatching { SdaProfile.fromJson(file.readText(Charsets.UTF_8)) }
+            .getOrNull()?.takeIf { it.id == id }
     }
 
-    fun saveProfile(profile: SdaProfile): Boolean {
-        val file = File(storageDir, "${profile.id}.json")
+    @Synchronized fun saveProfile(profile: SdaProfile): Boolean {
+        val file = profileFile(profile.id) ?: return false
         return runCatching {
-            file.writeText(profile.toJson(), Charsets.UTF_8)
+            check(storageDir.isDirectory || storageDir.mkdirs())
+            val stage = File.createTempFile("profile-", ".partial", storageDir)
+            try {
+                java.io.FileOutputStream(stage).use {
+                    it.write(profile.toJson().toByteArray(Charsets.UTF_8))
+                    it.fd.sync()
+                }
+                try {
+                    java.nio.file.Files.move(stage.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                } catch (e: java.nio.file.AtomicMoveNotSupportedException) {
+                    java.nio.file.Files.move(stage.toPath(), file.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                }
+            } finally { stage.delete() }
             true
         }.getOrDefault(false)
     }
 
-    fun deleteProfile(id: String): Boolean {
-        val file = File(storageDir, "$id.json")
+    @Synchronized fun deleteProfile(id: String): Boolean {
+        val file = profileFile(id) ?: return false
         return if (file.exists()) file.delete() else false
     }
 }
