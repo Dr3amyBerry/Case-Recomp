@@ -7,13 +7,65 @@ import org.rigorcore.caserecomp.sda.*
 class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
- // Native dialogimg factory binds these nine textures in row-major order.
- override fun menuView(context:android.content.Context,onAction:(SdaMenuAction)->Unit)=SdaResourceMenuView(context,ui,
-  doc.component("menudlg2"),listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
-  "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { value ->
-   onAction(when(value) { 215 -> SdaMenuAction.RESUME;80 -> SdaMenuAction.RETURN_TO_CATALOGUE
-    34 -> SdaMenuAction.OPTIONS;209 -> SdaMenuAction.INSTRUCTIONS;else -> error("unknown menu action") })
+ // Native resource IDs, visibility and dialog action adapters remain title-specific.
+ override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
+  val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",
+   "mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright")
+  val main=doc.component("mainmenuunderlay").let { node ->
+   node.copy(children=node.children.filter { child ->
+    val id=child.attributes["id"]
+    when(child.type) {
+     "image" -> id==null || id in setOf("img_mm_idgeneric","imagelock")
+     "label" -> id !in setOf("recover","unlocked","unlimited")
+     "allbutton" -> id !in setOf("unlimitedbtn","unlimitedspotbtn","disunlimitedspotbtn")
+     "quitbutton" -> true
+     else -> false
+    }
+   })
   }
+  val backdrop=main.children.filter { it.type=="image" && it.attributes["id"]==null }
+  var helpReturn=if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2"
+  lateinit var view:SdaResourceMenuView
+  var mainBackdrop=entry==SdaMenuEntry.MAIN
+  fun show(id:String) {
+   if(id=="mainmenuunderlay") mainBackdrop=true
+   if(id=="menudlg2") mainBackdrop=false
+   view.show(if(id=="mainmenuunderlay") main else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
+  }
+  view=SdaResourceMenuView(context,ui,main,textures,800,600) { value ->
+   val screen=view.screenId
+   when {
+    screen=="mainmenuunderlay" -> when(value) {
+     299 -> onAction(SdaMenuAction.RESUME)
+     -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
+     200 -> { helpReturn=screen;show("mainoverlaydlg") }
+     30 -> onAction(SdaMenuAction.OPTIONS)
+     else -> onAction(SdaMenuAction.UNAVAILABLE)
+    }
+    screen=="menudlg2" -> when(value) {
+     215 -> onAction(SdaMenuAction.RESUME)
+     80 -> show("mainmenuunderlay")
+     34 -> onAction(SdaMenuAction.OPTIONS)
+     209 -> {
+      helpReturn=screen
+      val family=when(campaign?.bonusGame) { is SdaTileRotGame -> "tilerotgame";is SdaTileSwapGame -> "tilegame"
+       is SdaWordSearchGame -> "wordsearchgame";is SdaJigsawGame -> "jigsawgame";else -> null }
+      show(if(family==null) "mainoverlaydlg" else family+"instructionsdlgoverlay")
+     }
+    }
+    screen.startsWith("mainoverlaydlg") -> when(value) {
+     15 -> show("mainoverlaydlg2");16 -> show("mainoverlaydlg");17,20 -> show("mainoverlaydlg3")
+     18 -> show("mainoverlaydlg2");19 -> show("mainoverlaydlg4")
+     in 201..204 -> show(helpReturn)
+     else -> onAction(SdaMenuAction.UNAVAILABLE)
+    }
+    value in 1025..1028 -> show(helpReturn)
+    else -> onAction(SdaMenuAction.UNAVAILABLE)
+   }
+  }
+  show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
+  return view
+ }
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
  private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
  private val tileCanvases=mutableMapOf<String,SdaResourceCanvas>()

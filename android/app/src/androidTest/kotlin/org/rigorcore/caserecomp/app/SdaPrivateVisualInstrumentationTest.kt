@@ -58,23 +58,44 @@ class SdaPrivateVisualInstrumentationTest {
      }
      return dialog
     }
-    clickMenu();val dialog=menu()
-    scenario.onActivity {
-     assertTrue(shown.isPaused)
-     assertTrue(dialog.window!!.decorView.findViewWithTag<android.view.View>("sda-resource-menu") is SdaResourceMenuView)
-    }
-    SystemClock.sleep(500)
+    fun capture(dialog:android.app.Dialog,name:String) {
+    SystemClock.sleep(100)
     lateinit var bitmap:Bitmap
     lateinit var window:android.view.Window
     scenario.onActivity { window=checkNotNull(dialog.window);bitmap=Bitmap.createBitmap(window.decorView.width,window.decorView.height,Bitmap.Config.ARGB_8888) }
     val done=java.util.concurrent.CountDownLatch(1);var status=-1
     android.view.PixelCopy.request(window,bitmap,{ status=it;done.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
     assertTrue(done.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,status)
-    File(context.getExternalFilesDir(null),"vegas-host-menu.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
-    fun select(dialog:android.app.Dialog,index:Int) {
+    File(context.getExternalFilesDir(null),name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
+    }
+    // Campaign launch now opens the original internal main menu before the map.
+    scenario.onActivity { assertTrue(shown.isPaused) }
+    val initial=menu()
+    capture(initial,"vegas-main-menu.png")
+    scenario.onActivity { assertEquals("mainmenuunderlay",initial.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu").screenId) }
+    selectInitial@ run {
+     scenario.onActivity {
+      val menu=initial.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+      val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==299 })
+      val scale=minOf(menu.width/800f,menu.height/600f)
+      val x=(menu.width-800*scale)/2+rect.centerX()*scale;val y=(menu.height-600*scale)/2+rect.centerY()*scale
+      for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
+       val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,x,y,0)
+       try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
+      }
+     }
+     instrumentation.waitForIdleSync();assertFalse(initial.isShowing)
+    }
+    clickMenu();val dialog=menu()
+    scenario.onActivity {
+     assertTrue(shown.isPaused)
+     assertTrue(dialog.window!!.decorView.findViewWithTag<android.view.View>("sda-resource-menu") is SdaResourceMenuView)
+    }
+    capture(dialog,"vegas-host-menu.png")
+    fun select(dialog:android.app.Dialog,index:Int,dismissed:Boolean=true) {
      scenario.onActivity {
       val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
-      val node=menu.buttons.single { it.number("value")==index }
+      val node=menu.buttons.single { it.number("value",-1)==index }
       val bounds=menu.buttonBounds(node)
       val scale=minOf(menu.width/800f,menu.height/600f)
       val x=(menu.width-800*scale)/2+bounds.centerX()*scale
@@ -84,6 +105,7 @@ class SdaPrivateVisualInstrumentationTest {
        try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
       }
      }
+     if(!dismissed) { instrumentation.waitForIdleSync();assertTrue(dialog.isShowing);return }
      val deadline=SystemClock.uptimeMillis()+3000
      while(dialog.isShowing && SystemClock.uptimeMillis()<deadline) { instrumentation.waitForIdleSync();SystemClock.sleep(50) }
      assertFalse("menu selection must dismiss the real dialog",dialog.isShowing)
@@ -106,7 +128,18 @@ class SdaPrivateVisualInstrumentationTest {
     }
     select(dialog,215)
     scenario.onActivity { assertFalse(shown.isPaused) }
-    clickMenu();select(menu(),80)
+    clickMenu();val navigation=menu();select(navigation,80,false)
+    fun screen()=navigation.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu").screenId
+    scenario.onActivity { assertEquals("mainmenuunderlay",screen());assertTrue(shown.isPaused) }
+    select(navigation,200,false)
+    capture(navigation,"vegas-help-mainoverlaydlg.png")
+    scenario.onActivity { assertEquals("mainoverlaydlg",screen()) }
+    for((value,id) in listOf(15 to "mainoverlaydlg2",17 to "mainoverlaydlg3",19 to "mainoverlaydlg4",20 to "mainoverlaydlg3",18 to "mainoverlaydlg2",16 to "mainoverlaydlg")) {
+     select(navigation,value,false);scenario.onActivity { assertEquals(id,screen());assertTrue(shown.isPaused) }
+     capture(navigation,"vegas-help-$id.png")
+    }
+    select(navigation,201,false);scenario.onActivity { assertEquals("mainmenuunderlay",screen()) }
+    select(navigation,-1)
     val deadline=SystemClock.uptimeMillis()+3000
     while(scenario.state!=androidx.lifecycle.Lifecycle.State.DESTROYED && SystemClock.uptimeMillis()<deadline) { instrumentation.waitForIdleSync();SystemClock.sleep(50) }
     assertEquals(androidx.lifecycle.Lifecycle.State.DESTROYED,scenario.state)
@@ -486,6 +519,53 @@ class SdaPrivateVisualInstrumentationTest {
       else -> error("unsupported bonus at level ${level+1}")
      }
      display(family)
+     // Component UI coverage: contextual instructions are reached through actual menu DOWN/UP events.
+     lateinit var helpDialog:android.app.Dialog
+     lateinit var helpView:SdaResourceMenuView
+     scenario.onActivity { activity ->
+      helpDialog=android.app.Dialog(activity)
+      helpView=profile.menuView(activity,campaign,SdaMenuEntry.PAUSE) { action ->
+       if(action==SdaMenuAction.RESUME) helpDialog.dismiss()
+      }
+      helpDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+      helpDialog.setContentView(helpView)
+      helpDialog.window!!.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+      helpDialog.window!!.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+      helpDialog.show()
+      helpDialog.window!!.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT,android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+     }
+     fun helpClick(value:Int) {
+      scenario.onActivity {
+       val node=helpView.buttons.single { it.number("value")==value }
+       val rect=helpView.buttonBounds(node);val scale=minOf(helpView.width/800f,helpView.height/600f)
+       val x=(helpView.width-800*scale)/2+rect.centerX()*scale;val y=(helpView.height-600*scale)/2+rect.centerY()*scale
+       for(action in listOf(MotionEvent.ACTION_DOWN,MotionEvent.ACTION_UP)) {
+        val event=MotionEvent.obtain(SystemClock.uptimeMillis(),SystemClock.uptimeMillis(),action,x,y,0)
+        try { assertTrue(helpView.dispatchTouchEvent(event)) } finally { event.recycle() }
+       }
+      }
+      instrumentation.waitForIdleSync()
+     }
+     try {
+      helpClick(209)
+      val (expected,doneValue)=when(campaign.bonusGame) {
+       is SdaTileRotGame -> "tilerotgameinstructionsdlgoverlay" to 1025
+       is SdaTileSwapGame -> "tilegameinstructionsdlgoverlay" to 1026
+       is SdaWordSearchGame -> "wordsearchgameinstructionsdlgoverlay" to 1027
+       is SdaJigsawGame -> "jigsawgameinstructionsdlgoverlay" to 1028
+       else -> error("unexpected bonus")
+      }
+      scenario.onActivity { assertEquals(expected,helpView.screenId) }
+      SystemClock.sleep(100)
+      lateinit var pixels:Bitmap;lateinit var window:android.view.Window
+      scenario.onActivity { window=helpDialog.window!!;pixels=Bitmap.createBitmap(window.decorView.width,window.decorView.height,Bitmap.Config.ARGB_8888) }
+      val latch=java.util.concurrent.CountDownLatch(1);var result=-1
+      android.view.PixelCopy.request(window,pixels,{ result=it;latch.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
+      assertTrue(latch.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,result)
+      File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-help-bonus-${level+1}.png").outputStream().use { pixels.compress(Bitmap.CompressFormat.PNG,100,it) };pixels.recycle()
+      helpClick(doneValue);scenario.onActivity { assertEquals("menudlg2",helpView.screenId) }
+      helpClick(215);assertFalse(helpDialog.isShowing)
+     } finally { scenario.onActivity { helpDialog.dismiss() } }
      captureState("bonus-level-${level+1}")
      when(val game=campaign.bonusGame) {
       is SdaTileRotGame -> {

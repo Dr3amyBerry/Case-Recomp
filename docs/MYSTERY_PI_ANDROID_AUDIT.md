@@ -605,3 +605,18 @@ WSA API33/display2: `launcher_menu_resume_and_saved_exit` PASS (1.689 s), con ev
 **PARCIAL:** reanudar y guardar/volver al catalogo operativos. El boton MENU PRINCIPAL conserva temporalmente ese retorno al catalogo; OPTIONS/INSTRUCTIONS avisan que falta implementacion. Portada nativa, opciones, ayuda, hover y audio siguen pendientes. No se declara completo el menu ni el Goal. Captura PixelCopy del dialogo: las zonas transparentes se ven negras al capturar solo su ventana; la composicion con el fondo sigue NO VERIFICADA. Comparacion equivalente Windows pendiente.
 
 Resultados privados: `local-output/vegas-native-menu/` (APK, Android antes/despues, HTML, coverage.json y logs). Continuar en `VegasVisualProfile.menuView`, `SdaResourceMenuView.onDraw/onTouchEvent` y `SdaLauncherActivity.wireViewCallbacks`: integrar `mainmenuunderlay`, `mainoptionsdlg` y overlays de instrucciones con comportamiento autentico. Frida 17.23.3 confirmado; no se ejecuto otro titulo ni se amplio el piloto porque los bindings estaticos ya desbloquearon este cambio. Director/Huntsville y WIP ajeno intactos.
+
+
+### V3 ? portada interna y ayuda navegable
+
+Supera la limitacion de `8287ec3`: `MENU PRINCIPAL` abre ahora `mainmenuunderlay`, no el catalogo. La portada tambien aparece al lanzar la campa?a; mantiene el reloj pausado hasta continuar. `SALIR` guarda y vuelve al host multijuego. Se dibujan fondos, tarjeta generica, boton de campa?a, candado y controles originales. `SdaResourceMenuView.show/onDraw` compone nodos y cambia pantallas; IDs, visibilidad y callbacks quedan en `VegasVisualProfile.menuView`.
+
+Ayuda general: cuatro paginas originales con captions/imagenes/atlas, flechas ida/vuelta y HECHO. Ayuda contextual: TileRot, TileSwap, WordSearch y Jigsaw, con retorno al menu y reanudacion. No se tradujeron instrucciones de mouse a texto tactil inventado. Controles sin `value` no se capturan como SALIR.
+
+Pruebas: 202 JVM, 0 fallos/errores; build APK/test APK correcto. WSA API33/display2: bateria de 3 tests PASS (76.090 s), incluyendo renderer de mosaicos, cuatro familias con entradas Android y resultados hasta nivel 5, portada/ayuda/guardado. Tras recuperar el candado confirmado por Windows, prueba del launcher PASS (3.985 s). Preparacion de escenas tecnica: NO es E2E de la campa?a completa. Preferencias previas restauradas por el test. Director/Huntsville sin cambios; nueva regresion visual integral de Huntsville pendiente.
+
+Estado **PARCIAL**: opciones/audio, perfiles, nombre/avatar, records, modo ilimitado/coleccionables, faders, sonidos, fresh-profile iniciar/continuar, logo externo y variante `mainoverlaydlg5` pendientes. La ayuda de escenas usa por ahora la introduccion general; la ruta nativa `eyespyinstructionsdlg*` sigue pendiente. `center` y transiciones necesitan contraste nativo. No se declara completo el menu ni el Goal.
+
+Evidencia privada: `local-output/vegas-navigation/` (APK, nueve capturas Android, referencia Windows existente, HTML, overlay/diff, matriz JSON y logs). Comparacion Windows/Android normalizada a 800x600: metrica limitada a fondo estatico, con estados de jugador diferentes; no aprueba interfaz completa. PSS 64,684 KiB/RSS 164,532 KiB en una muestra del menu vivo (1 actividad); no sustituye perfilado FPS/GC/before-after.
+
+Continuacion: `VegasVisualProfile.menuView` (mainoptionsdlg, perfiles y ojos/escenas); `SdaResourceMenuView.onDraw/onTouchEvent` (sliders/checkboxes y flags nativos); `SdaLauncherActivity.showResourceMenu/wireViewCallbacks` (servicios de opciones y perfil). Frida sigue 17.23.3; reutilizados XUI/evidencias sin ejecutar Los Angeles ni ampliar la investigacion.

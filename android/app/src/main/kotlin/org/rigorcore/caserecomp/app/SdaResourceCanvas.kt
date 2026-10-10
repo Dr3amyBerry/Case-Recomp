@@ -115,10 +115,11 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 }
 
-enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS }
+enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
+enum class SdaMenuEntry { PAUSE, MAIN }
 
 interface SdaVisualProfile {
- fun menuView(context:android.content.Context,onAction:(SdaMenuAction)->Unit):android.view.View? = null
+ fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun pointer(x:Int?,y:Int?,pressed:Boolean) {}
  fun menuRect(campaign:SdaCampaign):Rect? = null
  fun pauseRect(campaign:SdaCampaign):Rect? = null

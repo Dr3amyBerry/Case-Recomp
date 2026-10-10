@@ -158,6 +158,7 @@ class SdaLauncherActivity : Activity() {
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
                 setContentView(view)
+                if(view.visuals!=null) view.post { if(!isFinishing) showResourceMenu(view,SdaMenuEntry.MAIN) }
 
             } else {
                 // Standalone scene mode
@@ -211,35 +212,39 @@ class SdaLauncherActivity : Activity() {
         }
     }
 
-    private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
-        view.onMenuListener = {
-            autoSave()
-            val dialog=android.app.Dialog(this)
-            val nativeMenu=view.visuals?.menuView(this) { action ->
-                when(action) {
-                    SdaMenuAction.RESUME -> dialog.dismiss()
-                    // Host navigation remains a catalogue return until the original main menu is integrated.
-                    SdaMenuAction.RETURN_TO_CATALOGUE -> { autoSave();dialog.dismiss();finish() }
-                    else -> Toast.makeText(this,"Pantalla pendiente de implementar",Toast.LENGTH_SHORT).show()
-                }
-            }
-            if(nativeMenu!=null) {
-                dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
-                dialog.setContentView(nativeMenu)
-                dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-                dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-                dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
-                hostMenu=dialog;dialog.show()
-                dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-                dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
-            } else {
-                val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
-                    .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
-                        if(item==1) { autoSave();finish() }
-                    }.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }.create()
-                hostMenu=fallback;fallback.show()
+    private fun showResourceMenu(view:SdaGameView,entry:SdaMenuEntry) {
+        if(hostMenu?.isShowing==true) return
+        view.pauseForMenu()
+        autoSave()
+        val dialog=android.app.Dialog(this)
+        val nativeMenu=view.visuals?.menuView(this,campaign,entry) { action ->
+            when(action) {
+                SdaMenuAction.RESUME -> dialog.dismiss()
+                // Original EXIT returns to the multi-game host after saving.
+                SdaMenuAction.RETURN_TO_CATALOGUE -> { autoSave();dialog.dismiss();finish() }
+                else -> Toast.makeText(this,"Pantalla pendiente de implementar",Toast.LENGTH_SHORT).show()
             }
         }
+        if(nativeMenu!=null) {
+            dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+            dialog.setContentView(nativeMenu)
+            dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
+            hostMenu=dialog;dialog.show()
+            dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+            dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+        } else {
+            val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
+                .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
+                    if(item==1) { autoSave();finish() }
+                }.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }.create()
+            hostMenu=fallback;fallback.show()
+        }
+    }
+
+    private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
+        view.onMenuListener = { showResourceMenu(view,SdaMenuEntry.PAUSE) }
         view.onPauseChangedListener = { autoSave() }
         view.onBonusInputListener = { autoSave() }
         view.onSceneSelectedListener = { sceneName ->

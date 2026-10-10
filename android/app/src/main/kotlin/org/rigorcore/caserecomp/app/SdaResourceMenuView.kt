@@ -9,9 +9,14 @@ import org.rigorcore.caserecomp.sda.*
 
 /** XUI dialog renderer/input. Resource IDs, dimensions and action semantics come from the profile. */
 class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
- private val container:SdaUiNode,private val panelTextures:List<String>,
+ private var container:SdaUiNode,private val panelTextures:List<String>,
  private val logicalWidth:Int,private val logicalHeight:Int,private val onAction:(Int)->Unit):View(context) {
- val buttons=container.children.filter { it.type=="allbutton" }
+ val screenId get()=container.attributes["id"].orEmpty()
+ val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
+ private var background:List<SdaUiNode> = emptyList()
+ fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
+  container=node;this.background=background;captured=null;pressed=false;invalidate()
+ }
  private var captured:SdaUiNode?=null
  private var pressed=false
  init { tag="sda-resource-menu";isFocusable=true }
@@ -20,12 +25,14 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   super.onDraw(canvas)
   val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat())
   canvas.save();canvas.translate((width-logicalWidth*scale)/2,(height-logicalHeight*scale)/2);canvas.scale(scale,scale)
+  for(node in background) ui.image(canvas,node,photographic=true)
   canvas.translate(container.number("x").toFloat(),container.number("y").toFloat())
-  val panel=container.children.single { it.type=="dialogimg" }
-  ui.tiledPanel(canvas,panelTextures,Rect(0,0,panel.number("w"),panel.number("h")))
+  val panel=container.children.singleOrNull { it.type=="dialogimg" }
+  if(panel!=null) ui.tiledPanel(canvas,panelTextures,Rect(0,0,panel.number("w"),panel.number("h")))
   for(node in container.children) when(node.type) {
+   "image" -> ui.image(canvas,node,photographic=true)
    "label" -> ui.label(canvas,node)
-   "allbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else SdaButtonState.NORMAL)
+   "allbutton","quitbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else SdaButtonState.NORMAL)
   }
   canvas.restore()
  }
@@ -41,7 +48,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    MotionEvent.ACTION_UP -> {
     val selected=captured?.takeIf { buttonBounds(it).contains(x,y) }
     captured=null;pressed=false;invalidate()
-    if(selected!=null) { performClick();onAction(selected.number("value")) }
+    if(selected!=null) { performClick();onAction(selected.number("value",-1)) }
    }
   }
   invalidate();return true

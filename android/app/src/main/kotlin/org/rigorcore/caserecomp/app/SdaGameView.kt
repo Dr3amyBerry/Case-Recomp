@@ -87,6 +87,9 @@ class SdaGameView(
     var onPauseChangedListener: (() -> Unit)? = null
     private var resumePointerId: Int? = null
     var onMenuListener: (() -> Unit)? = null
+    fun pauseForMenu() {
+        isPaused=true;onPauseChangedListener?.invoke();invalidate()
+    }
     fun resumeFromMenu() {
         isPaused=false;onPauseChangedListener?.invoke();invalidate()
     }
