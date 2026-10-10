@@ -18,11 +18,27 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def referenced_resources(raw: bytes) -> list[str]:
+    """Declared graphics/audio dependencies, preserving first spelling and deduplicating aliases."""
+    result = []
+    seen = set()
+    for node in parse_xui(raw).iter():
+        if local_name(node.tag) not in ("texture", "sfx", "audiostream"):
+            continue
+        uri = node.attrib.get("uri")
+        if uri and uri.casefold() not in seen:
+            seen.add(uri.casefold())
+            result.append(uri)
+    return result
+
+
 def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign: bool = False):
     res = Resources(resources_dll_path)
     output_zip_path.parent.mkdir(parents=True, exist_ok=True)
 
     files_data = {}
+    resource_paths = set()
+    missing_references = set()
 
     # A catalog thumbnail of the authentic menu background, not a Windows
     # execution capture. Resolve its URI from XUI rather than a distributor file.
@@ -65,17 +81,18 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
             if txt_name in res.entries and txt_name not in files_data:
                 files_data[txt_name] = res.read(txt_name)
 
-            try:
-                tree = parse_xui(raw)
-                for x in tree.iter():
-                    if local_name(x.tag) == "texture":
-                        uri = x.attrib.get("uri")
-                        if uri and uri not in files_data:
-                            entry_name = uri.upper()
-                            if entry_name in res.entries:
-                                files_data[uri] = res.read(entry_name)
-            except Exception as e:
-                print(f"Error parsing textures in {xname}: {e}")
+            for uri in referenced_resources(raw):
+                if uri.casefold() in resource_paths:
+                    continue
+                entry_name = uri.upper()
+                if entry_name in res.entries:
+                    files_data[uri] = res.read(entry_name)
+                    resource_paths.add(uri.casefold())
+                else:
+                    missing_references.add(uri)
+
+        if missing_references:
+            print("Missing declared resources (not substituted): " + ", ".join(sorted(missing_references)))
 
         print(f"Full campaign: gathered {len(files_data)} files across {len(scenes)} scenes and {len(bonuses)} bonus games.")
 

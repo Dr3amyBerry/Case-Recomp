@@ -620,3 +620,14 @@ Estado **PARCIAL**: opciones/audio, perfiles, nombre/avatar, records, modo ilimi
 Evidencia privada: `local-output/vegas-navigation/` (APK, nueve capturas Android, referencia Windows existente, HTML, overlay/diff, matriz JSON y logs). Comparacion Windows/Android normalizada a 800x600: metrica limitada a fondo estatico, con estados de jugador diferentes; no aprueba interfaz completa. PSS 64,684 KiB/RSS 164,532 KiB en una muestra del menu vivo (1 actividad); no sustituye perfilado FPS/GC/before-after.
 
 Continuacion: `VegasVisualProfile.menuView` (mainoptionsdlg, perfiles y ojos/escenas); `SdaResourceMenuView.onDraw/onTouchEvent` (sliders/checkboxes y flags nativos); `SdaLauncherActivity.showResourceMenu/wireViewCallbacks` (servicios de opciones y perfil). Frida sigue 17.23.3; reutilizados XUI/evidencias sin ejecutar Los Angeles ni ampliar la investigacion.
+
+
+### V3 ? audio privado incluido en la conversion (prerrequisito)
+
+El empaquetador recogia solo `texture`; omitia `sfx` y `audiostream`. `tools/sda-prototype/package_vegas.py:referenced_resources/build_package` incluye ahora esas dependencias, deduplica aliases de mayusculas y reporta referencias ausentes sin sustituirlas. La conversion falla ante XML invalido en vez de ocultarlo. Paquete nuevo independiente: `local-output/vegas-audio/vegas-full-with-audio.zip`, con 40 OGG unicos (2,759,436 bytes); todos los hashes de recursos existentes coinciden con `vegas-menu-cover-full.zip`. Los paquetes anteriores se conservan. El ZIP historico `vegas_full.zip` usa otra portada; no se presento como baseline equivalente.
+
+Pruebas: 3 Python PASS. `SdaPrivateAudioInstrumentationTest.packaged_music_and_effect_decode_and_play_on_android` PASS en WSA (0.146 s): cuatro pistas y ButtonClick2 preparados/reproducidos por MediaPlayer real a volumen cero, con duracion positiva y cache temporal eliminada. No prueba escucha, mezcla, volumen UI ni fidelidad audiovisual. `launcher_menu_resume_and_saved_exit` con el nuevo ZIP PASS (3.641 s), display2, conservando preferencias. Build de test APK correcto; codigo productivo Android/Director/Huntsville intacto.
+
+**PARCIAL/PENDIENTE:** conectar reproduccion al launcher/menu, sliders originales de musica/efectos, persistencia y cancelar/OK; verificar mezcla, pausa, cambios de escena y audio E2E. `PadLockOpen.ogg` y `TombDoor.ogg` no estan en RAWDATA; se registran ausentes y no se inventan. Otras referencias graficas obsoletas/ausentes quedan en package.log; no equivalen a pantallas activas aprobadas. Logs/JSON de codec, matriz y paquete comercial permanecen fuera de Git en `local-output/vegas-audio/`.
+
+Continuar en `SdaLauncherActivity.showResourceMenu`, `VegasVisualProfile.menuView` (mainoptionsdlg) y `SdaResourceMenuView.onDraw/onTouchEvent` (sliders); crear servicio generico de reproduccion SDA con cierre de players y volumen acotado. Frida 17.23.3 ya confirmado: no hizo falta otro piloto ni ejecutar Los Angeles.
