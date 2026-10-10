@@ -304,3 +304,9 @@ Se conservaron logs de los intentos iniciales fallidos: ActivityScenario.moveToS
 **PARCIAL:** sliders/OK/CANCEL/persistencia de volumen en mainoptionsdlg siguen pendientes, asi como musica y efectos de escenas/bonus, hover, loops/fades y contraste de timing/audio nativo. Solo se aplica loop si XUI lo declara; el comportamiento nativo restante no se da por reconstruido. Director/Huntsville y WIP ajeno intactos; regresion visual completa aun pendiente. APK y logs privados en `local-output/vegas-audio-session/`, usando el paquete con OGG de `local-output/vegas-audio/`.
 
 Continuar en `SdaAudioSession.setMusicVolume/setEffectsVolume`, `VegasVisualProfile.menuView/audioSession` (mainoptionsdlg, guardar/cancelar) y `SdaResourceMenuView.onDraw/onTouchEvent` (sliders originales). El Goal completo sigue activo; Frida ya esta instalado y no se repitio el piloto ni se ejecuto Los Angeles.
+
+## PDA: tres filas compactas solicitadas por el usuario
+
+Tiempo, etiqueta de puntuacion y cifras usan ahora escala 70 % (antes 85 %), manteniendo sus centros y filas independientes. Adaptacion solicitada para Android, no coincidencia declarada con Windows. Nivel y objetivos permanecen intactos; cambio exclusivo de VegasVisualProfile.compactInfo.
+
+APK privada: `local-output/vegas-audio-session/vegas-compact-hud-debug.apk`. Capturas reales WSA display 2: `hud-scene.png` y `hud-swap.png`. Compilacion correcta; prueba Android `original_resources_map_scene_and_four_bonuses`: PASS, 70.609 s. Verifica componentes de mapa, escena y cuatro bonus; no constituye recorrido E2E de la campana. Revision visual: tres filas dentro del panel, sin solaparse con instrucciones.
