@@ -351,7 +351,6 @@ class SdaLauncherActivity : Activity() {
 
         view.onStartBonusListener = {
             campaign?.startBonus(sdaContent)
-            Toast.makeText(this, "Â¡Minijuego de bonificaciÃ³n desbloqueado!", Toast.LENGTH_SHORT).show()
             autoSave()
         }
 
@@ -360,9 +359,6 @@ class SdaLauncherActivity : Activity() {
             if (camp != null) {
                 camp.confirmLevelComplete(sdaContent)
                 repository.clearCheckpoint()
-                if (camp.phase == SdaCampaignPhase.MAP) {
-                    Toast.makeText(this, "Nivel ${camp.levelIndex + 1}: ${camp.currentLevel.title}", Toast.LENGTH_SHORT).show()
-                }
                 autoSave()
             }
         }
@@ -384,14 +380,7 @@ class SdaLauncherActivity : Activity() {
         }
 
         view.onSceneCompleteListener = {
-            val camp = campaign
-            if (camp != null) {
-                if (camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
-                    Toast.makeText(this, "Â¡Todos los objetos del nivel encontrados!", Toast.LENGTH_SHORT).show()
-                } else if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE) {
-                    Toast.makeText(this, "Lote de escena completado. Regresa al mapa.", Toast.LENGTH_SHORT).show()
-                }
-            }
+            // Completion belongs to the game's resource UI, not added host notifications.
             autoSave()
         }
     }
