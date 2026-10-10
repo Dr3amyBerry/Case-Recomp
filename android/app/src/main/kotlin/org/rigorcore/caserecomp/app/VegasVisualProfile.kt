@@ -120,6 +120,21 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
   }
  }
+ override fun levelCompleteRect(campaign:SdaCampaign):Rect = ui.rect(doc.component("minigamecompletedokbutton"))
+ override fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean {
+  drawBonusBase(canvas,campaign)
+  val window=doc.component("tilegamewon")
+  window.children.forEach { node -> when(node.type) {
+   "image" -> ui.image(canvas,node)
+   "label" -> ui.label(canvas,node)
+  } }
+  // 004429d0 selects matching image/label children; 00410240 passes clue - 1.
+  val index=campaign.currentLevel.clue-1
+  ui.image(canvas,doc.component("polaroidimages").children[index],photographic=true)
+  ui.label(canvas,doc.component("polaroidlabels").children[index])
+  button(canvas,doc.component("minigamecompletedokbutton"))
+  return true
+ }
  private val wordCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override fun drawWordSearch(canvas:Canvas,campaign:SdaCampaign):Boolean {
   val game=campaign.bonusGame as? SdaWordSearchGame ?: return false

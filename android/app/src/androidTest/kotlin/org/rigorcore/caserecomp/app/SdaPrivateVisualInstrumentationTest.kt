@@ -86,6 +86,7 @@ class SdaPrivateVisualInstrumentationTest {
       activity.setContentView(view)
       view.onSceneSelectedListener={ selected -> view.scene=campaign.enterScene(selected,content);view.invalidate() }
       view.onReturnToMapListener={ campaign.toInvestigationMap();view.invalidate() }
+      view.onNextLevelListener={ campaign.confirmLevelComplete();view.invalidate() }
      }
      instrumentation.waitForIdleSync()
      // WSA compositor and Android launch splash can outlive the UI idle queue.
@@ -348,7 +349,13 @@ class SdaPrivateVisualInstrumentationTest {
      }
      assertEquals("bonus level ${level+1}: ${campaign.bonusGame}",SdaCampaignPhase.LEVEL_COMPLETE,campaign.phase)
      val checkpoint=campaign.snapshot().toJson();campaign.restore(SdaCampaignState.fromJson(checkpoint),content)
-     assertEquals(checkpoint,campaign.snapshot().toJson());campaign.confirmLevelComplete()
+     assertEquals(checkpoint,campaign.snapshot().toJson())
+     display("result-${level+1}")
+     val ok=checkNotNull(profile.levelCompleteRect(campaign))
+     touch(MotionEvent.ACTION_DOWN,ok.centerX(),ok.centerY())
+     assertEquals("result OK activates on release",SdaCampaignPhase.LEVEL_COMPLETE,campaign.phase)
+     touch(MotionEvent.ACTION_UP,ok.centerX(),ok.centerY())
+     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
     }
     assertEquals(5,campaign.currentLevel.clue)
    }

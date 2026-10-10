@@ -86,12 +86,13 @@ class SdaGameView(
         private set
     var onPauseChangedListener: (() -> Unit)? = null
     private var resumePointerId: Int? = null
-    private enum class CapturedControl { PAUSE, RETURN_MAP }
+    private enum class CapturedControl { PAUSE, RETURN_MAP, NEXT_LEVEL }
     private var controlPointerId: Int? = null
     private var capturedControl: CapturedControl? = null
     private fun controlRect(control:CapturedControl,camp:SdaCampaign):Rect? {
         val profile=visuals ?: return null
         return when(control) {
+            CapturedControl.NEXT_LEVEL -> if(camp.phase==SdaCampaignPhase.LEVEL_COMPLETE) profile.levelCompleteRect(camp) else null
             CapturedControl.PAUSE -> profile.pauseRect(camp)
             CapturedControl.RETURN_MAP -> if(camp.phase in listOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE)) profile.returnMapRect else null
         }
@@ -407,6 +408,7 @@ class SdaGameView(
     }
 
     private fun drawLevelComplete(canvas: Canvas, camp: SdaCampaign) {
+        if(visuals?.drawLevelComplete(canvas,camp)==true) return
         canvas.drawRect(0f, 0f, 800f, 600f, bgPaint)
         val dlgRect = Rect(120, 80, 680, 520)
         canvas.drawRect(dlgRect, cardPaint)
@@ -533,6 +535,7 @@ class SdaGameView(
                     when(control) {
                         CapturedControl.PAUSE -> { isPaused=true;onPauseChangedListener?.invoke() }
                         CapturedControl.RETURN_MAP -> onReturnToMapListener?.invoke()
+                        CapturedControl.NEXT_LEVEL -> onNextLevelListener?.invoke()
                     }
                 }
             }
@@ -698,7 +701,7 @@ class SdaGameView(
                     }
                     SdaCampaignPhase.LEVEL_COMPLETE -> {
                         // Confirm next level button (220..580, 430..485)
-                        if (logicalX in 220..580 && logicalY in 430..485) {
+                        if (visuals==null && logicalX in 220..580 && logicalY in 430..485) {
                             onNextLevelListener?.invoke()
                             invalidate()
                             return true
