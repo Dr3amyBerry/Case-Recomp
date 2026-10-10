@@ -45,11 +45,11 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   for(g in metrics.layout(text,x,y,halign,valign)) canvas.drawBitmap(atlas,
    Rect(g.run.start,0,g.run.start+g.run.width,atlas.height),Rect(g.x,g.y,g.x+g.run.width,g.y+atlas.height),glyphPaint)
  }
- fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h"),opacity:Float=1f) {
+ fun label(canvas:Canvas,node:SdaUiNode,text:String=document.caption(node),x:Int=node.number("x"),y:Int=node.number("y"),width:Int=node.number("w"),height:Int=node.number("h"),opacity:Float=1f,clipToBounds:Boolean=true) {
   require(opacity.isFinite() && opacity in 0f..1f)
   if(width<=0 || height<=0 || opacity==0f) return
   glyphPaint.alpha=(255*opacity).toInt()
-  canvas.save();canvas.clipRect(x,y,x+width,y+height)
+  canvas.save();if(clipToBounds) canvas.clipRect(x,y,x+width,y+height)
   val name=node.attributes["font"] ?: node.attributes["fontidle"]
   if(name!=null) {
    val ha=when(node.attributes["halign"]) { "center" -> 1;"right" -> 2;else -> 0 }
@@ -97,6 +97,8 @@ interface SdaVisualProfile {
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean=false)
+ fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaFirstRiddleGame) {}
+ fun drawRiddleCaption(canvas:Canvas,game:SdaFirstRiddleGame):Boolean = false
  fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean = false
  fun levelCompleteRect(campaign:SdaCampaign):Rect? = null
  fun bonusSolveRect(campaign:SdaCampaign):Rect? = solveRect

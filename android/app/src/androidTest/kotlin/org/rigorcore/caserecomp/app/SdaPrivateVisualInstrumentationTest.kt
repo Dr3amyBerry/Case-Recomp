@@ -70,7 +70,23 @@ class SdaPrivateVisualInstrumentationTest {
      assertEquals(SdaCampaignPhase.OBJECTS_COMPLETE,campaign.phase)
     }
 
-   ActivityScenario.launch(HomeActivity::class.java, android.app.ActivityOptions.makeBasic().setLaunchDisplayId(0).toBundle()).use { scenario ->
+   val displayId=InstrumentationRegistry.getArguments().getString("visualDisplayId")?.toInt() ?: 0
+   ActivityScenario.launch(HomeActivity::class.java, android.app.ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle()).use { scenario ->
+    fun captureWindow():Bitmap {
+     lateinit var window:android.view.Window
+     lateinit var bitmap:Bitmap
+     scenario.onActivity { activity ->
+      window=activity.window
+      bitmap=Bitmap.createBitmap(window.decorView.width,window.decorView.height,Bitmap.Config.ARGB_8888)
+     }
+     val copied=java.util.concurrent.CountDownLatch(1)
+     var status=-1
+     // PixelCopy reads the real Android window surface on any display, never View.draw.
+     android.view.PixelCopy.request(window,bitmap,{ result -> status=result;copied.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
+     assertTrue("window surface capture timed out",copied.await(10,java.util.concurrent.TimeUnit.SECONDS))
+     assertEquals("window surface capture failed",android.view.PixelCopy.SUCCESS,status)
+     return bitmap
+    }
     lateinit var shown:SdaGameView
     fun touch(action:Int,x:Int,y:Int,buttons:Int=0) {
      scenario.onActivity {
@@ -98,7 +114,7 @@ class SdaPrivateVisualInstrumentationTest {
      instrumentation.waitForIdleSync()
      var viewport=Triple(0f,0f,1f)
      scenario.onActivity {
-      val location=IntArray(2);shown.getLocationOnScreen(location)
+      val location=IntArray(2);shown.getLocationInWindow(location)
       val scale=minOf(shown.width/800f,shown.height/600f)
       viewport=Triple(location[0]+(shown.width-800*scale)/2,location[1]+(shown.height-600*scale)/2,scale)
      }
@@ -110,14 +126,14 @@ class SdaPrivateVisualInstrumentationTest {
        android.graphics.Color.red(argb)>160 && android.graphics.Color.green(argb)>110 && android.graphics.Color.blue(argb)<130
       }
      }
-     var screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     var screenshot=captureWindow()
      if(name=="scene-row-retired") {
       // Capture real compositor frames until remaining row ink is visible, or fail.
       repeat(8) {
        if(slots(screenshot).drop(1).any { it<=20 }) {
         screenshot.recycle();SystemClock.sleep(150)
         scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
-        screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        screenshot=captureWindow()
        }
       }
       val ink=slots(screenshot)
@@ -134,7 +150,7 @@ class SdaPrivateVisualInstrumentationTest {
        if(listOf(16,8,0).any { shift -> kotlin.math.abs(((actual ushr shift) and 255)-((expected ushr shift) and 255))>26 }) {
         screenshot.recycle();SystemClock.sleep(150)
         scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
-        screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        screenshot=captureWindow()
        }
       }
       for((x,y) in listOf(750 to 100,750 to 450,200 to 100)) {
@@ -179,10 +195,10 @@ class SdaPrivateVisualInstrumentationTest {
     fun captureState(name:String) {
      scenario.onActivity { shown.invalidate() };instrumentation.waitForIdleSync()
      SystemClock.sleep(500)
-     val screenshot=checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+     val screenshot=captureWindow()
      if(name=="scene-resumed") {
       val location=IntArray(2)
-      scenario.onActivity { shown.getLocationOnScreen(location) }
+      scenario.onActivity { shown.getLocationInWindow(location) }
       val scale=minOf(shown.width/800f,shown.height/600f)
       val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
       val targetInk=(10 until 142).sumOf { x -> (120 until 320).count { y ->
@@ -194,7 +210,7 @@ class SdaPrivateVisualInstrumentationTest {
      }
      if(name=="scene-paused") {
       val location=IntArray(2)
-      scenario.onActivity { shown.getLocationOnScreen(location) }
+      scenario.onActivity { shown.getLocationInWindow(location) }
       val scale=minOf(shown.width/800f,shown.height/600f)
       val ox=location[0]+(shown.width-800*scale)/2;val oy=location[1]+(shown.height-600*scale)/2
       fun pixel(image:Bitmap,x:Int,y:Int)=image.getPixel((ox+(x+.5f)*scale).toInt(),(oy+(y+.5f)*scale).toInt())

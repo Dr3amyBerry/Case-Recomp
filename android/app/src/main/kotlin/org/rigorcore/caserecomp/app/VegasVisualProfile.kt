@@ -56,7 +56,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   ui.label(canvas,timer.copy(attributes=timer.attributes+mapOf("halign" to "left")),clock?.text().orEmpty(),x=timer.number("x")+35)
   button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")
-  ui.label(canvas,score,doc.caption(score)+" "+String.format(java.util.Locale.US,"%,d",c?.points ?: 0))
+  // 00453ee0 concatenates the caption and formatted value directly; 0048aad0
+  // uses label width for alignment, without clipping glyphs to that rectangle.
+  ui.label(canvas,score,doc.caption(score)+String.format(java.util.Locale.US,"%,d",c?.points ?: 0),clipToBounds=false)
  }
  private fun levelLabel(canvas:Canvas,campaign:SdaCampaign) {
   // 004433d0 slot 0 formats the original caption as "%s: %d".
@@ -119,6 +121,21 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   if(campaign.bonusGame is SdaTileRotGame || campaign.bonusGame is SdaTileSwapGame) {
    ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
   }
+ }
+ override fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaFirstRiddleGame) {
+  // The riddle controller explicitly binds pdacontrol; its tray draws above this frame.
+  base(canvas,campaign,campaign.clock)
+  doc.component("puzzletext").children.filter { it.type=="image" }.forEach { ui.image(canvas,it) }
+ }
+ override fun drawRiddleCaption(canvas:Canvas,game:SdaFirstRiddleGame):Boolean {
+  val controller=doc.component(game.controllerId)
+  val paper=doc.component(controller.attributes.getValue("paper"))
+  val label=doc.component(controller.attributes.getValue("riddlelabel"))
+  game.caption?.let { caption ->
+   ui.image(canvas,paper)
+   ui.label(canvas,label,caption)
+  }
+  return true
  }
  override fun levelCompleteRect(campaign:SdaCampaign):Rect = ui.rect(doc.component("minigamecompletedokbutton"))
  override fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean {

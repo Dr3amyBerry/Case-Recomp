@@ -436,6 +436,7 @@ class SdaGameView(
             return
         }
         val definition=game.definition
+        visuals?.drawRiddleBase(canvas,camp,game)
         canvas.save()
         canvas.clipRect(144,0,800,600)
         canvas.drawBitmap(jigsawBitmap(game.background),definition.backgroundX.toFloat(),game.backgroundY.toFloat(),null)
@@ -457,7 +458,7 @@ class SdaGameView(
             val uri=if(game.arrowEnabled(key)) arrow.normalUri else arrow.disabledUri
             canvas.drawBitmap(jigsawBitmap(game.arrowImages.getValue(uri)),arrow.x.toFloat(),arrow.y.toFloat(),null)
         }
-        game.caption?.let { caption ->
+        if(visuals?.drawRiddleCaption(canvas,game)!=true) game.caption?.let { caption ->
             val layout=checkNotNull(definition.captionLayout)
             game.captionPaper?.let { canvas.drawBitmap(jigsawBitmap(it),layout.paperX.toFloat(),layout.paperY.toFloat(),null) }
             // Original segment offsets and center alignment; Android font metrics remain provisional.
