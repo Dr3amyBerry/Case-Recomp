@@ -136,7 +136,7 @@ class SdaLauncherActivity : Activity() {
                 val levels = SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } }, bonusTimeReward=profile?.let { it::bonusTimeReward } ?: { 0 })
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } }, bonusTimeReward=profile?.let { it::bonusTimeReward } ?: { 0 }, collectibleLimit=profile?.let { it::collectibleLimit } ?: { Int.MAX_VALUE })
                 campaign = camp
                 repository.configureCampaignSlots(sdaContent.gameId)
 
@@ -365,6 +365,11 @@ class SdaLauncherActivity : Activity() {
 
         view.onCampaignCompletedListener = {
             autoSave();showResourceMenu(view,SdaMenuEntry.MAIN)
+        }
+
+        view.onCollectibleFoundListener = { kind ->
+            view.visuals?.collectibleSound(kind)?.let { audioSession?.playEffect(it) }
+            autoSave()
         }
 
         view.onObjectFoundListener = { id, gain ->

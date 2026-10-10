@@ -28,7 +28,14 @@ class SdaPrivateLevelJourneyUnitTest {
                             }
                         }
                         assertNotNull("no exposed alpha input for $id", point)
-                        val result = camp.clickScene(point!!.first, point.second)
+                        var result = camp.clickScene(point!!.first, point.second)
+                        // Optional original nodes may occupy this same alpha point. Pick them first,
+                        // then click again through the public input path; never force target state.
+                        var optionalInputs=0
+                        while(result is SdaClickResult.Collected) {
+                            assertTrue(++optionalInputs<=scene.collectibles.size)
+                            result=camp.clickScene(point.first,point.second)
+                        }
                         assertTrue(result is SdaClickResult.Found)
                         assertEquals(id, (result as SdaClickResult.Found).id)
                     }

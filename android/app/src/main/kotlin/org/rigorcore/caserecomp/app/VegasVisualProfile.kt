@@ -27,6 +27,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  }
  override fun sceneFeedback(found:Boolean):String? =
   doc.component("eyespypauseunderlay").attributes[if(found) "foundsfx" else "notfoundsfx"]
+ override fun collectibleLimit(kind:String):Int = if(kind in setOf("key","chip")) 25 else 0
+ override fun collectibleSound(kind:String):String? {
+  val attribute=when(kind) { "key" -> "keybonussfx";"chip" -> "chipbonussfx";else -> return null }
+  return doc.component("pdacontrol").attributes[attribute]
+ }
  override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
  override fun immediateHintRecharge(context:android.content.Context)=context.getSharedPreferences("case-recomp-vegas-options",0).getBoolean("rapidhints",false)
  override fun hintRect(campaign:SdaCampaign):Rect? =
@@ -254,6 +259,12 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val timer=doc.component("clock")
   // User-requested Android layout: one centered clock line, separated from score.
   compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),timer.number("y")-5)
+  if(c!=null) {
+   for((kind,id) in listOf("key" to "keyscollected","chip" to "chipscollected")) {
+    val label=doc.component(id)
+    ui.label(canvas,label,c.collectedCount(kind).toString()+doc.caption(label))
+   }
+  }
   button(canvas,doc.component("pdadownmenubutton"))
   button(canvas,doc.component("pdadownpausebutton"))
   val score=doc.component("score")

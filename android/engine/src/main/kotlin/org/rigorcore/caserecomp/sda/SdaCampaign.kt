@@ -42,6 +42,7 @@ data class SdaCampaignState(
     val countedSets: Map<String, List<List<String>>>,
     val bonusGameState: Map<String, Any?>?,
     val hintState: Map<String, Any?>? = null,
+    val collectedScenes:Map<String,List<String>> = emptyMap(),
 ) {
     fun toJson(): String {
         val map = mapOf(
@@ -58,6 +59,7 @@ data class SdaCampaignState(
             "countedSets" to countedSets,
             "bonusGameState" to bonusGameState,
             "hintState" to hintState,
+            "collectedScenes" to collectedScenes,
         )
         return MiniJson.canonical(map)
     }
@@ -86,6 +88,7 @@ data class SdaCampaignState(
                 countedSets = countedRaw,
                 bonusGameState = raw["bonusGameState"] as? Map<String, Any?>,
                 hintState = raw["hintState"] as? Map<String, Any?>,
+                collectedScenes = if("collectedScenes" in raw) raw["collectedScenes"] as Map<String,List<String>> else emptyMap(),
             )
         }
     }
@@ -105,6 +108,7 @@ class SdaCampaign(
     val secondRiddle:SdaRiddleBinding? = null,
     val interactiveRiddleFactory:((SdaContent,Long,Map<String,Any?>?)->SdaInteractiveRiddleGame)? = null,
     private val bonusTimeReward:(Float)->Int = { 0 },
+    private val collectibleLimit:(String)->Int = { Int.MAX_VALUE },
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
@@ -125,6 +129,7 @@ class SdaCampaign(
     val scenes: MutableMap<String, SdaScene> = mutableMapOf()
     var bonusGame: SdaBonusGame? = null
     var totalElapsed: Float = 0f
+    private val collectedScenes=mutableMapOf<String,MutableSet<String>>()
 
     companion object {
         val RANKS = listOf(
@@ -260,9 +265,24 @@ class SdaCampaign(
         return true
     }
 
+    fun collectedCount(kind:String):Int = collectedScenes[kind]?.size ?: 0
+
+    fun collectibleAvailable(item:SdaSceneCollectible):Boolean {
+        val name=currentSceneName ?: return false
+        return name !in collectedScenes[item.definition.kind].orEmpty() &&
+            collectedCount(item.definition.kind)<collectibleLimit(item.definition.kind)
+    }
+
     fun clickScene(x: Int, y: Int): SdaClickResult {
-        if (phase != SdaCampaignPhase.SCENE) return SdaClickResult.Outside
+        if (phase !in setOf(SdaCampaignPhase.SCENE,SdaCampaignPhase.SCENE_COMPLETE) || x !in 0 until 800 || y !in 0 until 600) return SdaClickResult.Outside
         val sc = currentScene ?: return SdaClickResult.Outside
+        // Optional resource nodes never enter target decks, streaks or object scoring.
+        val item=sc.collectibles.asReversed().firstOrNull { collectibleAvailable(it) && it.sprite.hit(x,y) }
+        if(item!=null) {
+            collectedScenes.getOrPut(item.definition.kind) { mutableSetOf() }.add(requireNotNull(currentSceneName))
+            return SdaClickResult.Collected(item.definition.id,item.definition.kind)
+        }
+        if(phase!=SdaCampaignPhase.SCENE) return SdaClickResult.Outside
         val res = sc.click(x, y)
         points = sc.score.points
         return res
@@ -406,6 +426,7 @@ class SdaCampaign(
             countedSets = countedMap,
             bonusGameState = bonusGame?.state(),
             hintState = hint?.state(),
+            collectedScenes = collectedScenes.mapValues { it.value.toList() },
         )
     }
 
@@ -422,6 +443,19 @@ class SdaCampaign(
         val restoredPhase = try { SdaCampaignPhase.valueOf(state.phase) }
             catch (e: Exception) { throw IllegalArgumentException("invalid campaign phase", e) }
         require(state.scenes.keys == state.countedSets.keys && state.scenes.keys.all { it in level.scenes }) { "invalid campaign scenes" }
+        // Validate saved identities using XML only; do not decode textures from every visited level.
+        val knownScenes=levels.flatMap { it.scenes }.toSet()
+        val collectorDocuments=mutableMapOf<String,SdaXuiDocument>()
+        for((kind,names) in state.collectedScenes) {
+            require(kind.isNotEmpty() && names.isNotEmpty() && names.distinct().size==names.size &&
+                names.size<=collectibleLimit(kind) && names.all { it in knownScenes }) { "invalid collected scenes" }
+            for(name in names) {
+                val document=collectorDocuments.getOrPut(name) {
+                    SdaXui.parse(requireNotNull(content.read("SCENE_${name.uppercase()}.MSL")))
+                }
+                require(document.collectibles.any { it.kind==kind }) { "unknown collected resource kind" }
+            }
+        }
         val restoredScenes = state.scenes.mapValues { (name, sceneState) ->
             val scene = content.loadScene("SCENE_${name.uppercase()}.MSL", seed = state.seed)
             require(sceneState.activeSets.distinct().size == sceneState.activeSets.size &&
@@ -483,6 +517,8 @@ class SdaCampaign(
         if (restoredPhase == SdaCampaignPhase.CAMPAIGN_COMPLETE)
             require(restoredBonus == null) { "unexpected finished finale bonus" }
 
+        collectedScenes.clear()
+        state.collectedScenes.forEach { (kind,names) -> collectedScenes[kind]=names.toMutableSet() }
         hint=restoredHint
         levelIndex = state.levelIndex
         seed = state.seed

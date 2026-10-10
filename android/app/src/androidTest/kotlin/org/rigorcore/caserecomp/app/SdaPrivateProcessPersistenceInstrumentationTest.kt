@@ -128,12 +128,12 @@ class SdaPrivateProcessPersistenceInstrumentationTest {
     assertEquals(metadata.getString("profile"),PrivateSdaRepository(context).getActiveProfile().id)
     assertEquals("mainmenuunderlay",panel(activity).screenId)
     if(stage=="verify") assertEquals("all persisted gameplay fields",expected.readText(),camp.snapshot().toJson())
-    else if(metadata.getString("case")=="scene") {
+    else if(metadata.getString("case") in setOf("scene","collectors")) {
      val menu=panel(activity);val r=menu.buttonBounds(menu.buttons.single { it.number("value")==299 });click(menu,r.centerX(),r.centerY())
      assertEquals(SdaCampaignPhase.MAP,camp.phase)
     }
    }
-   if(stage=="prepare" && metadata.getString("case")=="scene") {
+   if(stage=="prepare" && metadata.getString("case") in setOf("scene","collectors")) {
     instrumentation.waitForIdleSync();SystemClock.sleep(250)
     scenario.onActivity { activity ->
      val view=game(activity);val camp=view.campaign!!
@@ -146,7 +146,26 @@ class SdaPrivateProcessPersistenceInstrumentationTest {
      val view=game(activity);val camp=view.campaign!!;val scene=camp.currentScene!!
      val target=scene.targets.map { scene.objects.getValue(it) }.first { obj->(obj.y until obj.y+obj.image.height).any { y->y in 0 until 550 && (obj.x until obj.x+obj.image.width).any { x->x in 144 until 800 && obj.hit(x,y) } } }
      val pixel=(target.y until target.y+target.image.height).asSequence().flatMap { y->(target.x until target.x+target.image.width).asSequence().map { x->x to y } }.first { (x,y)->x in 144 until 800 && y in 0 until 550 && target.hit(x,y) }
-     val before=camp.points;click(view,pixel.first,pixel.second);assertTrue(camp.points>before)
+     if(metadata.getString("case")=="collectors") {
+      val before=camp.points;val completed=camp.completedObjects
+      for(item in scene.collectibles) {
+       assertTrue(camp.collectibleAvailable(item))
+       val image=item.sprite.image
+       val point=(0 until image.width*image.height).asSequence().map { item.sprite.x+it%image.width to item.sprite.y+it/image.width }.first { (x,y)->
+        x in 174 until 800 && y in 0 until 600 && item.sprite.hit(x,y)
+       }
+       click(view,point.first,point.second)
+       assertEquals(1,camp.collectedCount(item.definition.kind))
+       assertFalse(camp.collectibleAvailable(item))
+      }
+      assertEquals(setOf("key","chip"),scene.collectibles.map { it.definition.kind }.toSet())
+      assertEquals(before,camp.points);assertEquals(completed,camp.completedObjects)
+     } else {
+      val before=camp.points;click(view,pixel.first,pixel.second)
+      var optionalInputs=0
+      while(!target.found && optionalInputs++<scene.collectibles.size) click(view,pixel.first,pixel.second)
+      assertTrue(camp.points>before)
+     }
      val menu=view.visuals!!.menuRect(camp)!!;click(view,menu.centerX(),menu.centerY())
     }
    }

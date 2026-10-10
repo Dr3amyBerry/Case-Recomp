@@ -21,6 +21,8 @@ class SdaCampaignUnitTest {
             val compound = """<xui><texture id="t" uri="pixel.png"/>
                 <eyespyimage id="a" x="200" y="20" tex="t"/>
                 <eyespyimage id="b" x="210" y="20" tex="t"/>
+                <mpi:key id="key" x="310" y="20" tex="t"/>
+                <mpi:chip id="chip" x="410" y="20" tex="t"/>
                 <eyespyset objects="a,b" itemnamelist="First,Second"/></xui>"""
             val files = mapOf(
                 "SCENE_ONE.MSL" to compound.toByteArray(),
@@ -52,6 +54,79 @@ class SdaCampaignUnitTest {
             assertTrue(camp.clickScene(sprite.x + 1, sprite.y + 1) is SdaClickResult.Found)
         }
         repeat(100) { camp.advance(.04f) }
+    }
+
+    @Test fun collecting_optional_items_does_not_count_as_object_or_change_score() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8)
+        camp.enterScene("one",content)
+        val before=camp.snapshot()
+        assertEquals(SdaClickResult.Collected("key","key"),camp.clickScene(311,21))
+        assertEquals(SdaClickResult.Collected("chip","chip"),camp.clickScene(411,21))
+        assertEquals(1,camp.collectedCount("key"));assertEquals(1,camp.collectedCount("chip"))
+        assertEquals(before.points,camp.points);assertEquals(before.completedObjects,camp.completedObjects)
+        assertEquals(before.clockElapsed,camp.clock.elapsed,0f)
+        assertEquals(SdaCampaignPhase.SCENE,camp.phase)
+        assertTrue(camp.currentScene!!.collectibles.all { !camp.collectibleAvailable(it) })
+    }
+
+    @Test fun collected_items_survive_json_restore_and_scene_reentry_without_duplicate_credit() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8)
+        camp.enterScene("one",content);camp.clickScene(311,21)
+        val state=SdaCampaignState.fromJson(camp.snapshot().toJson())
+        val restored=SdaCampaign(levels());restored.restore(state,content)
+        assertEquals(1,restored.collectedCount("key"));assertEquals(0,restored.collectedCount("chip"))
+        restored.toInvestigationMap();restored.enterScene("one",content)
+        assertFalse(restored.collectibleAvailable(restored.currentScene!!.collectibles.first()))
+        restored.toInvestigationMap();restored.enterScene("two",content)
+        assertEquals(SdaClickResult.Collected("key","key"),restored.clickScene(311,21))
+        assertEquals(2,restored.collectedCount("key"))
+    }
+
+    @Test fun invalid_collector_checkpoint_is_rejected_without_mutating_live_campaign() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8);camp.enterScene("one",content)
+        val before=camp.snapshot()
+        for(saved in listOf(mapOf("key" to listOf("unknown")),mapOf("bogus" to listOf("one")),mapOf("key" to listOf("one","one")))) {
+            try { camp.restore(before.copy(collectedScenes=saved),content);fail("invalid collectors accepted") }
+            catch(expected:IllegalArgumentException) { }
+            assertEquals(before,camp.snapshot())
+        }
+    }
+
+    @Test fun optional_item_remains_collectible_after_scene_objectives_retire() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8)
+        finishScene(camp,content,"one")
+        assertEquals(SdaCampaignPhase.SCENE_COMPLETE,camp.phase)
+        val before=camp.points;val completed=camp.completedObjects
+        assertEquals(SdaClickResult.Collected("key","key"),camp.clickScene(311,21))
+        assertEquals(1,camp.collectedCount("key"));assertEquals(before,camp.points)
+        assertEquals(completed,camp.completedObjects);assertEquals(SdaCampaignPhase.SCENE_COMPLETE,camp.phase)
+        assertTrue(camp.clickScene(100,100) is SdaClickResult.Outside)
+    }
+
+    @Test fun collecting_limit_is_title_policy_and_survives_next_level() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8,collectibleLimit={ 1 })
+        camp.enterScene("one",content);camp.clickScene(311,21)
+        camp.toInvestigationMap();camp.enterScene("two",content)
+        assertFalse(camp.collectibleAvailable(camp.currentScene!!.collectibles.first()))
+        camp.toInvestigationMap()
+        reachBonus(camp,content)
+        val bonus=camp.bonusGame as SdaTileRotGame
+        for(index in bonus.tileRotations.indices) {
+            val x=172+(index%bonus.cols)*612/bonus.cols+1
+            val y=95+(index/bonus.cols)*408/bonus.rows+1
+            repeat(bonus.tileRotations[index]) { assertTrue(camp.clickBonus(x,y)) }
+        }
+        camp.confirmLevelComplete(content)
+        assertEquals(1,camp.levelIndex);assertEquals(1,camp.collectedCount("key"))
+        camp.enterScene("one",content)
+        assertFalse(camp.collectibleAvailable(camp.currentScene!!.collectibles.first()))
+    }
+
+    @Test fun legacy_checkpoint_without_collectors_restores_with_empty_counts() = withContent { content ->
+        val camp=SdaCampaign(levels(),seed=8);camp.enterScene("one",content)
+        val raw=(MiniJson.parse(camp.snapshot().toJson()) as Map<String,Any?>)-"collectedScenes"
+        val restored=SdaCampaign(levels());restored.restore(SdaCampaignState.fromJson(MiniJson.canonical(raw)),content)
+        assertEquals(0,restored.collectedCount("key"));assertEquals(0,restored.collectedCount("chip"))
     }
 
     @Test fun speed_bonus_uses_native_minute_second_component_and_multiplier() {

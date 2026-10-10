@@ -186,7 +186,12 @@ class SdaPrivateCampaignE2EInstrumentationTest {
       if(!sprite.found) {
        val p=(0 until sprite.image.width*sprite.image.height).asSequence().map { sprite.x+it%sprite.image.width to sprite.y+it/sprite.image.width }.firstOrNull { (x,y) -> x in 144 until 800 && y in 0 until 600 && scene.targets.firstOrNull { scene.objects.getValue(it).hit(x,y) }==id }
        if(p==null) { record("unreachable-object",mapOf("level" to level,"scene" to name,"id" to id,"x" to sprite.x,"y" to sprite.y,"width" to sprite.image.width,"height" to sprite.image.height));error("no visible Android hit pixel for $id in $name") }
-       click(view,p.first,p.second);assertTrue("object$id must be found by Android touch",sprite.found)
+       click(view,p.first,p.second)
+       var optionalInputs=0
+       while(!sprite.found && optionalInputs<scene.collectibles.size && campaign().phase==SdaCampaignPhase.SCENE) {
+        optionalInputs++;click(view,p.first,p.second)
+       }
+       assertTrue("object$id must be found by Android touch",sprite.found)
       }
      }
      waitFor("level$level scene retirement",20) { campaign().phase in setOf(SdaCampaignPhase.SCENE_COMPLETE,SdaCampaignPhase.OBJECTS_COMPLETE) }

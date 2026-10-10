@@ -54,6 +54,7 @@ class SdaSprite(
 sealed class SdaClickResult {
     object Outside : SdaClickResult()
     data class Found(val id: String, val gain: Int) : SdaClickResult()
+    data class Collected(val id:String,val kind:String) : SdaClickResult()
     data class Miss(val penalty: Boolean) : SdaClickResult()
 }
 

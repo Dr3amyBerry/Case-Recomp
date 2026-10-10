@@ -79,6 +79,7 @@ class SdaGameView(
     var onSceneCompleteListener: (() -> Unit)? = null
     var onSceneSelectedListener: ((String) -> Unit)? = null
     var onReturnToMapListener: (() -> Unit)? = null
+    var onCollectibleFoundListener: ((String) -> Unit)? = null
     var onStartBonusListener: (() -> Unit)? = null
     var onNextLevelListener: (() -> Unit)? = null
     var onCampaignCompletedListener: (() -> Unit)? = null
@@ -192,7 +193,14 @@ class SdaGameView(
         }
 
         // 1. Draw drawOrder (static backdrop layers, overlays, and unfound target sprites)
-        val renderList = if (scene.drawOrder.isNotEmpty()) scene.drawOrder else scene.objects.values.toList()
+        val ordinary = if (scene.drawOrder.isNotEmpty()) scene.drawOrder else scene.objects.values.toList()
+        val optional=scene.collectibles.filter { camp?.collectibleAvailable(it)==true }.groupBy { it.definition.imageIndex }
+        val renderList=buildList {
+            for(index in 0..ordinary.size) {
+                optional[index]?.forEach { add(it.sprite) }
+                if(index<ordinary.size) add(ordinary[index])
+            }
+        }
         for (sprite in renderList) {
             if (!sprite.found && !sprite.hidden) {
                 val bmp = spriteBitmaps[sprite.identity] ?: (sprite.image.nativeImage as? Bitmap)
@@ -733,6 +741,7 @@ class SdaGameView(
                                     onSceneCompleteListener?.invoke()
                                 }
                             }
+                            is SdaClickResult.Collected -> onCollectibleFoundListener?.invoke(result.kind)
                             is SdaClickResult.Miss -> onMissListener?.invoke(result.penalty)
                             is SdaClickResult.Outside -> {}
                         }
@@ -796,6 +805,7 @@ class SdaGameView(
                             onSceneCompleteListener?.invoke()
                         }
                     }
+                    is SdaClickResult.Collected -> onCollectibleFoundListener?.invoke(result.kind)
                     is SdaClickResult.Miss -> onMissListener?.invoke(result.penalty)
                     is SdaClickResult.Outside -> {}
                 }

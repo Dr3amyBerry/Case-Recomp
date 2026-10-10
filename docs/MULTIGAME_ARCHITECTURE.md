@@ -332,3 +332,8 @@ Last-player fresh default_pi bootstrap and fallback ordering are Android adaptat
 Continue at PrivateSdaRepository.removeProfile / AndroidSdaPreferences.setStrings; SdaLauncherActivity.autoSave / showResourceMenu; VegasVisualProfile player menus; SdaPrivateProfilesInstrumentationTest; PrivateSdaProfileRemovalUnitTest; SdaPreferenceRollbackInstrumentationTest. Native final-score continuation remains VegasScoreRules and VegasVisualProfile.riddleDialog, native00419c90/004189c0/004191e0. No private commercial material published.
 
 Optional SDA scene collectors now have resource definitions and decoded sprites separate from ordinary target membership. SdaXuiCollectible preserves source kind/attributes and image insertion index; SdaScene.collectibles defaults empty. Loading introduces no target rewards, collector animation or game-specific policy. Those transitions/rewards remain to be integrated through the title adapter and generic persistence contracts; Director is unchanged.
+
+
+### Campaign-wide optional scene collection
+
+Generic SDA exposes `SdaClickResult.Collected` independently from found-object scoring, tracks collected scene identities by resource kind, and persists them with validated legacy-compatible campaign checkpoints. XUI image insertion indices supply rendering order. Android dispatches a separate save/sound callback. Vegas selects the 25-item limit and original sound/PDA-label resources; no title resource IDs enter the generic campaign. Restore checks XML metadata without retaining textures for prior levels. Native collector animations/dialogs/unlock transitions remain separate pending adapter work. Director/Huntsville are unchanged.
