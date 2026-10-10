@@ -300,3 +300,7 @@ SdaButtonPresentation resuelve variantes y offsets de botones usando exclusivame
 ### SDA: colocaci?n compartida del desenlace (2026-10-10)
 
 SdaPlacementRiddleGame extrae el controlador existente de bandeja, puntero y checkpoint; SdaFirstRiddleGame conserva su API y SdaSecondRiddleGame interpreta la segunda definici?n de recursos, sus variantes de im?genes y confirmaci?n inicial persistida. SdaCampaign recibe bindings opcionales de ambas fases y resuelve recursos antes de transicionar. Android ofrece recorte gen?rico de atlas y callbacks de di?logo/dibujo; IDs, fotogramas, coordenadas y eventos comerciales permanecen en VegasVisualProfile/adaptador launcher. Director/Huntsville permanecen intactos. La tercera fase y las animaciones aut?nticas siguen pendientes.
+
+### SDA interactive-item graph (2026-10-10)
+
+SdaInteractiveResources reads original item/image/step declarations through bounded SdaXml/SdaContent. SdaInteractiveItems owns reusable alpha input, timing, condition flags, frames and per-item checkpoints; completion/blocked callbacks are injected by the caller. Commercial names, code generation and finale transitions must stay in a separate title adapter. The interpreter is verified as an engine component; no Android third-controller integration or campaign victory is implied. Director/Huntsville remains unchanged.
