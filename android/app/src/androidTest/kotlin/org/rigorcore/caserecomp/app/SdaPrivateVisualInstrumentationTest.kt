@@ -32,7 +32,11 @@ class SdaPrivateVisualInstrumentationTest {
    } }
   })
   content.use {
-   val campaign=SdaCampaign(SdaLevels.parse(content.read("LEVELS_1.XUI")!!),8)
+   val levels=SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
+   val requestedLevels=InstrumentationRegistry.getArguments().getString("campaignLevels")?.toInt() ?: 4
+   require(requestedLevels in 1..levels.size)
+   val campaign=SdaCampaign(levels,8,firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"))
+   val coverage=org.json.JSONArray()
    val profile=VegasVisualProfile(content)
    var unusedView:SdaGameView?=null
     fun finishObjects() {
@@ -86,7 +90,7 @@ class SdaPrivateVisualInstrumentationTest {
       activity.setContentView(view)
       view.onSceneSelectedListener={ selected -> view.scene=campaign.enterScene(selected,content);view.invalidate() }
       view.onReturnToMapListener={ campaign.toInvestigationMap();view.invalidate() }
-      view.onNextLevelListener={ campaign.confirmLevelComplete();view.invalidate() }
+      view.onNextLevelListener={ campaign.confirmLevelComplete(content);view.invalidate() }
      }
      instrumentation.waitForIdleSync()
      // WSA compositor and Android launch splash can outlive the UI idle queue.
@@ -285,9 +289,18 @@ class SdaPrivateVisualInstrumentationTest {
     touch(MotionEvent.ACTION_UP,mapX,mapY)
     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
     captureState("map-returned")
-    repeat(4) { level ->
+    repeat(requestedLevels) { level ->
+     assertEquals(level,campaign.levelIndex)
      finishObjects();campaign.startBonus(content)
-     display(listOf("rotation","wordsearch","jigsaw","swap")[level])
+     val family=when(campaign.bonusGame) {
+      is SdaTileRotGame -> "rotation"
+      is SdaWordSearchGame -> "wordsearch"
+      is SdaJigsawGame -> "jigsaw"
+      is SdaTileSwapGame -> "swap"
+      else -> error("unsupported bonus at level ${level+1}")
+     }
+     display(family)
+     captureState("bonus-level-${level+1}")
      when(val game=campaign.bonusGame) {
       is SdaTileRotGame -> {
        var captured=false
@@ -355,9 +368,21 @@ class SdaPrivateVisualInstrumentationTest {
      touch(MotionEvent.ACTION_DOWN,ok.centerX(),ok.centerY())
      assertEquals("result OK activates on release",SdaCampaignPhase.LEVEL_COMPLETE,campaign.phase)
      touch(MotionEvent.ACTION_UP,ok.centerX(),ok.centerY())
-     assertEquals(SdaCampaignPhase.MAP,campaign.phase)
+     val expected=if(level==levels.lastIndex) SdaCampaignPhase.FINALE_1 else SdaCampaignPhase.MAP
+     assertEquals(expected,campaign.phase)
+     coverage.put(org.json.JSONObject().put("level",level+1).put("family",family)
+      .put("bonusResource",levels[level].bonus).put("bonusImage",levels[level].bonusImage)
+      .put("availableModelScenes",org.json.JSONArray(levels[level].scenes))
+      .put("bonusCapture","vegas-bonus-level-${level+1}.png")
+      .put("resultCapture","vegas-result-${level+1}.png")
+      .put("nextPhase",campaign.phase.name).put("points",campaign.points)
+      .put("checkpoint","same-process restore; not process persistence"))
+     File(instrumentation.targetContext.getExternalFilesDir(null),"vegas-level-coverage.json").writeText(coverage.toString(2))
     }
-    assertEquals(5,campaign.currentLevel.clue)
+    if(requestedLevels==levels.size) {
+     assertEquals(SdaCampaignPhase.FINALE_1,campaign.phase)
+     display("finale-entry")
+    } else assertEquals(requestedLevels+1,campaign.currentLevel.clue)
    }
   }
  }
