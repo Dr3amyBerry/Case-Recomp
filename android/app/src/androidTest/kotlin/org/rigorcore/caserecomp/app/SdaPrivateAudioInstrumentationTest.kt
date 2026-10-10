@@ -34,6 +34,10 @@ class SdaPrivateAudioInstrumentationTest {
     (menu.width-800*scale)/2+x*scale,(menu.height-600*scale)/2+y*scale,0)
    try { assertTrue(menu.dispatchTouchEvent(event)) } finally { event.recycle() }
   }
+  fun grab(type:Int) {
+   val knob=menu.sliderKnobBounds(menu.sliders.single { it.number("typevalue")==type })
+   touch(android.view.MotionEvent.ACTION_DOWN,knob.centerX().toFloat(),knob.centerY().toFloat())
+  }
   fun button(value:Int) {
    val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==value })
    touch(android.view.MotionEvent.ACTION_DOWN,rect.centerX().toFloat(),rect.centerY().toFloat())
@@ -47,14 +51,30 @@ class SdaPrivateAudioInstrumentationTest {
   }
   try {
    launch().use { scenario ->
-    scenario.onActivity { bind(it);button(30);assertEquals("mainoptionsdlg",menu.screenId) }
+    scenario.onActivity {
+     bind(it)
+     val help=menu.buttons.single { it.number("value")==200 };val rect=menu.buttonBounds(help)
+     val handler=menu.onSoundEffect;val requests=mutableListOf<String>()
+     menu.onSoundEffect={ id -> requests.add(id);handler?.invoke(id) }
+     val scale=minOf(menu.width/800f,menu.height/600f)
+     for(action in listOf(android.view.MotionEvent.ACTION_HOVER_ENTER,android.view.MotionEvent.ACTION_HOVER_MOVE,android.view.MotionEvent.ACTION_HOVER_MOVE)) {
+      val event=android.view.MotionEvent.obtain(0,0,action,(menu.width-800*scale)/2+rect.centerX()*scale,(menu.height-600*scale)/2+rect.centerY()*scale,0)
+      try { assertTrue(menu.dispatchGenericMotionEvent(event)) } finally { event.recycle() }
+     }
+     assertEquals("rollover sound fires once per entry, not each move",listOf(help.attributes.getValue("sfxrollover")),requests)
+     assertEquals("hover must not activate a button","mainmenuunderlay",menu.screenId)
+     val exit=android.view.MotionEvent.obtain(0,0,android.view.MotionEvent.ACTION_HOVER_EXIT,0f,0f,0)
+     try { assertTrue(menu.dispatchGenericMotionEvent(exit)) } finally { exit.recycle() }
+     menu.onSoundEffect=handler
+     button(30);assertEquals("mainoptionsdlg",menu.screenId)
+    }
     // Real Android gestures: drag captured knobs beyond both track ends; values must clamp.
     scenario.onActivity {
-     touch(android.view.MotionEvent.ACTION_DOWN,555f,184f)
+     grab(1)
      touch(android.view.MotionEvent.ACTION_MOVE,390f,184f)
      touch(android.view.MotionEvent.ACTION_UP,390f,184f)
      assertEquals(0,audio.musicVolume)
-     touch(android.view.MotionEvent.ACTION_DOWN,586f,229f)
+     grab(2)
      touch(android.view.MotionEvent.ACTION_MOVE,720f,229f)
      touch(android.view.MotionEvent.ACTION_UP,720f,229f)
      assertEquals(100,audio.effectsVolume)
@@ -62,29 +82,36 @@ class SdaPrivateAudioInstrumentationTest {
      assertEquals(50,audio.musicVolume);assertEquals(75,audio.effectsVolume)
      assertEquals(50,prefs.getInt("music",-1));assertEquals(75,prefs.getInt("effects",-1))
      button(30)
-     touch(android.view.MotionEvent.ACTION_DOWN,555f,184f)
+     grab(1)
      touch(android.view.MotionEvent.ACTION_MOVE,390f,184f)
      touch(android.view.MotionEvent.ACTION_UP,390f,184f)
-     touch(android.view.MotionEvent.ACTION_DOWN,586f,229f)
+     grab(2)
      touch(android.view.MotionEvent.ACTION_MOVE,390f,229f)
      touch(android.view.MotionEvent.ACTION_UP,390f,229f)
      assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume)
      button(31);assertEquals("mainmenuunderlay",menu.screenId)
      assertEquals(0,prefs.getInt("music",-1));assertEquals(0,prefs.getInt("effects",-1))
      button(299)
+    }
+    instrumentation.waitForIdleSync()
+    scenario.onActivity {
      fun find(view:android.view.View):SdaGameView? {
       if(view is SdaGameView) return view
       if(view is android.view.ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i))?.let { return it }
       return null
      }
      val game=checkNotNull(find(it.window.decorView))
-     val rect=checkNotNull(game.visuals).menuRect(checkNotNull(game.campaign))
+     val rect=checkNotNull(checkNotNull(game.visuals).menuRect(checkNotNull(game.campaign)))
      val scale=minOf(game.width/800f,game.height/600f)
      for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
       val event=android.view.MotionEvent.obtain(0,0,action,(game.width-800*scale)/2+rect.centerX()*scale,(game.height-600*scale)/2+rect.centerY()*scale,0)
       try { assertTrue(game.dispatchTouchEvent(event)) } finally { event.recycle() }
      }
-     bind(it);assertEquals("menudlg2",menu.screenId);button(34)
+     bind(it);assertEquals("menudlg2",menu.screenId)
+    }
+    instrumentation.waitForIdleSync()
+    scenario.onActivity {
+     button(34)
      assertEquals("mainoptionsdlgeyespy",menu.screenId)
      val slider=menu.sliders.single { it.number("typevalue")==1 }
      val knob=menu.sliderKnobBounds(slider)
@@ -104,7 +131,16 @@ class SdaPrivateAudioInstrumentationTest {
     scenario.onActivity { assertEquals("closing options cancels preview",0,audio.musicVolume) }
    }
    launch().use { scenario ->
-    scenario.onActivity { bind(it);assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume);button(30) }
+    scenario.onActivity {
+     bind(it);assertEquals(0,audio.musicVolume);assertEquals(0,audio.effectsVolume);button(30)
+     val knob=menu.sliderKnobBounds(menu.sliders.single { it.number("typevalue")==1 })
+     assertEquals("Spanish layout observed in native Windows reference",424,knob.left)
+     assertEquals(162,knob.top)
+     val scale=minOf(menu.width/800f,menu.height/600f)
+     val event=android.view.MotionEvent.obtain(0,0,android.view.MotionEvent.ACTION_HOVER_MOVE,
+      (menu.width-800*scale)/2+knob.centerX()*scale,(menu.height-600*scale)/2+knob.centerY()*scale,0)
+     try { assertTrue(menu.dispatchGenericMotionEvent(event)) } finally { event.recycle() }
+    }
     instrumentation.waitForIdleSync();android.os.SystemClock.sleep(150)
     lateinit var window:android.view.Window;lateinit var bitmap:android.graphics.Bitmap
     scenario.onActivity { activity ->
@@ -114,6 +150,15 @@ class SdaPrivateAudioInstrumentationTest {
     val done=java.util.concurrent.CountDownLatch(1);var status=-1
     android.view.PixelCopy.request(window,bitmap,{ status=it;done.countDown() },android.os.Handler(android.os.Looper.getMainLooper()))
     assertTrue(done.await(10,java.util.concurrent.TimeUnit.SECONDS));assertEquals(android.view.PixelCopy.SUCCESS,status)
+    scenario.onActivity {
+     val node=menu.sliders.single { it.number("typevalue")==1 };val knob=menu.sliderKnobBounds(node)
+     val ui=SdaResourceMenuView::class.java.getDeclaredField("ui").apply { isAccessible=true }.get(menu) as SdaResourceCanvas
+     val source=ui.bitmap(node.attributes.getValue("texnobover"))
+     val sx=source.width/2;val sy=source.height/2;val expected=source.getPixel(sx,sy)
+     val scale=minOf(menu.width/800f,menu.height/600f)
+     val actual=bitmap.getPixel(((menu.width-800*scale)/2+(knob.left+sx+.5f)*scale).toInt(),((menu.height-600*scale)/2+(knob.top+sy+.5f)*scale).toInt())
+     assertTrue("original hovered knob pixel",listOf(16,8,0).all { shift -> kotlin.math.abs(((expected ushr shift) and 255)-((actual ushr shift) and 255))<=26 })
+    }
     File(context.getExternalFilesDir(null),"vegas-options-volume.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) };bitmap.recycle()
    }
   } finally {

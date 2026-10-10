@@ -47,7 +47,12 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    optionsReturn=from;optionsBefore=(audio?.musicVolume ?: prefs.getInt("music",50)) to (audio?.effectsVolume ?: prefs.getInt("effects",75))
    show(if(from=="menudlg2") "mainoptionsdlgeyespy" else "mainoptionsdlg")
    // These four desktop/gameplay checkbox contracts are not recovered yet: visibly disabled.
-   val node=doc.component(view.screenId)
+   val original=doc.component(view.screenId)
+   // Measured Spanish Windows reference: template-matched outer corners, not XUI's base size.
+   // Native runtime resizing algorithm is not yet recovered; keep this edition calibration here.
+   val spanish=doc.resolve("@ID_OPTIONS_DIALOG1").uppercase(java.util.Locale.ROOT)=="OPCIONES DEL JUEGO"
+   val node=if(spanish) original.copy(attributes=original.attributes+mapOf("x" to "114","y" to "85"),
+    children=original.children.map { if(it.type=="dialogimg") it.copy(attributes=it.attributes+mapOf("w" to "573")) else it }) else original
    view.show(node.copy(children=node.children.map {
     if(it.type=="checkbox" || (it.type=="label" && it.attributes["caption"] in setOf("@ID_OPTIONS_FSCREEN","@ID_OPTIONS_HINTS","@ID_OPTIONS_RELAXED","@ID_OPTIONS_HACC"))) it.copy(attributes=it.attributes+mapOf("disabled" to "true")) else it
    }),if(mainBackdrop) backdrop else emptyList())

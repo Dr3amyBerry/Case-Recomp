@@ -16,6 +16,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  var onClose:(()->Unit)?=null
  private val sliderValues=mutableMapOf<SdaUiNode,Int>()
  private var sliderCaptured:SdaUiNode?=null
+ private var hovered:SdaUiNode?=null
  private var sliderGrab=0
  private var sliderInitial=0
  val sliders get()=container.children.filter { it.type=="slider" }
@@ -42,7 +43,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
  fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
-  container=node;this.background=background;captured=null;sliderCaptured=null;pressed=false;invalidate()
+  container=node;this.background=background;captured=null;sliderCaptured=null;hovered=null;pressed=false;invalidate()
  }
  private var captured:SdaUiNode?=null
  private var pressed=false
@@ -67,12 +68,25 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    "slider" -> {
     canvas.drawBitmap(ui.bitmap(node.attributes.getValue("texback")),(node.number("x")+node.number("backoffsetx")).toFloat(),(node.number("y")+node.number("backoffsety")).toFloat(),null)
     val knob=knobBounds(node)
-    val texture=if(node==sliderCaptured) node.attributes["texnobtrack"] ?: node.attributes.getValue("texnob") else node.attributes.getValue("texnob")
+    val texture=when(node) {
+     sliderCaptured -> node.attributes["texnobtrack"] ?: node.attributes.getValue("texnob")
+     hovered -> node.attributes["texnobover"] ?: node.attributes.getValue("texnob")
+     else -> node.attributes.getValue("texnob")
+    }
     canvas.drawBitmap(ui.bitmap(texture),knob.left.toFloat(),knob.top.toFloat(),null)
    }
-   "allbutton","quitbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else SdaButtonState.NORMAL)
+   "allbutton","quitbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
   }
   canvas.restore()
+ }
+ override fun onHoverEvent(event:MotionEvent):Boolean {
+  val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat());if(scale<=0f) return false
+  val x=((event.x-(width-logicalWidth*scale)/2)/scale).toInt()
+  val y=((event.y-(height-logicalHeight*scale)/2)/scale).toInt()
+  val next=if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) null else
+   buttons.firstOrNull { buttonBounds(it).contains(x,y) } ?: sliders.firstOrNull { sliderKnobBounds(it).contains(x,y) }
+  if(next!=hovered) { hovered=next;next?.attributes?.get("sfxrollover")?.let { onSoundEffect?.invoke(it) };invalidate() }
+  return true
  }
  override fun onTouchEvent(event:MotionEvent):Boolean {
   val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat())
