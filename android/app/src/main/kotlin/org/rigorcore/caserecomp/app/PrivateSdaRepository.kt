@@ -10,17 +10,20 @@ import java.security.MessageDigest
 internal interface SdaPreferences {
     fun getString(key: String, def: String?): String?
     fun setString(key: String, value: String): Boolean
+    fun setStrings(values:Map<String,String>):Boolean
 }
 
 internal class AndroidSdaPreferences(private val prefs: android.content.SharedPreferences) : SdaPreferences {
     override fun getString(key: String, def: String?): String? = prefs.getString(key, def)
     override fun setString(key: String, value: String): Boolean = prefs.edit().putString(key, value).commit()
+    override fun setStrings(values:Map<String,String>):Boolean { val edit=prefs.edit();values.forEach { (key,value) -> edit.putString(key,value) };return edit.commit() }
 }
 
 internal class InMemorySdaPreferences : SdaPreferences {
     private val map = mutableMapOf<String, String>()
     override fun getString(key: String, def: String?): String? = map[key] ?: def
     override fun setString(key: String, value: String): Boolean { map[key] = value; return true }
+    override fun setStrings(values:Map<String,String>):Boolean { map.putAll(values);return true }
 }
 
 /**
@@ -120,7 +123,7 @@ internal class PrivateSdaRepository internal constructor(
     }
 
     fun setActiveProfile(profile: org.rigorcore.caserecomp.sda.SdaProfile): Boolean {
-        profileStorage.saveProfile(profile)
+        if(!profileStorage.saveProfile(profile)) return false
         return preferences.setString("active_profile_id", profile.id)
     }
 
@@ -133,11 +136,33 @@ internal class PrivateSdaRepository internal constructor(
     fun clearCheckpoint(): Boolean =
         preferences.setString(CHECKPOINT, "")
 
-    fun saveCampaignCheckpoint(json: String): Boolean =
-        preferences.setString("active_campaign_checkpoint", json)
+    private var campaignNamespace:String?=null
+    private val campaignSlots=org.rigorcore.caserecomp.sda.SdaCampaignSlots(File(base,"campaigns"))
+    fun configureCampaignSlots(namespace:String) { campaignNamespace=namespace }
 
-    fun loadCampaignCheckpoint(): String? =
-        preferences.getString("active_campaign_checkpoint", null)
+    /** Preserve the departing player before activating the incoming save. Legacy preference remains a mirror. */
+    fun switchCampaignProfile(profile:org.rigorcore.caserecomp.sda.SdaProfile):Boolean {
+        val namespace=campaignNamespace ?: return false
+        val previous=getActiveProfile()
+        if(previous.id==profile.id) return true
+        val current=loadCampaignCheckpoint()
+        if(!current.isNullOrBlank() && !campaignSlots.save(namespace,previous.id,current)) return false
+        val incoming=campaignSlots.load(namespace,profile.id).orEmpty()
+        if(profileStorage.getProfile(profile.id)==null && !profileStorage.saveProfile(profile)) return false
+        return preferences.setStrings(mapOf("active_profile_id" to profile.id,"active_campaign_checkpoint" to incoming,"campaign_checkpoint_namespace" to namespace))
+    }
+    fun saveCampaignCheckpoint(json: String): Boolean {
+        val namespace=campaignNamespace
+        if(namespace!=null && !campaignSlots.save(namespace,getActiveProfile().id,json)) return false
+        return preferences.setStrings(if(namespace!=null) mapOf("active_campaign_checkpoint" to json,"campaign_checkpoint_namespace" to namespace) else mapOf("active_campaign_checkpoint" to json))
+    }
+
+    fun loadCampaignCheckpoint(): String? {
+        val owner=preferences.getString("campaign_checkpoint_namespace",null)
+        val namespace=campaignNamespace
+        if(owner!=null && namespace!=null && owner!=namespace) return campaignSlots.load(namespace,getActiveProfile().id)
+        return preferences.getString("active_campaign_checkpoint",null)
+    }
 
     fun clearCampaignCheckpoint(): Boolean =
         preferences.setString("active_campaign_checkpoint", "")

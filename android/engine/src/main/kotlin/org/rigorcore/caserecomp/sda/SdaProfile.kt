@@ -14,6 +14,7 @@ data class SdaProfile(
     val totalScore: Long = 0L,
     val currentLevelIndex: Int = 0,
     val completedCampaigns: Int = 0,
+    val avatar: String = "generic",
 ) {
     fun toJson(): String {
         val map = mapOf(
@@ -23,6 +24,7 @@ data class SdaProfile(
             "totalScore" to totalScore,
             "currentLevelIndex" to currentLevelIndex.toLong(),
             "completedCampaigns" to completedCampaigns.toLong(),
+            "avatar" to avatar,
         )
         return MiniJson.canonical(map)
     }
@@ -38,6 +40,7 @@ data class SdaProfile(
                 totalScore = (map["totalScore"] as Number).toLong(),
                 currentLevelIndex = (map["currentLevelIndex"] as Number).toInt(),
                 completedCampaigns = (map["completedCampaigns"] as Number).toInt(),
+                avatar = map["avatar"] as? String ?: "generic",
             )
         }
     }

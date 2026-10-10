@@ -7,10 +7,63 @@ import android.view.MotionEvent
 import android.view.View
 import org.rigorcore.caserecomp.sda.*
 
+data class SdaMenuListRow(val id:String,val text:String,val icon:String?=null)
+
 /** XUI dialog renderer/input. Resource IDs, dimensions and action semantics come from the profile. */
 class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  private var container:SdaUiNode,private val panelTextures:List<String>,
  private val logicalWidth:Int,private val logicalHeight:Int,private val onAction:(Int)->Unit):View(context) {
+ var requestedProfileId:String?=null
+ var onListSelection:((String)->Unit)?=null
+ var onEditChanged:((String)->Unit)?=null
+ private var listRows:List<SdaMenuListRow> = emptyList()
+ private var selectedRow:String?=null
+ private var firstRow=0
+ private var listCaptured:Int?=null
+ private var edited=""
+ val editText get()=edited
+ val selectedListId get()=selectedRow
+ fun setEditText(text:String) { edited=text.replace("\n","").take(64);onEditChanged?.invoke(edited);invalidate() }
+ fun setListRows(rows:List<SdaMenuListRow>,selected:String?) { listRows=rows;selectedRow=selected;firstRow=0;invalidate() }
+ fun scrollList(delta:Int) { firstRow=(firstRow+delta).coerceIn(0,maxOf(0,listRows.size-visibleRows()));invalidate() }
+ private fun listNode()=container.children.singleOrNull { it.type=="listbox" }
+ private fun editNode()=container.children.singleOrNull { it.type=="editbox" }
+ private fun rowHeight(node:SdaUiNode)=ui.bitmap(node.attributes.getValue("highlight")).height.coerceAtLeast(1)
+ private fun visibleRows():Int=listNode()?.let { maxOf(1,it.number("h")/rowHeight(it)) } ?: 1
+ fun listRowBounds(id:String):Rect? {
+  val node=listNode() ?: return null
+  val index=listRows.indexOfFirst { it.id==id }-firstRow
+  if(index !in 0 until visibleRows()) return null
+  val x=container.number("x")+node.number("x");val y=container.number("y")+node.number("y")+index*rowHeight(node)
+  return Rect(x,y,x+node.number("w"),minOf(y+rowHeight(node),container.number("y")+node.number("y")+node.number("h")))
+ }
+ fun editBounds():Rect?=editNode()?.let { Rect(container.number("x")+it.number("x"),container.number("y")+it.number("y"),container.number("x")+it.number("x")+it.number("w"),container.number("y")+it.number("y")+it.number("h")) }
+ private fun rowAt(x:Int,y:Int):Int? {
+  val node=listNode() ?: return null
+  val rect=Rect(container.number("x")+node.number("x"),container.number("y")+node.number("y"),container.number("x")+node.number("x")+node.number("w"),container.number("y")+node.number("y")+node.number("h"))
+  if(!rect.contains(x,y)) return null
+  return (firstRow+(y-rect.top)/rowHeight(node)).takeIf { it in listRows.indices }
+ }
+ override fun onCheckIsTextEditor()=editNode()!=null
+ override fun onCreateInputConnection(info:android.view.inputmethod.EditorInfo):android.view.inputmethod.InputConnection? {
+  if(editNode()==null) return null
+  info.inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+  info.imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+  return object:android.view.inputmethod.BaseInputConnection(this,false) {
+   override fun commitText(text:CharSequence?,newCursorPosition:Int):Boolean { setEditText(edited+text?.toString().orEmpty());return true }
+   override fun deleteSurroundingText(beforeLength:Int,afterLength:Int):Boolean { setEditText(edited.dropLast(beforeLength.coerceAtLeast(0)));return true }
+   override fun performEditorAction(actionCode:Int):Boolean { hideKeyboard();return true }
+  }
+ }
+ override fun onKeyDown(keyCode:Int,event:android.view.KeyEvent):Boolean {
+  if(editNode()!=null) {
+   if(keyCode==android.view.KeyEvent.KEYCODE_DEL) { setEditText(edited.dropLast(1));return true }
+   if(keyCode==android.view.KeyEvent.KEYCODE_ENTER) { hideKeyboard();return true }
+   if(event.unicodeChar>=32) { setEditText(edited+event.unicodeChar.toChar());return true }
+  }
+  return super.onKeyDown(keyCode,event)
+ }
+ private fun hideKeyboard() { (context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(windowToken,0) }
  var onSoundEffect:((String)->Unit)?=null
  var onSliderValue:((SdaUiNode,Int)->Unit)?=null
  var onClose:(()->Unit)?=null
@@ -52,10 +105,12 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  }
  override fun onDetachedFromWindow() { onClose?.invoke();super.onDetachedFromWindow() }
  val screenId get()=container.attributes["id"].orEmpty()
+ val labels get()=container.children.filter { it.type=="label" }
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
  fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
-  container=node;this.background=background;captured=null;sliderCaptured=null;checkboxCaptured=null;hovered=null;pressed=false;gesturePointer=null;invalidate()
+  if(node.children.none { it.type=="editbox" }) hideKeyboard()
+  container=node;this.background=background;listCaptured=null;captured=null;sliderCaptured=null;checkboxCaptured=null;hovered=null;pressed=false;gesturePointer=null;invalidate()
  }
  private var captured:SdaUiNode?=null
  private var pressed=false
@@ -94,6 +149,25 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    }
    "allbutton","quitbutton" -> ui.button(canvas,node,enabled=enabled(node),state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
   }
+  // Dynamic text and rows sit above their original frame textures.
+  listNode()?.let { node ->
+   canvas.save();canvas.clipRect(node.number("x"),node.number("y"),node.number("x")+node.number("w"),node.number("y")+node.number("h"))
+   for((offset,row) in listRows.drop(firstRow).take(visibleRows()).withIndex()) {
+    val x=node.number("x");val y=node.number("y")+offset*rowHeight(node)
+    if(row.id==selectedRow) canvas.drawBitmap(ui.bitmap(node.attributes.getValue("highlight")),x.toFloat(),y.toFloat(),null)
+    row.icon?.let { canvas.drawBitmap(ui.bitmap(it),(x+3).toFloat(),y.toFloat(),null) }
+    ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "left","valign" to "middle")),row.text,x+26,y,node.number("w")-26,rowHeight(node))
+   }
+   canvas.restore()
+  }
+  editNode()?.let { node ->
+   val font=node.attributes.getValue("font");val cursor=ui.bitmap(node.attributes.getValue("caretcursor"))
+   val offset=maxOf(0,ui.textWidth(font,edited)+cursor.width-node.number("w"))
+   canvas.save();canvas.clipRect(node.number("x"),node.number("y"),node.number("x")+node.number("w"),node.number("y")+node.number("h"))
+   ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "left","valign" to "middle")),edited,x=node.number("x")-offset,clipToBounds=false)
+   canvas.drawBitmap(cursor,(node.number("x")+ui.textWidth(font,edited)-offset).toFloat(),(node.number("y")+(node.number("h")-cursor.height)/2).toFloat(),null)
+   canvas.restore()
+  }
   canvas.restore()
  }
  override fun onHoverEvent(event:MotionEvent):Boolean {
@@ -120,15 +194,19 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   val y=((event.getY(index)-(height-logicalHeight*scale)/2)/scale).toInt()
   when(event.actionMasked) {
    MotionEvent.ACTION_DOWN -> {
+    listCaptured=rowAt(x,y)
+    if(editBounds()?.contains(x,y)==true) { requestFocus();(context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(this,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT) }
     sliderCaptured=sliders.firstOrNull { enabled(it) && sliderKnobBounds(it).contains(x,y) }
     checkboxCaptured=if(sliderCaptured==null) checkboxes.firstOrNull { enabled(it) && checkboxBounds(it).contains(x,y) } else null
     sliderCaptured?.let { sliderGrab=x-sliderKnobBounds(it).left;sliderInitial=sliderValue(it);it.attributes["clicknobsfx"]?.let { sound -> onSoundEffect?.invoke(sound) } }
     captured=if(sliderCaptured==null && checkboxCaptured==null) buttons.firstOrNull { enabled(it) && buttonBounds(it).contains(x,y) } else null;pressed=captured!=null || checkboxCaptured!=null
    }
    MotionEvent.ACTION_MOVE -> { sliderCaptured?.let { updateSlider(it,x) };pressed=checkboxCaptured?.let { checkboxBounds(it).contains(x,y) } ?: captured?.let { buttonBounds(it).contains(x,y) } ?: false }
-   MotionEvent.ACTION_CANCEL -> { sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null }
+   MotionEvent.ACTION_CANCEL -> { listCaptured=null;sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null }
    MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP -> {
     gesturePointer=null
+    val chosen=listCaptured?.takeIf { it==rowAt(x,y) };listCaptured=null
+    if(chosen!=null) { selectedRow=listRows[chosen].id;onListSelection?.invoke(selectedRow!!);performClick() }
     sliderCaptured?.let { updateSlider(it,x) };sliderCaptured=null
     val checked=checkboxCaptured?.takeIf { checkboxBounds(it).contains(x,y) };checkboxCaptured=null
     if(checked!=null) {

@@ -381,3 +381,8 @@ PARCIAL: original resources and source-derived final sequence render and complet
 ### PDA text: user-approved legible layout
 
 Time, score caption and numeric score use the original atlas at .80 scale, in three centered rows. User visually approved this exact presentation; do not recalibrate it. The .36 experiment was rejected as illegible and is not retained. Debug build/app JVM checks pass; three WSA display2 visual regressions pass (74.329s). Private evidence: local-output/vegas-ending/pda-legible-scene.png and pda-legible-android.log.
+
+
+### Player-menu block
+
+local-output/vegas-profiles/comparison.html links four real WSA dialog surfaces (selection, creation/avatar, blank-name error, selected-player main menu), the experimental APK and coverage.json. Native ENVS.MSE containers, tiled frames, button states, icons, list highlight, caret and atlases are used. Windows equivalents are PENDING; screenshots must not be described as Windows originals. Original resource bounds drive placement; explicit fitwidth error-caption adaptation prevents overflow without changing PDA typography. Functional touch/IME/profile-save route passes, while complete visual identity/profile-fader/highscore/deletion coverage remains PARCIAL.

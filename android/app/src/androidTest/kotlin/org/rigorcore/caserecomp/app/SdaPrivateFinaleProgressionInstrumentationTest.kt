@@ -30,7 +30,7 @@ class SdaPrivateFinaleProgressionInstrumentationTest {
   assumeTrue(path!=null && earned!=null && File(path).isFile && File(earned).isFile)
   val display=args.getString("visualDisplayId")?.toInt() ?: 0
   val prefs=context.getSharedPreferences("case-recomp-sda",0)
-  val keys=listOf("active_campaign_checkpoint","session-checkpoint","active-package-sha256","active_profile_id")
+  val keys=listOf("active_campaign_checkpoint","session-checkpoint","active-package-sha256","active_profile_id","campaign_checkpoint_namespace")
   val before=keys.associateWith { prefs.getString(it,null) }
   val settings=context.getSharedPreferences("case-recomp-vegas-options",0)
   val optionsBefore=settings.all.toMap()

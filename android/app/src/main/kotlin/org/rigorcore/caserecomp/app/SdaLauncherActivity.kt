@@ -42,6 +42,7 @@ class SdaLauncherActivity : Activity() {
     private var gameView: SdaGameView? = null
     private var audioSession:SdaAudioSession? = null
     private var hostMenu: android.app.Dialog? = null
+    private var changingProfile=false
     private var campaignMusicReady=false
     private var lastMusicRequest:SdaMusicRequest?=null
     private var clock: SdaClock? = null
@@ -137,6 +138,7 @@ class SdaLauncherActivity : Activity() {
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
                 val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } })
                 campaign = camp
+                repository.configureCampaignSlots(sdaContent.gameId)
 
                 // Restore campaign checkpoint if saved
                 val savedCampJson = repository.loadCampaignCheckpoint()
@@ -235,6 +237,16 @@ class SdaLauncherActivity : Activity() {
         val dialog=android.app.Dialog(this)
         val nativeMenu=view.visuals?.menuView(this,campaign,entry,audioSession) { action ->
             when(action) {
+                SdaMenuAction.SWITCH_PROFILE -> {
+                    val id=dialog.window?.decorView?.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")?.requestedProfileId
+                    val selected=id?.let { repository.profileStorage.getProfile(it) }
+                    autoSave()
+                    if(selected!=null && repository.switchCampaignProfile(selected)) {
+                        changingProfile=true
+                        campaign=null;scene=null;gameView=null
+                        dialog.dismiss();recreate()
+                    } else Toast.makeText(this,"No se pudo cambiar de jugador; se conserva la partida",Toast.LENGTH_SHORT).show()
+                }
                 SdaMenuAction.RESUME -> dialog.dismiss()
                 // Original EXIT returns to the multi-game host after saving.
                 SdaMenuAction.RETURN_TO_CATALOGUE -> { autoSave();dialog.dismiss();finish() }
@@ -246,7 +258,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } }
+            dialog.setOnDismissListener { hostMenu=null;if(!changingProfile) { campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())

@@ -35,11 +35,14 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
   val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",
    "mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright")
+  val playerRepository=PrivateSdaRepository(context).apply { configureCampaignSlots(content.gameId) }
+  val activePlayer=playerRepository.getActiveProfile()
+  val portrait="img_mm_id"+activePlayer.avatar.takeIf { it in setOf("generic","male","female") }.orEmpty().ifEmpty { "generic" }
   val main=doc.component("mainmenuunderlay").let { node ->
    node.copy(children=node.children.filter { child ->
     val id=child.attributes["id"]
     when(child.type) {
-     "image" -> id==null || id in setOf("img_mm_idgeneric","imagelock")
+     "image" -> id==null || id in setOf(portrait,"imagelock")
      "label" -> id !in setOf("recover","unlocked","unlimited")
      "allbutton" -> id !in setOf("unlimitedbtn","unlimitedspotbtn","disunlimitedspotbtn")
      "quitbutton" -> true
@@ -47,10 +50,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
     }
    })
   }
+  val namedMain=main.copy(children=main.children.map { if(it.attributes["id"]=="playername") it.copy(attributes=it.attributes+mapOf("caption" to activePlayer.name)) else it })
   val campaignFinished=campaign?.phase==SdaCampaignPhase.CAMPAIGN_COMPLETE
-  val finalMain=if(campaignFinished) main.copy(children=main.children.map { node ->
+  val finalMain=if(campaignFinished) namedMain.copy(children=namedMain.children.map { node ->
    if(node.type=="allbutton" && node.number("value")==299) node.copy(attributes=node.attributes+mapOf("disabled" to "true")) else node
-  }) else main
+  }) else namedMain
   val backdrop=main.children.filter { it.type=="image" && it.attributes["id"]==null }
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
   var optionsReturn="mainmenuunderlay"
@@ -64,6 +68,28 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    if(id=="menudlg2") mainBackdrop=false
    view.show(if(id=="mainmenuunderlay") finalMain else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
   }
+  var chosenPlayer=activePlayer.id
+  var chosenAvatar="generic"
+  fun showPlayers() {
+   val all=playerRepository.profileStorage.listProfiles()
+   val original=doc.component("selectplayer")
+   // Profile deletion is still pending; retain its original disabled button.
+   val node=original.copy(children=original.children.filterNot { it.type=="label" && it.attributes["caption"]=="@ID_PLAYER_MSG1" }.map { child ->
+    if(child.type=="allbutton" && child.number("value")==2) child.copy(attributes=child.attributes+mapOf("disabled" to "true")) else child
+   })
+   view.show(node,backdrop)
+   view.setListRows(all.map { player -> SdaMenuListRow(player.id,player.name,original.children.single { it.type=="listbox" }.attributes[player.avatar] ?: original.children.single { it.type=="listbox" }.attributes["generic"]) }+SdaMenuListRow("",doc.resolve("@ID_CLICKTOCREATEPLAYER")),chosenPlayer)
+  }
+  fun showNewPlayer(error:String?=null) {
+   val original=doc.component("newplayer")
+   val flattened=original.children.flatMap { if(it.type=="radiobutton") it.children else listOf(it) }
+   val node=original.copy(children=flattened.filterNot { it.type=="label" && it.attributes["caption"] in setOf("@ID_PLAYER_MSG3","@ID_PLAYER_MSG4") && it.attributes["caption"]!=error }.map { child ->
+    if(child.type=="label" && child.attributes["caption"] in setOf("@ID_PLAYER_MSG3","@ID_PLAYER_MSG4")) child.copy(attributes=child.attributes+mapOf("fitwidth" to "true")) else child
+   })
+   view.show(node,backdrop)
+   for(check in view.checkboxes) view.setCheckboxValue(check,check.attributes["id"]==when(chosenAvatar) { "male" -> "malecheck";"female" -> "femalecheck";else -> "gencheck" })
+  }
+  fun selectPlayer(id:String) { view.requestedProfileId=id;onAction(SdaMenuAction.SWITCH_PROFILE) }
   fun cancelOptions() {
    optionsBefore?.let { (music,effects) -> audio?.setMusicVolume(music);audio?.setEffectsVolume(effects) };optionsBefore=null
    rapidBefore?.let { campaign?.hintRechargeImmediately=it };rapidBefore=null
@@ -90,11 +116,33 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    val screen=view.screenId
    when {
     screen=="mainmenuunderlay" -> when(value) {
+     6 -> { chosenPlayer=activePlayer.id;showPlayers() }
      299 -> onAction(SdaMenuAction.RESUME)
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
      30 -> openOptions(screen)
      else -> onAction(SdaMenuAction.UNAVAILABLE)
+    }
+    screen=="selectplayer" -> when(value) {
+     3 -> if(chosenPlayer.isNotBlank()) selectPlayer(chosenPlayer)
+     4 -> show("mainmenuunderlay")
+     62 -> view.scrollList(1)
+     63 -> view.scrollList(-1)
+    }
+    screen=="newplayer" -> when(value) {
+     9 -> showPlayers()
+     1 -> {
+      val name=view.editText.trim()
+      val error=when {
+       name.isBlank() -> "@ID_PLAYER_MSG4"
+       playerRepository.profileStorage.listProfiles().any { it.name.equals(name,ignoreCase=true) } -> "@ID_PLAYER_MSG3"
+       else -> null
+      }
+      if(error!=null) showNewPlayer(error) else {
+       val player=SdaProfile("pi_"+java.util.UUID.randomUUID().toString().replace("-",""),name,avatar=chosenAvatar)
+       if(playerRepository.profileStorage.saveProfile(player)) selectPlayer(player.id) else onAction(SdaMenuAction.UNAVAILABLE)
+      }
+     }
     }
     screen=="menudlg2" -> when(value) {
      215 -> onAction(SdaMenuAction.RESUME)
@@ -130,8 +178,19 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    }
   }
   view.onSliderValue={ node,value -> if(node.number("typevalue")==1) audio?.setMusicVolume(value) else audio?.setEffectsVolume(value) }
-  view.onCheckboxValue={ node,value -> if(node==view.checkboxes.getOrNull(1)) campaign?.hintRechargeImmediately=value }
   view.onClose={ cancelOptions() }
+  view.onEditChanged={ if(view.screenId=="newplayer") showNewPlayer() }
+  view.onListSelection={ id ->
+   if(view.screenId=="selectplayer") {
+    if(id.isEmpty()) { chosenAvatar="generic";view.setEditText("");showNewPlayer() } else chosenPlayer=id
+   }
+  }
+  view.onCheckboxValue={ node,value ->
+   if(view.screenId=="newplayer") {
+    chosenAvatar=when(node.attributes["id"]) { "malecheck" -> "male";"femalecheck" -> "female";else -> "generic" }
+    for(check in view.checkboxes) view.setCheckboxValue(check,check==node)
+   } else if(node==view.checkboxes.getOrNull(1)) campaign?.hintRechargeImmediately=value
+  }
   view.onSoundEffect={ audio?.playEffect(it) }
   show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view

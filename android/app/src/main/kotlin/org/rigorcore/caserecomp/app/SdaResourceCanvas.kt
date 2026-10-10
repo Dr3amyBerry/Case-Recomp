@@ -69,6 +69,7 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   }
  }
  /** Draw atlas text at an explicit anchor; clipping and title-specific offsets belong to callers. */
+ fun textWidth(font:String,text:String):Int=font(font).first.measure(text)
  fun atlasText(canvas:Canvas,name:String,text:String,x:Int,y:Int,halign:Int=0,valign:Int=0,opacity:Float=1f) {
   require(opacity.isFinite() && opacity in 0f..1f)
   if(opacity==0f) return
@@ -88,6 +89,10 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
    val va=when(node.attributes["valign"]) { "top" -> 3;"bottom" -> 0;"baseline" -> 1;else -> 2 }
    val xx=x+when(ha) { 1 -> width/2-1;2 -> width-1;else -> 0 }
    val yy=y+when(va) { 2 -> height/2-1;0 -> height-1;else -> 0 }
+   if(node.attributes["fitwidth"]=="true") {
+    val fit=minOf(1f,width.toFloat()/maxOf(1,textWidth(name,text)))
+    canvas.scale(fit,fit,xx.toFloat(),yy.toFloat())
+   }
    atlasText(canvas,name,text,xx,yy,ha,va,opacity)
   } else {
    // Generic diagnostic labels without a declared atlas only.
@@ -123,7 +128,7 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 }
 
-enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
+enum class SdaMenuAction { SWITCH_PROFILE, RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
 enum class SdaMenuEntry { PAUSE, MAIN }
 
 data class SdaMusicRequest(val stream:String,val loop:Boolean)

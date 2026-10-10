@@ -26,7 +26,7 @@ class SdaPrivateVisualInstrumentationTest {
   assumeTrue(path!=null && File(path).isFile)
   val display=InstrumentationRegistry.getArguments().getString("visualDisplayId")?.toInt() ?: 0
   val preferences=context.getSharedPreferences("case-recomp-sda",android.content.Context.MODE_PRIVATE)
-  val keys=listOf("active_campaign_checkpoint","session-checkpoint")
+  val keys=listOf("active_campaign_checkpoint","session-checkpoint","active_profile_id","campaign_checkpoint_namespace")
   val saved=keys.associateWith { preferences.getString(it,null) }
   try {
    val intent=android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
