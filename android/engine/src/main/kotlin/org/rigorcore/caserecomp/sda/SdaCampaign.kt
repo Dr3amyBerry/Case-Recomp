@@ -102,6 +102,7 @@ class SdaCampaign(
     val firstRiddle: SdaRiddleBinding? = null,
     private val hintPolicy:SdaHintPolicy? = null,
     var hintRechargeImmediately:Boolean=false,
+    val secondRiddle:SdaRiddleBinding? = null,
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
@@ -264,7 +265,7 @@ class SdaCampaign(
         if (phase !in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.FINALE_1,
                 SdaCampaignPhase.FINALE_2, SdaCampaignPhase.FINALE_3)) return false
         val bg = bonusGame ?: return false
-        if (bg is SdaFirstRiddleGame) return !clockwise && bg.clickPixel(x,y)
+        if (bg is SdaPlacementRiddleGame) return !clockwise && bg.clickPixel(x,y)
         if (bg is SdaMasterRiddleGame) return false
         val beforeLines = placementScore(bg)
         val moved = when {
@@ -273,6 +274,14 @@ class SdaCampaign(
             else -> bg.clickPixel(x, y)
         }
         return finishBonusInput(bg, beforeLines, moved)
+    }
+
+    /** Native first-completion OK enters the second controller; resolve assets before changing the save. */
+    fun continueFirstRiddle(content:SdaContent) {
+        require(phase==SdaCampaignPhase.FINALE_1 && (bonusGame as? SdaFirstRiddleGame)?.isSolved==true) { "first riddle unfinished" }
+        val loaded=SdaSecondRiddleGame.load(content,requireNotNull(secondRiddle) { "no supported second-riddle binding" },seed)
+        bonusGame=loaded
+        phase=SdaCampaignPhase.FINALE_2
     }
 
     fun beginBonusSelection(x: Int, y: Int): Boolean =
@@ -430,6 +439,9 @@ class SdaCampaign(
                 if (it["kind"] == "first_riddle") {
                     require(restoredPhase == SdaCampaignPhase.FINALE_1) { "first riddle in wrong phase" }
                     SdaFirstRiddleGame.load(content,requireNotNull(firstRiddle) { "unsupported finale binding" },state.seed,it)
+                } else if(it["kind"]=="second_riddle") {
+                    require(restoredPhase==SdaCampaignPhase.FINALE_2) { "second riddle in wrong phase" }
+                    SdaSecondRiddleGame.load(content,requireNotNull(secondRiddle) { "unsupported second-riddle binding" },state.seed,it)
                 } else SdaBonusLoader.restoreLegacyFinale(it, state.seed)
             } else {
                 require(restoredPhase in listOf(SdaCampaignPhase.BONUS, SdaCampaignPhase.LEVEL_COMPLETE,
@@ -442,7 +454,8 @@ class SdaCampaign(
             require(restoredBonus?.isSolved == true) { "unfinished level bonus" }
         if (finale && restoredPhase != SdaCampaignPhase.CAMPAIGN_COMPLETE)
             require(restoredBonus is SdaMasterRiddleGame ||
-                (restoredPhase == SdaCampaignPhase.FINALE_1 && restoredBonus is SdaFirstRiddleGame)) { "missing supported finale checkpoint" }
+                (restoredPhase == SdaCampaignPhase.FINALE_1 && restoredBonus is SdaFirstRiddleGame) ||
+                (restoredPhase == SdaCampaignPhase.FINALE_2 && restoredBonus is SdaSecondRiddleGame)) { "missing supported finale checkpoint" }
         if (restoredPhase == SdaCampaignPhase.CAMPAIGN_COMPLETE)
             require(restoredBonus == null) { "unexpected finished finale bonus" }
 

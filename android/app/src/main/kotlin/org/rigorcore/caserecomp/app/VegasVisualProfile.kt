@@ -278,12 +278,49 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    ui.image(canvas,doc.component(family+"thumb_"+campaign.currentLevel.bonusImage),photographic=true)
   }
  }
- override fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaFirstRiddleGame) {
+ override fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? {
+  val game=campaign.bonusGame as? SdaPlacementRiddleGame ?: return null
+  val controller=doc.component(game.controllerId)
+  val starting=(game as? SdaSecondRiddleGame)?.started==false
+  if(!starting && !game.isSolved) return null
+  val container=doc.component(controller.attributes.getValue(if(starting) "startdialogcontainer" else "completedialog"))
+  val enabled=starting || game is SdaFirstRiddleGame
+  val node=if(enabled) container else container.copy(children=container.children.map { child ->
+   if(child.type=="allbutton") child.copy(attributes=child.attributes+mapOf("disabled" to "true")) else child
+  })
+  val expected=if(starting) 1016 else 1015 // Original global event dispatch 00412300.
+  return SdaResourceMenuView(context,ui,node,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+   "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
+   if(enabled && action==expected) onConfirm()
+  }
+ }
+ override fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean {
+  if(game !is SdaSecondRiddleGame) return false
+  val image=game.placedImages.getValue(id).nativeImage as? Bitmap ?: return false
+  val destination=game.definition.destinations.getValue(id)
+  // 00451360, via dimensions 00489221 and frame selector 004893f3.
+  when(id) {
+   "finale2hourglass" -> ui.spriteFrame(canvas,image,142,261,1,186,134,destination.finalAlpha)
+   "finale2slotarm" -> ui.spriteFrame(canvas,image,90,293,0,game.definition.backgroundX+destination.x.toInt(),game.backgroundY+destination.y.toInt(),destination.finalAlpha)
+   else -> return false
+  }
+  return true
+ }
+ override fun drawRiddleDecorations(canvas:Canvas,game:SdaPlacementRiddleGame) {
+  if(game !is SdaSecondRiddleGame) return
+  val controller=doc.component(game.controllerId)
+  val bound=setOf("backgroundimage","paper","indicator").mapNotNull { controller.attributes[it] }.toSet()
+  val hidden=if("finale2cup" in game.interaction.board.placed) setOf(controller.attributes["lefttray"],controller.attributes["finale2righttrayimage"]) else emptySet()
+  controller.children.filter { it.type=="image" && it.attributes["id"] !in bound && it.attributes["id"] !in hidden && !it.attributes["tex"].isNullOrEmpty() }
+   .forEach { ui.image(canvas,it) }
+ }
+ override fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaPlacementRiddleGame) {
   // The riddle controller explicitly binds pdacontrol; its tray draws above this frame.
   base(canvas,campaign,campaign.clock)
+  if(game is SdaSecondRiddleGame) doc.component(game.controllerId).children.filter { it.type=="image" && it.attributes["id"] in setOf("secondriddleemptypda","secondriddleemptypda2") }.forEach { ui.image(canvas,it) }
   doc.component("puzzletext").children.filter { it.type=="image" }.forEach { ui.image(canvas,it) }
  }
- override fun drawRiddleCaption(canvas:Canvas,game:SdaFirstRiddleGame):Boolean {
+ override fun drawRiddleCaption(canvas:Canvas,game:SdaPlacementRiddleGame):Boolean {
   val controller=doc.component(game.controllerId)
   val paper=doc.component(controller.attributes.getValue("paper"))
   val label=doc.component(controller.attributes.getValue("riddlelabel"))

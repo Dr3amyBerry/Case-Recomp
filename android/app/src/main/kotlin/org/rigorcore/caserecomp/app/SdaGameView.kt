@@ -10,7 +10,7 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
 import org.rigorcore.caserecomp.sda.SdaCampaign
-import org.rigorcore.caserecomp.sda.SdaFirstRiddleGame
+import org.rigorcore.caserecomp.sda.SdaPlacementRiddleGame
 import org.rigorcore.caserecomp.sda.SdaCaptionRuns
 import org.rigorcore.caserecomp.sda.SdaCampaignPhase
 import org.rigorcore.caserecomp.sda.SdaClickResult
@@ -441,7 +441,7 @@ class SdaGameView(
 
     private fun drawFinale(canvas: Canvas, camp: SdaCampaign) {
         canvas.drawRect(0f,0f,800f,600f,bgPaint)
-        val game=camp.bonusGame as? SdaFirstRiddleGame
+        val game=camp.bonusGame as? SdaPlacementRiddleGame
         if(game==null) {
             canvas.drawText("Desenlace heredado: controlador no compatible",40f,50f,textPaint)
             return
@@ -451,14 +451,16 @@ class SdaGameView(
         canvas.save()
         canvas.clipRect(144,0,800,600)
         canvas.drawBitmap(jigsawBitmap(game.background),definition.backgroundX.toFloat(),game.backgroundY.toFloat(),null)
+        visuals?.drawRiddleDecorations(canvas,game)
         for(id in game.interaction.board.placed) {
+            if(visuals?.drawRiddlePlaced(canvas,game,id)==true) continue
             val destination=definition.destinations.getValue(id)
-            canvas.drawBitmap(jigsawBitmap(game.images.getValue(id)),definition.backgroundX+destination.x,
+            canvas.drawBitmap(jigsawBitmap(game.placedImages.getValue(id)),definition.backgroundX+destination.x,
                 game.backgroundY+destination.y,Paint().apply { alpha=(destination.finalAlpha*255).toInt() })
         }
         canvas.restore()
         for(cell in game.interaction.cells()) {
-            val source=game.images.getValue(cell.id)
+            val source=game.trayImages.getValue(cell.id)
             val fit=minOf(cell.width.toFloat()/source.width,cell.height.toFloat()/source.height)
             val width=maxOf(1,(source.width*fit).toInt());val height=maxOf(1,(source.height*fit).toInt())
             val rect=game.interaction.imageRect(cell.id,width,height)
@@ -482,7 +484,6 @@ class SdaGameView(
             val bitmap=jigsawBitmap(game.images.getValue(id))
             canvas.drawBitmap(bitmap,(game.pointerX!!-bitmap.width/2).toFloat(),(game.pointerY!!-bitmap.height/2).toFloat(),null)
         }
-        if(game.isSolved) canvas.drawText("Primera fase completada; siguiente fase pendiente",160f,570f,textPaint)
     }
 
     private fun drawCampaignComplete(canvas: Canvas, camp: SdaCampaign) {
@@ -607,8 +608,8 @@ class SdaGameView(
             }
         }
         val riddleCamp=campaign
-        val riddle=riddleCamp?.bonusGame as? SdaFirstRiddleGame
-        if(riddleCamp?.phase==SdaCampaignPhase.FINALE_1 && riddle!=null) {
+        val riddle=riddleCamp?.bonusGame as? SdaPlacementRiddleGame
+        if(riddleCamp?.phase in setOf(SdaCampaignPhase.FINALE_1,SdaCampaignPhase.FINALE_2) && riddle!=null) {
             val x=((event.x-offsetX)/scale).toInt();val y=((event.y-offsetY)/scale).toInt()
             when(event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> if(event.buttonState and MotionEvent.BUTTON_SECONDARY==0) {

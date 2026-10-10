@@ -36,6 +36,14 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
   val source=Rect(0,0,minOf(w,bitmap.width),minOf(h,bitmap.height))
   canvas.drawBitmap(bitmap,source,Rect(x,y,x+source.width(),y+source.height()),if(photographic) photographs else null)
  }
+ /** Native atlas frame, drawn directly from the original bitmap without making enlarged/cropped copies. */
+ fun spriteFrame(canvas:Canvas,bitmap:Bitmap,frameWidth:Int,frameHeight:Int,index:Int,x:Int,y:Int,opacity:Float=1f) {
+  require(frameWidth>0 && frameHeight>0 && frameWidth<=bitmap.width && frameHeight<=bitmap.height)
+  val columns=bitmap.width/frameWidth;val rows=bitmap.height/frameHeight
+  require(index in 0 until columns*rows && opacity.isFinite() && opacity in 0f..1f)
+  val left=index%columns*frameWidth;val top=index/columns*frameHeight
+  canvas.drawBitmap(bitmap,Rect(left,top,left+frameWidth,top+frameHeight),Rect(x,y,x+frameWidth,y+frameHeight),Paint().apply { alpha=(opacity*255).toInt() })
+ }
  /** Native-size nine-part panel: repeat edges/center and crop the last tile, never stretch. */
  fun tiledPanel(canvas:Canvas,textures:List<String>,bounds:Rect) {
   require(textures.size==9)
@@ -135,8 +143,11 @@ interface SdaVisualProfile {
  fun drawPause(canvas:Canvas) {}
  fun drawMap(canvas:Canvas,campaign:SdaCampaign)
  fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean=false)
- fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaFirstRiddleGame) {}
- fun drawRiddleCaption(canvas:Canvas,game:SdaFirstRiddleGame):Boolean = false
+ fun riddleDialog(context:android.content.Context,campaign:SdaCampaign,onConfirm:()->Unit):android.view.View? = null
+ fun drawRiddleDecorations(canvas:Canvas,game:SdaPlacementRiddleGame) {}
+ fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean = false
+ fun drawRiddleBase(canvas:Canvas,campaign:SdaCampaign,game:SdaPlacementRiddleGame) {}
+ fun drawRiddleCaption(canvas:Canvas,game:SdaPlacementRiddleGame):Boolean = false
  fun drawLevelComplete(canvas:Canvas,campaign:SdaCampaign):Boolean = false
  fun levelCompleteRect(campaign:SdaCampaign):Rect? = null
  fun bonusSolveRect(campaign:SdaCampaign):Rect? = solveRect

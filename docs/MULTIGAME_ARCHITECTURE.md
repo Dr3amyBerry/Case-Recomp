@@ -296,3 +296,7 @@ SdaAtlasFont/SdaImageBudget son capacidades genéricas: charset UTF-16, métrica
 ### Estados de controles SDA (2026-10-09)
 
 SdaButtonPresentation resuelve variantes y offsets de botones usando exclusivamente atributos XUI. SdaResourceCanvas ofrece dibujo de esas variantes y geometría del control; SdaVisualProfile.pointer comunica el estado del puntero. VegasVisualProfile decide qué controles dibujar y sus bindings. La captura del gesto de pausa y la pausa transitoria de presentación pertenecen a SdaGameView; el launcher reutiliza el guardado existente. Ningún ID, textura o offset de Vegas entra en el núcleo SDA. Director/Huntsville permanecen independientes. La integración visual y la auditoría global aún son parciales.
+
+### SDA: colocaci?n compartida del desenlace (2026-10-10)
+
+SdaPlacementRiddleGame extrae el controlador existente de bandeja, puntero y checkpoint; SdaFirstRiddleGame conserva su API y SdaSecondRiddleGame interpreta la segunda definici?n de recursos, sus variantes de im?genes y confirmaci?n inicial persistida. SdaCampaign recibe bindings opcionales de ambas fases y resuelve recursos antes de transicionar. Android ofrece recorte gen?rico de atlas y callbacks de di?logo/dibujo; IDs, fotogramas, coordenadas y eventos comerciales permanecen en VegasVisualProfile/adaptador launcher. Director/Huntsville permanecen intactos. La tercera fase y las animaciones aut?nticas siguen pendientes.

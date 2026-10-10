@@ -92,7 +92,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
     }
     canvas.drawBitmap(ui.bitmap(texture),knob.left.toFloat(),knob.top.toFloat(),null)
    }
-   "allbutton","quitbutton" -> ui.button(canvas,node,state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
+   "allbutton","quitbutton" -> ui.button(canvas,node,enabled=enabled(node),state=if(node==captured && pressed) SdaButtonState.PRESSED else if(node==hovered) SdaButtonState.HOVER else SdaButtonState.NORMAL)
   }
   canvas.restore()
  }

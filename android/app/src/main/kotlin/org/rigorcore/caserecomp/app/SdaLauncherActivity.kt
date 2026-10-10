@@ -135,7 +135,7 @@ class SdaLauncherActivity : Activity() {
                 val levels = SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true)
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null)
                 campaign = camp
 
                 // Restore campaign checkpoint if saved
@@ -246,7 +246,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true) }
+            dialog.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
@@ -254,9 +254,41 @@ class SdaLauncherActivity : Activity() {
             val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
                 .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
                     if(item==1) { autoSave();finish() }
-                }.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true) }.create()
+                }.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } }.create()
             hostMenu=fallback;fallback.show()
         }
+    }
+
+    /** Uses the title's original XUI dialogs; the engine owns guarded transitions and persisted acknowledgement. */
+    private fun showRiddleDialog(view:SdaGameView) {
+        if(hostMenu!=null || isFinishing || isDestroyed) return
+        val camp=campaign ?: return
+        val content=content ?: return
+        val dialog=android.app.Dialog(this)
+        var confirmed=false
+        val panel=view.visuals?.riddleDialog(this,camp) {
+            try {
+                when(val game=camp.bonusGame) {
+                    is org.rigorcore.caserecomp.sda.SdaFirstRiddleGame -> camp.continueFirstRiddle(content)
+                    is org.rigorcore.caserecomp.sda.SdaSecondRiddleGame -> game.start()
+                    else -> return@riddleDialog
+                }
+                confirmed=true;autoSave();view.invalidate();dialog.dismiss()
+            } catch(e:Exception) {
+                Log.e(TAG,"Cannot advance riddle; preserving checkpoint",e)
+                Toast.makeText(this,"No se pudo cargar la siguiente fase; se conserva la partida",Toast.LENGTH_LONG).show()
+            }
+        } ?: return
+        view.pauseForMenu()
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(panel)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave();if(confirmed) view.post { showRiddleDialog(view) } }
+        dialog.setCancelable(true)
+        hostMenu=dialog;dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
@@ -269,7 +301,7 @@ class SdaLauncherActivity : Activity() {
             }
         }
         view.onPauseChangedListener = { autoSave() }
-        view.onBonusInputListener = { autoSave() }
+        view.onBonusInputListener = { autoSave();view.post { showRiddleDialog(view) } }
         view.onSceneSelectedListener = { sceneName ->
             val camp = campaign
             if (camp != null) {

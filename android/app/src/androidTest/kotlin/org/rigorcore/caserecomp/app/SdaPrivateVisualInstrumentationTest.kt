@@ -337,7 +337,11 @@ class SdaPrivateVisualInstrumentationTest {
        val p=screenshot.getPixel((viewport.first+(x+.5f)*viewport.third).toInt(),(viewport.second+(y+.5f)*viewport.third).toInt())
        android.graphics.Color.red(p)>75 && android.graphics.Color.green(p)>110 && android.graphics.Color.blue(p)>150
       } }
-      assertTrue("numeric score must be visible below its caption and above instructions: $numericInk",numericInk>8)
+      // The user-requested adaptation reduced all three header rows from .55 to .45.
+      // Compare ink density per scaled area, retaining the previous legibility floor;
+      // the initial one-digit zero legitimately contains fewer absolute pixels.
+      assertTrue("numeric score must be visible below its caption and above instructions: $numericInk",
+       numericInk/(.45f*.45f)>8/(.55f*.55f))
 
      }
      if(name in listOf("rotation","wordsearch","jigsaw","swap")) {

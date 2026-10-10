@@ -60,6 +60,54 @@ class SdaPrivateSecondRiddleUnitTest {
    }
    assertTrue(interaction.board.isSolved);assertEquals(8,interaction.board.placed.size)
    assertTrue(interaction.board.available.isEmpty())
+   var game=SdaSecondRiddleGame.load(content,SdaRiddleBinding("ENVS.MSE","secondriddle"),8)
+   assertFalse(game.started);assertFalse(game.clickPixel(11,117))
+   game=SdaSecondRiddleGame.load(content,SdaRiddleBinding("ENVS.MSE","secondriddle"),999,game.state())
+   assertFalse(game.started);game.start()
+   for(piece in game.definition.pieces.reversed()) {
+    while(game.interaction.cells().none { it.id==piece.id }) {
+     val key=if(game.interaction.board.available.indexOf(piece.id)<game.interaction.firstVisible) "up" else "down"
+     val arrow=game.arrowRect(key)!!;assertTrue(game.clickPixel(arrow.x+1,arrow.y+1))
+    }
+    val cell=game.interaction.cells().first { it.id==piece.id };assertTrue(game.clickPixel(cell.x+1,cell.y+1))
+    val held=game.state();game=SdaSecondRiddleGame.load(content,SdaRiddleBinding("ENVS.MSE","secondriddle"),8,held)
+    assertEquals(piece.id,game.interaction.board.selected);assertEquals(held,game.state())
+    val image=game.images.getValue(piece.id);val dest=game.definition.destinations.getValue(piece.id)
+    assertTrue(game.clickPixel(144+dest.x.toInt()+image.width/2,dest.y.toInt()+image.height/2))
+   }
+   assertTrue(game.isSolved);assertEquals(0,game.points)
+   assertThrows(UnsupportedOperationException::class.java) { game.solve() }
+   val earned=File(file.parentFile,"sda-earned-first-riddle.json")
+   assertTrue("earned first-riddle entry checkpoint required",earned.isFile)
+   val camp=SdaCampaign(SdaLevels.parse(content.read("LEVELS_1.XUI")!!),firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"),secondRiddle=SdaRiddleBinding("ENVS.MSE","secondriddle"))
+   camp.restore(SdaCampaignState.fromJson(earned.readText()),content)
+   val before=camp.snapshot().toJson()
+   assertThrows(IllegalArgumentException::class.java) { camp.continueFirstRiddle(content) }
+   assertEquals(before,camp.snapshot().toJson())
+   val first=camp.bonusGame as SdaFirstRiddleGame
+   for(piece in first.definition.pieces.filter { it.hasTarget }.sortedBy { it.placeOrder }) {
+    while(first.interaction.cells().none { it.id==piece.id }) {
+     val key=if(first.interaction.board.available.indexOf(piece.id)<first.interaction.firstVisible) "up" else "down"
+     val arrow=first.arrowRect(key)!!;assertTrue(camp.clickBonus(arrow.x+1,arrow.y+1))
+    }
+    val cell=first.interaction.cells().first { it.id==piece.id };assertTrue(camp.clickBonus(cell.x+1,cell.y+1))
+    assertTrue(camp.clickBonus(144+piece.hotspotX+1,first.backgroundY+piece.hotspotY+1))
+   }
+   val finishedFirst=camp.snapshot().toJson()
+   val unsupported=SdaCampaign(camp.levels,firstRiddle=camp.firstRiddle,secondRiddle=SdaRiddleBinding("ENVS.MSE","missing-controller"))
+   unsupported.restore(SdaCampaignState.fromJson(finishedFirst),content)
+   assertThrows(IllegalArgumentException::class.java) { unsupported.continueFirstRiddle(content) }
+   assertEquals(finishedFirst,unsupported.snapshot().toJson())
+   val invalid=game.state()+mapOf("started" to false)
+   assertThrows(IllegalArgumentException::class.java) { SdaSecondRiddleGame.load(content,SdaRiddleBinding("ENVS.MSE","secondriddle"),8,invalid) }
+   val score=camp.points
+   camp.continueFirstRiddle(content);assertEquals(SdaCampaignPhase.FINALE_2,camp.phase)
+   assertEquals(score,camp.points);assertFalse((camp.bonusGame as SdaSecondRiddleGame).started)
+   val waiting=camp.snapshot().toJson();camp.restore(SdaCampaignState.fromJson(waiting),content)
+   assertEquals(waiting,camp.snapshot().toJson())
+   (camp.bonusGame as SdaSecondRiddleGame).start()
+   val ready=camp.snapshot().toJson();camp.restore(SdaCampaignState.fromJson(ready),content)
+   assertEquals(ready,camp.snapshot().toJson())
    println("PRIVATE SECOND RIDDLE: 8 real resource bindings, native pointer-relative destination tolerance, both boundary sides, reverse order, shuffled tray, held restore; no campaign/Android/animation claim")
   }
  }
