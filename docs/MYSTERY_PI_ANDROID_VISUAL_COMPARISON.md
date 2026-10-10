@@ -386,3 +386,9 @@ Time, score caption and numeric score use the original atlas at .80 scale, in th
 ### Player-menu block
 
 local-output/vegas-profiles/comparison.html links four real WSA dialog surfaces (selection, creation/avatar, blank-name error, selected-player main menu), the experimental APK and coverage.json. Native ENVS.MSE containers, tiled frames, button states, icons, list highlight, caret and atlases are used. Windows equivalents are PENDING; screenshots must not be described as Windows originals. Original resource bounds drive placement; explicit fitwidth error-caption adaptation prevents overflow without changing PDA typography. Functional touch/IME/profile-save route passes, while complete visual identity/profile-fader/highscore/deletion coverage remains PARCIAL.
+
+### Whole Android campaign evidence (2026-10-10)
+
+Private navigable report: local-output/vegas-campaign-e2e/comparison.html; machine-readable coverage.json and all-25-evidence/journey.jsonl. Real Android captures cover25 sequentially earned levels,135 scene visits, all four bonus families, maps/results; optional unvisited scenes are not covered. The joined ending continuation uses an Android-earned checkpoint and passed all three phases. Functional PASS does not certify graphical fidelity. Windows counterparts, aligned differences/metrics, process-death restoration, exhaustive menu/state/scene variants and other resolutions remain NO_VERIFICADO. Existing approved PDA text dimensions are unchanged.
+
+Performance sampled on the automated route: PSS85,579-349,557KiB. Memory growth requires cache/lifetime investigation; this is not FPS/leak certification. The HTML explicitly labels screenshots as Android and does not substitute extracted textures for Windows captures. See MYSTERY_PI_ANDROID_AUDIT.md for test provenance, retained failures, exact continuation files and remaining work.

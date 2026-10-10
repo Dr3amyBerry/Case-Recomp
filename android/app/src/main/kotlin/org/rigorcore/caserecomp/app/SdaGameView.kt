@@ -795,13 +795,14 @@ class SdaGameView(
         if(isPaused) { postInvalidateOnAnimation();return }
         val camp = campaign
         if (camp != null) {
+            val phaseBefore=camp.phase
             val solvedBefore=(camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.isSolved==true
             camp.advance(seconds)
             if(!solvedBefore && (camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.isSolved==true) onBonusInputListener?.invoke()
             (camp.bonusGame as? org.rigorcore.caserecomp.sda.SdaInteractiveRiddleGame)?.let { game ->
                 game.controller.drainSounds().forEach { key -> visuals?.interactiveRiddleSound(game,key)?.let { onEffectListener?.invoke(it) } }
             }
-            if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE || camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
+            if (phaseBefore!=camp.phase && camp.phase in setOf(SdaCampaignPhase.SCENE_COMPLETE,SdaCampaignPhase.OBJECTS_COMPLETE)) {
                 onSceneCompleteListener?.invoke()
             }
         } else {
