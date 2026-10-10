@@ -12,6 +12,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
   return SdaAudioSession(context,content,doc,prefs.getInt("music",sliders.single { it.number("typevalue")==1 }.number("value")),prefs.getInt("effects",sliders.single { it.number("typevalue")==2 }.number("value")))
  }
+ override fun sceneFeedback(found:Boolean):String? =
+  doc.component("eyespypauseunderlay").attributes[if(found) "foundsfx" else "notfoundsfx"]
  // Native resource IDs, visibility and dialog action adapters remain title-specific.
  override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
   val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",

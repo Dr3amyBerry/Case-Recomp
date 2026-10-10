@@ -19,6 +19,7 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
  var musicVolume=musicDefault.coerceIn(0,100);private set
  var effectsVolume=effectsDefault.coerceIn(0,100);private set
  var effectsStarted=0;private set
+ var lastEffectStarted:String?=null;private set
  val activePlayers get()=slots.size
  val cachedFiles get()=files.size
  val isMusicPlaying get()=music?.let { it.ready && runCatching { it.player.isPlaying }.getOrDefault(false) } ?: false
@@ -59,7 +60,7 @@ class SdaAudioSession(private val context:Context,private val content:SdaContent
    player.setOnPreparedListener {
     if(isClosed || entry !in slots) return@setOnPreparedListener
     entry.ready=true;volume(entry)
-    if(!paused) { player.start();if(!isMusic) effectsStarted++ }
+    if(!paused) { player.start();if(!isMusic) { effectsStarted++;lastEffectStarted=id } }
     else if(!isMusic) release(entry)
    }
    player.setOnCompletionListener { release(entry) }

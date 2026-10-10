@@ -13,6 +13,87 @@ import java.io.File
 /** Codec/reference test with authentic private audio. Not an audible or campaign UI acceptance test. */
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateAudioInstrumentationTest {
+ @Test fun scene_found_and_missed_audio_follow_real_android_input() {
+  val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext
+  val path=InstrumentationRegistry.getArguments().getString("privateAudioPackage")
+  assumeTrue(path!=null && File(path).isFile)
+  val display=InstrumentationRegistry.getArguments().getString("visualDisplayId")?.toInt() ?: 0
+  val prefs=context.getSharedPreferences("case-recomp-sda",0)
+  val keys=listOf("active_campaign_checkpoint","session-checkpoint");val before=keys.associateWith { prefs.getString(it,null) }
+  assertTrue(prefs.edit().remove(keys[0]).remove(keys[1]).commit())
+  lateinit var audio:SdaAudioSession;lateinit var game:SdaGameView
+  fun find(view:android.view.View):SdaGameView? {
+   if(view is SdaGameView) return view
+   if(view is android.view.ViewGroup) for(i in 0 until view.childCount) find(view.getChildAt(i))?.let { return it }
+   return null
+  }
+  fun click(view:android.view.View,x:Int,y:Int) {
+   val scale=minOf(view.width/800f,view.height/600f)
+   for(action in listOf(android.view.MotionEvent.ACTION_DOWN,android.view.MotionEvent.ACTION_UP)) {
+    val event=android.view.MotionEvent.obtain(0,android.os.SystemClock.uptimeMillis(),action,(view.width-800*scale)/2+(x+.5f)*scale,(view.height-600*scale)/2+(y+.5f)*scale,0)
+    try { val handled=view.dispatchTouchEvent(event);if(action==android.view.MotionEvent.ACTION_DOWN) assertTrue(handled) } finally { event.recycle() }
+   }
+  }
+  fun awaitEffect(previous:Int,expected:String) {
+   val deadline=android.os.SystemClock.uptimeMillis()+3000
+   while(audio.effectsStarted<=previous && android.os.SystemClock.uptimeMillis()<deadline) android.os.SystemClock.sleep(20)
+   assertTrue("gameplay effect actually starts on Android",audio.effectsStarted>previous)
+   assertEquals("actual started decoder matches the XUI effect",expected,audio.lastEffectStarted)
+  }
+  try {
+   val intent=android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path)
+   androidx.test.core.app.ActivityScenario.launch<SdaLauncherActivity>(intent,android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle()).use { scenario ->
+    scenario.onActivity { activity ->
+     audio=SdaLauncherActivity::class.java.getDeclaredField("audioSession").apply { isAccessible=true }.get(activity) as SdaAudioSession
+     audio.setMusicVolume(0);audio.setEffectsVolume(0)
+     game=checkNotNull(find(activity.window.decorView))
+     val dialog=SdaLauncherActivity::class.java.getDeclaredField("hostMenu").apply { isAccessible=true }.get(activity) as android.app.Dialog
+     val menu=dialog.window!!.decorView.findViewWithTag<SdaResourceMenuView>("sda-resource-menu")
+     val rect=menu.buttonBounds(menu.buttons.single { it.number("value")==299 });click(menu,rect.centerX(),rect.centerY())
+    }
+    instrumentation.waitForIdleSync();android.os.SystemClock.sleep(200)
+    scenario.onActivity {
+     val campaign=checkNotNull(game.campaign);assertEquals(SdaCampaignPhase.MAP,campaign.phase)
+     val profile=checkNotNull(game.visuals)
+     val point=(100 until 500 step 10).flatMap { y -> (180 until 780 step 10).map { x -> x to y } }.first { (x,y) -> profile.sceneAt(campaign,x,y)!=null }
+     click(game,point.first,point.second);assertEquals(SdaCampaignPhase.SCENE,campaign.phase)
+    }
+    instrumentation.waitForIdleSync()
+    var started=audio.effectsStarted;var foundId=""
+    scenario.onActivity {
+     val scene=game.scene
+     val candidate=scene.targets.firstNotNullOfOrNull { id ->
+      val sprite=scene.objects.getValue(id)
+      (0 until sprite.image.height).firstNotNullOfOrNull { y -> (0 until sprite.image.width).firstNotNullOfOrNull { x ->
+       val px=sprite.x+x;val py=sprite.y+y
+       if(px in 174 until 800 && py in 0 until 600 && scene.targets.firstOrNull { scene.objects.getValue(it).hit(px,py) }==id) Triple(id,px,py) else null
+      } }
+     }
+     assertNotNull("legitimately clickable original target",candidate);foundId=candidate!!.first
+     click(game,candidate.second,candidate.third);assertTrue(scene.objects.getValue(foundId).found)
+    }
+    awaitEffect(started,"ispyobjectfoundsfx");started=audio.effectsStarted
+    scenario.onActivity {
+     val scene=game.scene
+     val point=(20 until 580 step 10).flatMap { y -> (200 until 780 step 10).map { x -> x to y } }.first { (x,y) -> scene.targets.none { scene.objects.getValue(it).hit(x,y) } }
+     click(game,point.first,point.second)
+     assertTrue(scene.objects.getValue(foundId).found)
+    }
+    awaitEffect(started,"ispyobjectnotfoundsfx")
+    scenario.onActivity {
+     val evidence=org.json.JSONObject().put("route","launcher -> main menu -> map -> scene").put("scene",game.campaign?.currentSceneName)
+      .put("foundObject",foundId).put("foundEffect","ispyobjectfoundsfx").put("missEffect",audio.lastEffectStarted)
+      .put("effectsStarted",audio.effectsStarted).put("silentPlayback",true).put("deviceDisplay",display)
+     File(context.getExternalFilesDir(null),"vegas-scene-audio.json").writeText(evidence.toString(2))
+    }
+    // This is launcher -> map -> scene input coverage, not catalogue/import or campaign completion.
+   }
+  } finally {
+   val edit=prefs.edit();for(key in keys) before[key]?.let { edit.putString(key,it) } ?: edit.remove(key)
+   assertTrue(edit.commit());for(key in keys) assertEquals(before[key],prefs.getString(key,null))
+  }
+ }
+
  @Test fun original_options_volume_preview_cancel_save_and_reopen() {
   val instrumentation=InstrumentationRegistry.getInstrumentation();val context=instrumentation.targetContext
   val path=InstrumentationRegistry.getArguments().getString("privateAudioPackage")
@@ -24,7 +105,7 @@ class SdaPrivateAudioInstrumentationTest {
   val settingsBefore=prefs.all.toMap()
   assertTrue(prefs.edit().putInt("music",50).putInt("effects",75).commit())
   fun launch()=androidx.test.core.app.ActivityScenario.launch<SdaLauncherActivity>(
-   android.content.Intent(context,SdaLauncherActivity::class.java).putExtra("private_sda_package",path),
+   android.content.Intent(context,SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PACKAGE_PATH,path),
    android.app.ActivityOptions.makeBasic().setLaunchDisplayId(display).toBundle())
   lateinit var audio:SdaAudioSession
   lateinit var menu:SdaResourceMenuView

@@ -293,12 +293,14 @@ class SdaLauncherActivity : Activity() {
         }
 
         view.onObjectFoundListener = { id, gain ->
+            view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${campaign?.points ?: scene?.score?.points}")
             Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
             autoSave()
         }
 
         view.onMissListener = { penalty ->
+            view.visuals?.sceneFeedback(false)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Miss clicked: penalty=$penalty")
         }
 
@@ -336,10 +338,12 @@ class SdaLauncherActivity : Activity() {
 
     private fun wireStandaloneCallbacks(view: SdaGameView) {
         view.onObjectFoundListener = { id, gain ->
+            view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${scene?.score?.points}")
             Toast.makeText(this, "¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
         }
         view.onMissListener = { penalty ->
+            view.visuals?.sceneFeedback(false)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Miss clicked: penalty=$penalty, points: ${scene?.score?.points}")
         }
         view.onSceneCompleteListener = {
