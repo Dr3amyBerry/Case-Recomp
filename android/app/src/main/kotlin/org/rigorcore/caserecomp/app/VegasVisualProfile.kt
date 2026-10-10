@@ -190,7 +190,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private fun compactInfo(canvas:Canvas,node:SdaUiNode,text:String,y:Int) {
   // Requested compact header: leave the level and objective instructions untouched.
   canvas.save()
-  canvas.scale(.55f,.55f,node.number("x")+node.number("w")/2f,y+node.number("h")/2f)
+  canvas.scale(.45f,.45f,node.number("x")+node.number("w")/2f,y+node.number("h")/2f)
   ui.label(canvas,node,text,y=y,clipToBounds=false)
   canvas.restore()
  }

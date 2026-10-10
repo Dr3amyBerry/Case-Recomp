@@ -353,3 +353,7 @@ La zona vacia encima de MAPA ahora contiene PISTA durante la escena. Utiliza sus
 ### Opciones: PISTAS ILIMITADAS original habilitada
 
 La casilla y su etiqueta ahora aparecen activas y admiten off/on/hover mediante las texturas originales. OK guarda, CANCEL/cierre restauran el preview y la opcion afecta la recarga real conservando su penalizacion. APK, captura WSA, matriz y HTML: `local-output/vegas-rapid-hints/`. Comparacion con captura Windows anterior de otro estado: referencia contextual, no aprobacion de todos los estados. Las otras tres casillas permanecen deshabilitadas hasta integrar sus contratos autenticos.
+
+### PDA: tres l?neas m?s compactas (2026-10-10)
+
+Por petici?n humana, tiempo, etiqueta de puntuaci?n y cifra utilizan escala 0.45 en vez de 0.55 (18.2% menos), conservando el centrado y la cifra en su propia l?nea. Cambio exclusivo del perfil Vegas. APK experimental compilada e instalada en WSA; prueba Android de men?, reanudaci?n y salida: 1/1, 3.763 s. La revisi?n visual humana del nuevo tama?o sigue pendiente; no se certifica fidelidad al original por este ajuste.
