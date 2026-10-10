@@ -40,6 +40,7 @@ class SdaLauncherActivity : Activity() {
     private var scene: SdaScene? = null
     private var campaign: SdaCampaign? = null
     private var gameView: SdaGameView? = null
+    private var audioSession:SdaAudioSession? = null
     private var hostMenu: android.app.Dialog? = null
     private var clock: SdaClock? = null
     private var isFrameLoopRunning = false
@@ -155,6 +156,7 @@ class SdaLauncherActivity : Activity() {
                 cacheBitmaps(loadedScene)
 
                 val view = SdaGameView(this, loadedScene, clock, bgBitmap, bitmaps, camp, if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null)
+                audioSession=view.visuals?.audioSession(this)
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
                 setContentView(view)
@@ -217,7 +219,7 @@ class SdaLauncherActivity : Activity() {
         view.pauseForMenu()
         autoSave()
         val dialog=android.app.Dialog(this)
-        val nativeMenu=view.visuals?.menuView(this,campaign,entry) { action ->
+        val nativeMenu=view.visuals?.menuView(this,campaign,entry,audioSession) { action ->
             when(action) {
                 SdaMenuAction.RESUME -> dialog.dismiss()
                 // Original EXIT returns to the multi-game host after saving.
@@ -230,7 +232,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }
+            dialog.setOnDismissListener { hostMenu=null;audioSession?.stopMusic();view.resumeFromMenu() }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
@@ -238,7 +240,7 @@ class SdaLauncherActivity : Activity() {
             val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
                 .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
                     if(item==1) { autoSave();finish() }
-                }.setOnDismissListener { hostMenu=null;view.resumeFromMenu() }.create()
+                }.setOnDismissListener { hostMenu=null;audioSession?.stopMusic();view.resumeFromMenu() }.create()
             hostMenu=fallback;fallback.show()
         }
     }
@@ -358,6 +360,7 @@ class SdaLauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        audioSession?.resume()
         if (!isFrameLoopRunning) {
             isFrameLoopRunning = true
             lastFrameNanos = 0L
@@ -366,6 +369,7 @@ class SdaLauncherActivity : Activity() {
     }
 
     override fun onPause() {
+        audioSession?.pause()
         isFrameLoopRunning = false
         android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
         val camp = campaign
@@ -392,6 +396,7 @@ class SdaLauncherActivity : Activity() {
         hostMenu?.dismiss();hostMenu=null
         isFrameLoopRunning = false
         android.view.Choreographer.getInstance().removeFrameCallback(frameCallback)
+        audioSession?.close();audioSession=null
         content?.close()
         content = null
         super.onDestroy()

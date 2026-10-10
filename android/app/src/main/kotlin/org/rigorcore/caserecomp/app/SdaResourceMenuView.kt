@@ -11,6 +11,7 @@ import org.rigorcore.caserecomp.sda.*
 class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
  private var container:SdaUiNode,private val panelTextures:List<String>,
  private val logicalWidth:Int,private val logicalHeight:Int,private val onAction:(Int)->Unit):View(context) {
+ var onSoundEffect:((String)->Unit)?=null
  val screenId get()=container.attributes["id"].orEmpty()
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
@@ -48,7 +49,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    MotionEvent.ACTION_UP -> {
     val selected=captured?.takeIf { buttonBounds(it).contains(x,y) }
     captured=null;pressed=false;invalidate()
-    if(selected!=null) { performClick();onAction(selected.number("value",-1)) }
+    if(selected!=null) { performClick();selected.attributes["sfx"]?.let { onSoundEffect?.invoke(it) };onAction(selected.number("value",-1)) }
    }
   }
   invalidate();return true

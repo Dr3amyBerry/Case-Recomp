@@ -7,8 +7,12 @@ import org.rigorcore.caserecomp.sda.*
 class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val doc=SdaUiDocument(requireNotNull(content.read("ENVS.MSE")),content.loadStrings("ENVS.MSE"))
  private val ui=SdaResourceCanvas(doc,content)
+ override fun audioSession(context:android.content.Context):SdaAudioSession {
+  val sliders=doc.component("mainoptionsdlg").children.filter { it.type=="slider" }
+  return SdaAudioSession(context,content,doc,sliders.single { it.number("typevalue")==1 }.number("value"),sliders.single { it.number("typevalue")==2 }.number("value"))
+ }
  // Native resource IDs, visibility and dialog action adapters remain title-specific.
- override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
+ override fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?,onAction:(SdaMenuAction)->Unit):SdaResourceMenuView {
   val textures=listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright","mpi_diag_left","mpi_diag_mid",
    "mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright")
   val main=doc.component("mainmenuunderlay").let { node ->
@@ -28,7 +32,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   lateinit var view:SdaResourceMenuView
   var mainBackdrop=entry==SdaMenuEntry.MAIN
   fun show(id:String) {
-   if(id=="mainmenuunderlay") mainBackdrop=true
+   if(id=="mainmenuunderlay") { mainBackdrop=true;audio?.playMusic("mainmenutrack") }
    if(id=="menudlg2") mainBackdrop=false
    view.show(if(id=="mainmenuunderlay") main else doc.component(id),if(mainBackdrop && id!="mainmenuunderlay") backdrop else emptyList())
   }
@@ -36,14 +40,14 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    val screen=view.screenId
    when {
     screen=="mainmenuunderlay" -> when(value) {
-     299 -> onAction(SdaMenuAction.RESUME)
+     299 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
      30 -> onAction(SdaMenuAction.OPTIONS)
      else -> onAction(SdaMenuAction.UNAVAILABLE)
     }
     screen=="menudlg2" -> when(value) {
-     215 -> onAction(SdaMenuAction.RESUME)
+     215 -> { audio?.stopMusic();onAction(SdaMenuAction.RESUME) }
      80 -> show("mainmenuunderlay")
      34 -> onAction(SdaMenuAction.OPTIONS)
      209 -> {
@@ -63,6 +67,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
     else -> onAction(SdaMenuAction.UNAVAILABLE)
    }
   }
+  view.onSoundEffect={ audio?.playEffect(it) }
   show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view
  }

@@ -631,3 +631,16 @@ Pruebas: 3 Python PASS. `SdaPrivateAudioInstrumentationTest.packaged_music_and_e
 **PARCIAL/PENDIENTE:** conectar reproduccion al launcher/menu, sliders originales de musica/efectos, persistencia y cancelar/OK; verificar mezcla, pausa, cambios de escena y audio E2E. `PadLockOpen.ogg` y `TombDoor.ogg` no estan en RAWDATA; se registran ausentes y no se inventan. Otras referencias graficas obsoletas/ausentes quedan en package.log; no equivalen a pantallas activas aprobadas. Logs/JSON de codec, matriz y paquete comercial permanecen fuera de Git en `local-output/vegas-audio/`.
 
 Continuar en `SdaLauncherActivity.showResourceMenu`, `VegasVisualProfile.menuView` (mainoptionsdlg) y `SdaResourceMenuView.onDraw/onTouchEvent` (sliders); crear servicio generico de reproduccion SDA con cierre de players y volumen acotado. Frida 17.23.3 ya confirmado: no hizo falta otro piloto ni ejecutar Los Angeles.
+
+
+### V3 ? reproduccion real de musica y clics del menu
+
+`SdaAudioSession` aporta reproduccion Android asincrona a partir de `audiostream`/`sfx`, volumen acotado 0..100, hasta ocho efectos simultaneos, pausa/reanudacion y liberacion de players/caches propios. No contiene IDs comerciales. `VegasVisualProfile.audioSession/menuView` selecciona mainmenutrack y defaults originales de los sliders (50/75); los clics usan el `sfx` del nodo XUI. `SdaLauncherActivity` conecta lifecycle y cierre; al continuar se detiene la musica del menu. Paquetes anteriores sin OGG siguen abriendo, con diagnostico de ausencia y sin inventar sonidos.
+
+Pruebas finales: 202 JVM/0 fallos/errores, build de APK/test APK correcto; 2 tests de audio WSA PASS (2.253 s), menu/guardado con paquete nuevo PASS (3.893 s) y con paquete anterior PASS (3.644 s). La prueba usa eventos Android para AYUDA y confirma que arranca el efecto; pausa/stop/resume son callbacks reales al abrir el catalogo en la MISMA tarea y display2. Cierre comprueba cero players y cero caches; preferencias previas conservadas. No prueba escucha humana ni campa?a completa.
+
+Se conservaron logs de los intentos iniciales fallidos: ActivityScenario.moveToState usaba un auxiliar en otro display/proceso, que no pausaba esta ventana WSA. Se sustituyo por el catalogo real en el mismo display, manteniendo las aserciones de lifecycle. Corregido registro de slots: identidad estable al cambiar ready, para que release elimine todos los reproductores. Auxiliares de test cerrados tras finalizar.
+
+**PARCIAL:** sliders/OK/CANCEL/persistencia de volumen en mainoptionsdlg siguen pendientes, asi como musica y efectos de escenas/bonus, hover, loops/fades y contraste de timing/audio nativo. Solo se aplica loop si XUI lo declara; el comportamiento nativo restante no se da por reconstruido. Director/Huntsville y WIP ajeno intactos; regresion visual completa aun pendiente. APK y logs privados en `local-output/vegas-audio-session/`, usando el paquete con OGG de `local-output/vegas-audio/`.
+
+Continuar en `SdaAudioSession.setMusicVolume/setEffectsVolume`, `VegasVisualProfile.menuView/audioSession` (mainoptionsdlg, guardar/cancelar) y `SdaResourceMenuView.onDraw/onTouchEvent` (sliders originales). El Goal completo sigue activo; Frida ya esta instalado y no se repitio el piloto ni se ejecuto Los Angeles.

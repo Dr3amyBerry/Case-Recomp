@@ -524,7 +524,7 @@ class SdaPrivateVisualInstrumentationTest {
      lateinit var helpView:SdaResourceMenuView
      scenario.onActivity { activity ->
       helpDialog=android.app.Dialog(activity)
-      helpView=profile.menuView(activity,campaign,SdaMenuEntry.PAUSE) { action ->
+      helpView=profile.menuView(activity,campaign,SdaMenuEntry.PAUSE,null) { action ->
        if(action==SdaMenuAction.RESUME) helpDialog.dismiss()
       }
       helpDialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)

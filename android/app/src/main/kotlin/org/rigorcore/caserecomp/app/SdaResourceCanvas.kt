@@ -119,7 +119,8 @@ enum class SdaMenuAction { RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, U
 enum class SdaMenuEntry { PAUSE, MAIN }
 
 interface SdaVisualProfile {
- fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,onAction:(SdaMenuAction)->Unit):android.view.View? = null
+ fun audioSession(context:android.content.Context):SdaAudioSession? = null
+ fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?=null,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun pointer(x:Int?,y:Int?,pressed:Boolean) {}
  fun menuRect(campaign:SdaCampaign):Rect? = null
  fun pauseRect(campaign:SdaCampaign):Rect? = null
