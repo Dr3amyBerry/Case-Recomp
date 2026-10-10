@@ -336,3 +336,10 @@ Prueba nueva: launcher -> menu principal -> mapa -> escena con eventos Android, 
 Se corrige ademas el extra de dos helpers: `private_sda_package` era ignorado y abria el paquete activo previo; ahora todos usan `SdaLauncherActivity.EXTRA_PACKAGE_PATH`. Las comprobaciones ampliadas se repiten con el ZIP privado con audio correcto; se conservan logs fallidos. Artefactos privados en `local-output/vegas-scene-audio/`: APK, evidencia JSON con escena/objeto/efectos, cobertura y logs.
 
 Pendientes: playlist/musica gameplay, crossfades, bonus/finale/penalizaciones, contraste audible original y casillas. 00407400/004075b0 verifican orden/guardar opciones; 0041db80/0041dca0 verifican supresion de warnings/timeout y caption relax. Antes de habilitar relax hay que integrar y contrastar las distintas bonificaciones temporales de 00418600/0045b150; no basta con ocultar el reloj. Continuar en `VegasVisualProfile.sceneFeedback/menuView`, callbacks de `SdaLauncherActivity`, `SdaAudioSession` y `SdaCampaign` para los contratos pendientes. Frida ya instalado; no hubo otro piloto ni ejecucion de Los Angeles. Goal activo.
+
+
+### PDA: tres textos compactos por peticion humana
+
+Tiempo, etiqueta de puntuacion y cifra usan ahora el 55% de las metricas originales (antes 70%), conservando filas separadas y centradas. Es una adaptacion Android solicitada, exclusiva de `VegasVisualProfile.compactInfo`; no altera fuentes, Director ni Huntsville. APK y comprobaciones locales: `local-output/vegas-hud-compact/`. La aceptacion visual humana sigue pendiente.
+
+Verificacion: compilacion y pruebas JVM correctas; prueba Android de mapa, escena y cuatro bonus correcta (70,351 s). Captura real: local-output/vegas-hud-compact/scene.png. No acredita cobertura completa de campana.
