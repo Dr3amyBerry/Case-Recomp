@@ -14,6 +14,10 @@ class SdaCampaignSlots(private val directory:File) {
   val path=file(namespace,player) ?: return null
   return if(path.isFile) runCatching { path.readText(Charsets.UTF_8) }.getOrNull() else null
  }
+ @Synchronized fun delete(namespace:String,player:String):Boolean {
+  val path=file(namespace,player) ?: return false
+  return !path.exists() || path.delete()
+ }
  @Synchronized fun save(namespace:String,player:String,json:String):Boolean {
   val destination=file(namespace,player) ?: return false
   if(runCatching { MiniJson.parse(json) is Map<*,*> }.getOrDefault(false)!=true) return false

@@ -29,4 +29,14 @@ class SdaCampaignSlotsUnitTest {
    assertNull(store.load("edition_a",id))
   }
  }
+ @Test fun deleted_slot_loads_as_absent_and_other_players_keep_theirs() {
+  val store=SdaCampaignSlots(folder.root)
+  assertTrue(store.save("edition_a-unlimited","player_a","{}"))
+  assertTrue(store.save("edition_a-unlimited","player_b","{}"))
+  assertTrue(store.delete("edition_a-unlimited","player_a"))
+  assertNull(store.load("edition_a-unlimited","player_a"))
+  assertEquals("{}",store.load("edition_a-unlimited","player_b"))
+  assertTrue(store.delete("edition_a-unlimited","player_a"))
+  assertFalse(store.delete("edition_a-unlimited","../outside"))
+ }
 }

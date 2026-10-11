@@ -59,8 +59,8 @@ def state():
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('pid', type=int); p.add_argument('action', choices=['inspect','capture','move','click'])
-    p.add_argument('--x', type=int); p.add_argument('--y', type=int); p.add_argument('--output')
+    p.add_argument('pid', type=int); p.add_argument('action', choices=['inspect','capture','move','click','text'])
+    p.add_argument('--text'); p.add_argument('--x', type=int); p.add_argument('--y', type=int); p.add_argument('--output')
     a = p.parse_args(); hwnd = find_window(a.pid)
     if u.IsIconic(hwnd): raise RuntimeError('target is minimized; restore it manually before capture/input')
     rect = RECT()
@@ -77,6 +77,13 @@ def main():
         post(0x200)
         if a.action=='click':
             post(0x201,1); post(0x202)
+    if a.action=='text':
+        if not a.text or len(a.text)>64 or any(ord(c)<32 or ord(c)>126 for c in a.text):
+            raise ValueError('text must contain 1 to 64 printable ASCII characters')
+        for character in a.text:
+            key=ord(character.upper())
+            for message,wparam,lparam in ((0x100,key,1),(0x102,ord(character),1),(0x101,key,0xc0000001)):
+                if not u.PostMessageW(hwnd,message,wparam,lparam): raise C.WinError(C.get_last_error())
     if a.action=='capture':
         if not a.output: raise ValueError('capture requires --output')
         from PIL import Image

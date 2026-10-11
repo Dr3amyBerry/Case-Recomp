@@ -451,7 +451,7 @@ class SdaLauncherActivity : Activity() {
     /** Save the loaded run, then reload the activity on the investigation or the unlimited search map. */
     private fun switchRun(dialog:android.app.Dialog,unlimited:Boolean,restart:Boolean) {
         if(!autoSave()) { Toast.makeText(this,"No se pudo guardar la partida",Toast.LENGTH_SHORT).show();return }
-        if(restart && !repository.saveUnlimitedCheckpoint("")) return
+        if(restart && !repository.clearUnlimitedCheckpoint()) return
         changingProfile=true
         intent.putExtra(EXTRA_UNLIMITED,unlimited).putExtra(EXTRA_SKIP_MENU,true)
         campaign=null;scene=null;gameView=null

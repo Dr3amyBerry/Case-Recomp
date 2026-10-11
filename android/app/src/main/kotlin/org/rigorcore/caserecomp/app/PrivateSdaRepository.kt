@@ -219,6 +219,10 @@ internal class PrivateSdaRepository internal constructor(
         return campaignSlots.save("$namespace-unlimited",getActiveProfile().id,json)
     }
 
+    /** Drops the player's unlimited save so the next unlimited run starts over. */
+    fun clearUnlimitedCheckpoint():Boolean =
+        campaignNamespace?.let { campaignSlots.delete("$it-unlimited",getActiveProfile().id) } ?: false
+
     fun loadUnlimitedCheckpoint():String? =
         campaignNamespace?.let { campaignSlots.load("$it-unlimited",getActiveProfile().id) }
 
