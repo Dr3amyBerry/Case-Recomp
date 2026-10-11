@@ -8,7 +8,7 @@ import android.util.Log
  * (see `bundledContentDir` in build.gradle.kts). Each one is imported once, on the first
  * launch, exactly as if it had been picked with Importar. Public builds carry none.
  */
-object BundledContent {
+internal object BundledContent {
     private const val DIR = "bundled"
     private const val TAG = "CaseRecompBundled"
 
