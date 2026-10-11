@@ -213,6 +213,15 @@ internal class PrivateSdaRepository internal constructor(
         return preferences.getString("active_campaign_checkpoint",null)
     }
 
+    /** The unlimited search keeps its own per-player save next to the investigation one. */
+    fun saveUnlimitedCheckpoint(json:String):Boolean {
+        val namespace=campaignNamespace ?: return false
+        return campaignSlots.save("$namespace-unlimited",getActiveProfile().id,json)
+    }
+
+    fun loadUnlimitedCheckpoint():String? =
+        campaignNamespace?.let { campaignSlots.load("$it-unlimited",getActiveProfile().id) }
+
     fun clearCampaignCheckpoint(): Boolean =
         preferences.setString("active_campaign_checkpoint", "")
 

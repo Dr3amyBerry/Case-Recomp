@@ -109,10 +109,24 @@ class SdaCampaign(
     val interactiveRiddleFactory:((SdaContent,Long,Map<String,Any?>?)->SdaInteractiveRiddleGame)? = null,
     private val bonusTimeReward:(Float)->Int = { 0 },
     private val collectibleLimit:(String)->Int = { Int.MAX_VALUE },
+    /** Unlimited search (UNLIMITED.XUI): every set of every scene, refilled lists, no time limit or bonus. */
+    val unlimited: Boolean = false,
 ) {
     init {
         require(levels.isNotEmpty()) { "campaign must have at least one level" }
         require(levelIndex in levels.indices) { "invalid level index" }
+        require(!unlimited || (levels.size == 1 && levels[0].sceneQuotas.size == levels[0].scenes.size)) { "unlimited search needs one quota level" }
+    }
+
+    /** Every set of the unlimited search has been found. */
+    val unlimitedFinished: Boolean
+        get() = unlimited && remainingObjects == 0
+
+    /** Unlimited search: sets of [scene] still to find, before the scene is first opened as well. */
+    fun sceneRemaining(scene: String): Int {
+        val index = currentLevel.scenes.indexOf(scene)
+        require(unlimited && index >= 0) { "scene quotas exist only in the unlimited search" }
+        return maxOf(0, currentLevel.sceneQuotas[index] - (counted[scene]?.size ?: 0))
     }
 
     var hint:SdaHint?=hintPolicy?.let(::SdaHint);private set
@@ -171,7 +185,12 @@ class SdaCampaign(
 
         val scene = scenes.getOrPut(normalized) {
             val resName = "SCENE_${normalized.uppercase()}.MSL"
-            content.loadScene(resName, seed = seed)
+            content.loadScene(resName, seed = seed).also { loaded ->
+                if (unlimited) {
+                    val salt = normalized.fold(0L) { acc, c -> (acc * 31 + c.code) and 0xFFFFFFFFL }
+                    loaded.startRefill(sdaShuffle(loaded.candidateSets, (seed xor salt) and 0xFFFFFFFFL))
+                }
+            }
         }
         counted.getOrPut(normalized) { mutableSetOf() }
 
@@ -186,7 +205,7 @@ class SdaCampaign(
         scene.score.misses.clear()
         scene.sinceFound = 0f
 
-        if (scene.batchRetired) {
+        if (if (unlimited) scene.refillExhausted else scene.batchRetired) {
             phase = SdaCampaignPhase.SCENE_COMPLETE
         }
         return scene
@@ -224,8 +243,13 @@ class SdaCampaign(
                 }
             }
             points = sc.score.points
+            if (unlimited) sc.refill()
 
-            if (remainingObjects == 0) {
+            if (unlimited) {
+                // Observed on the original: the last set of a scene (also the very last one) shows the
+                // scene-complete dialog; the finished search is reported back on the map.
+                if (sc.refillExhausted) phase = SdaCampaignPhase.SCENE_COMPLETE
+            } else if (remainingObjects == 0) {
                 phase = SdaCampaignPhase.OBJECTS_COMPLETE
             } else if (SdaClockEvent.Timeout in clockEvents) {
                 phase = SdaCampaignPhase.TIMEOUT
@@ -269,6 +293,7 @@ class SdaCampaign(
     fun collectedCount(kind:String):Int = collectedScenes[kind]?.size ?: 0
 
     fun collectibleAvailable(item:SdaSceneCollectible):Boolean {
+        if (unlimited) return false // Keys and chips belong to the investigation, not the unlimited search.
         val name=currentSceneName ?: return false
         return name !in collectedScenes[item.definition.kind].orEmpty() &&
             collectedCount(item.definition.kind)<collectibleLimit(item.definition.kind)

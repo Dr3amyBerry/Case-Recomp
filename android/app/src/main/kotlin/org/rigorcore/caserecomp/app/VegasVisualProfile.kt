@@ -48,6 +48,17 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  /** XUI leavedialog bindings: the sound played when their overlay container opens. */
  private fun dialogSound(container:String):String? =
   doc.nodes("leavedialog").firstOrNull { it.attributes["overlay"]==container }?.attributes?.get("opendialogsfx")
+ override fun unlimitedDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? {
+  val id=when(kind) { "scenecomplete" -> "allobjectspickeddialog";"finished" -> "finishedunlimitedmodecontainer";else -> return null }
+  val original=doc.component(id);val panel=original.children.single { it.type=="dialogimg" }
+  val container=if(original.attributes["x"]!=null) original else
+   original.copy(attributes=original.attributes+mapOf("x" to ((800-panel.number("w"))/2).toString(),"y" to ((600-panel.number("h"))/2).toString()))
+  val confirm=original.children.single { it.type=="allbutton" }.number("value")
+  return SdaResourceMenuView(context,ui,container,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
+   "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
+   if(action==confirm) onConfirm()
+  }.also { it.openDialogSound=::dialogSound }
+ }
  override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
  override fun immediateHintRecharge(context:android.content.Context)=context.getSharedPreferences("case-recomp-vegas-options",0).getBoolean("rapidhints",false)
  override fun hintRect(campaign:SdaCampaign):Rect? =
@@ -63,8 +74,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   scorePrefs=context.getSharedPreferences("case-recomp-vegas-scores",android.content.Context.MODE_PRIVATE)
   val portrait="img_mm_id"+activePlayer.avatar.takeIf { it in setOf("generic","male","female") }.orEmpty().ifEmpty { "generic" }
   // Native main menu choices: continue/start fader by progress, locked/unlocked fader by the 25 keys and 25 chips.
-  val played=campaign!=null && (campaign.levelIndex>0 || campaign.points>0 || campaign.completedObjects>0)
-  val unlimitedOpen=campaign!=null && campaign.collectedCount("key")>=25 && campaign.collectedCount("chip")>=25
+  // Unlimited search unlocks with 25 keys and 25 chips or a solved heist (ID_INST_DLG_8).
+  val status=investigationStatus
+  val played=status?.played ?: (campaign!=null && (campaign.levelIndex>0 || campaign.points>0 || campaign.completedObjects>0))
+  val unlimitedOpen=status?.let { (it.keys>=25 && it.chips>=25) || it.solved } ?: false
   val faders=setOf(if(played) "levelsplayed" else "levelsstart",if(unlimitedOpen) "unlimitedstart" else "unlimitedlocked")
   val main=doc.component("mainmenuunderlay").let { node ->
    val unusedFaderLabels=node.children.filter { it.type=="imagefader" && it.attributes["id"] !in faders }.mapNotNull { it.attributes["label"] }.toSet()
@@ -74,7 +87,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
      "image" -> id==null || id==portrait || (id=="imagelock" && !unlimitedOpen)
      "imagefader" -> id in faders
      "label" -> id!="unlimited" && id !in unusedFaderLabels
-     "allbutton" -> id !in setOf("unlimitedbtn","unlimitedspotbtn","disunlimitedspotbtn")
+     "allbutton" -> id !in setOf(if(unlimitedOpen) "disunlimitedbtn" else "unlimitedbtn","unlimitedspotbtn","disunlimitedspotbtn")
      "quitbutton" -> true
      else -> false
     }
@@ -159,12 +172,24 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    when {
     screen=="mainmenuunderlay" -> when(value) {
      6 -> { chosenPlayer=activePlayer.id;showPlayers() }
-     299 -> onAction(SdaMenuAction.RESUME)
+     299 -> onAction(if(campaign?.unlimited==true) SdaMenuAction.RESUME_INVESTIGATION else SdaMenuAction.RESUME)
+     326 -> when {
+      campaign?.unlimited==true && !campaign.unlimitedFinished -> onAction(SdaMenuAction.RESUME)
+      status?.unlimitedFinished==true || campaign?.unlimitedFinished==true -> {
+       val node=doc.component("restartunlimited");val panel=node.children.single { it.type=="dialogimg" }
+       view.show(node.copy(attributes=node.attributes+mapOf("x" to ((800-panel.number("w"))/2).toString(),"y" to ((600-panel.number("h"))/2).toString())),backdrop)
+      }
+      else -> onAction(SdaMenuAction.START_UNLIMITED)
+     }
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
      30 -> openOptions(screen)
      312 -> { scoreFirst=0;showScores() }
      else -> onAction(SdaMenuAction.UNAVAILABLE)
+    }
+    screen=="restartunlimited" -> when(value) {
+     332 -> onAction(SdaMenuAction.RESTART_UNLIMITED)
+     333 -> show("mainmenuunderlay")
     }
     screen=="highscoredialog" -> when(value) {
      315 -> show("mainmenuunderlay")
@@ -308,13 +333,15 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val display=doc.component("playermapdisplay");val ox=display.number("x");val oy=display.number("y")
   fun put(node:SdaUiNode,text:String) { ui.label(canvas,node,text,x=ox+node.number("x"),y=oy+node.number("y")) }
   val labels=display.children.filter { it.type=="label" }
-  labels.firstOrNull { it.attributes["id"]=="playernamedisplay" }?.let { put(it,playerName) }
+  labels.firstOrNull { it.attributes["id"]=="playernamedisplay" }?.let { put(it,investigationStatus?.player ?: playerName) }
   labels.firstOrNull { it.attributes["id"]=="totalscoredisplay" }?.let {
-   put(it,doc.resolve(display.attributes.getValue("totalscore"))+String.format(java.util.Locale.US,"%,d",campaign.points))
+   // The unlimited map footer keeps showing the heist score, as observed on the original.
+   if(campaign.unlimited) put(it,doc.resolve(display.attributes.getValue("unlimitedscorecaption"))+String.format(java.util.Locale.US,"%,d",investigationStatus?.points ?: 0))
+   else put(it,doc.resolve(display.attributes.getValue("totalscore"))+String.format(java.util.Locale.US,"%,d",campaign.points))
   }
   display.children.firstOrNull { it.attributes["id"]=="playermapdisplay_default" }?.children?.filter { it.type=="label" }?.let { clue ->
    clue.getOrNull(0)?.let { put(it,doc.resolve(display.attributes.getValue("clues"))) }
-   clue.getOrNull(1)?.let { put(it,"${campaign.levelIndex}/${campaign.levels.size}") }
+   clue.getOrNull(1)?.let { put(it,if(campaign.unlimited) "${investigationStatus?.clues ?: 0}/25" else "${campaign.levelIndex}/${campaign.levels.size}") }
   }
   labels.firstOrNull { it.attributes["caption"]=="@ID_HSCORE_RANK" }?.let { put(it,doc.caption(it)) }
   bestRank=VegasRankRules.displayed(bestRank,campaign.points,campaign.collectedCount("key"),campaign.collectedCount("chip"))
@@ -354,9 +381,24 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   listOf(278 to 51,477 to 51,179 to 211,377 to 211,575 to 211,278 to 371,477 to 371),
   listOf(179 to 51,377 to 51,575 to 51,179 to 211,377 to 211,575 to 211,278 to 371,477 to 371),
   listOf(179 to 51,377 to 51,575 to 51,179 to 211,377 to 211,575 to 211,179 to 371,377 to 371,575 to 371))
+ override var investigationStatus:SdaInvestigationStatus?=null
+ // Unlimited map pages, observed on the original: 9, 7 and 9 locations in UNLIMITED.XUI order.
+ private var mapPage=0
+ private fun unlimitedPages(c:SdaCampaign):List<List<String>> {
+  val scenes=c.currentLevel.scenes;val sizes=if(scenes.size==25) listOf(9,7,9) else scenes.chunked(9).map { it.size }
+  var start=0;return sizes.map { n -> scenes.subList(start,start+n).also { start+=n } }
+ }
+ private fun pageScenes(c:SdaCampaign):List<String> {
+  if(!c.unlimited) return c.currentLevel.scenes
+  if(c.unlimitedFinished) return emptyList()
+  val pages=unlimitedPages(c);mapPage=mapPage.coerceIn(0,pages.lastIndex);return pages[mapPage]
+ }
  private fun cards(c:SdaCampaign):List<Pair<SdaUiNode,Pair<Int,Int>>> {
-  val nodes=doc.component("mapunderlay").children.filter { it.type=="scenebutton" && it.attributes["name"] in c.currentLevel.scenes }
-  require(nodes.size==c.currentLevel.scenes.size && nodes.map { it.attributes["name"] }.distinct().size==nodes.size)
+  val wanted=pageScenes(c);if(wanted.isEmpty()) return emptyList()
+  // Investigation cards keep the XUI order; unlimited pages follow UNLIMITED.XUI, as on the original.
+  val listed=doc.component("mapunderlay").children.filter { it.type=="scenebutton" && it.attributes["name"] in wanted }
+  val nodes=if(c.unlimited) listed.sortedBy { wanted.indexOf(it.attributes["name"]) } else listed
+  require(nodes.size==wanted.size && nodes.map { it.attributes["name"] }.distinct().size==nodes.size)
   require(nodes.size in 1..9)
   return nodes.zip(layouts[nodes.size-1])
  }
@@ -605,14 +647,18 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
   // User-requested Android layout: one centered clock line, separated from score.
-  compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),timer.number("y")-5)
+  compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text(unlimited=c?.unlimited==true).orEmpty(),timer.number("y")-5)
   // PDA captions above the two collection meters.
   doc.component("pdacontrol").children.filter { it.type=="label" && it.attributes["caption"] in setOf("@ID_KEYS","@ID_CHIPS") }.forEach { ui.label(canvas,it) }
   if(c!=null) {
-   drawCollectionMeters(canvas,meterCount(c,"key"),meterCount(c,"chip"))
+   // The unlimited search shows the investigation's keys and chips, as observed on the original.
+   val status=investigationStatus.takeIf { c.unlimited }
+   if(status!=null) drawCollectionMeters(canvas,status.keys,status.chips)
+   else drawCollectionMeters(canvas,meterCount(c,"key"),meterCount(c,"chip"))
    for((kind,id) in listOf("key" to "keyscollected","chip" to "chipscollected")) {
     val label=doc.component(id)
-    ui.label(canvas,label,(c.collectedCount(kind)-flights.count { it.kind==kind }).toString()+doc.caption(label))
+    val count=if(status!=null) (if(kind=="key") status.keys else status.chips) else c.collectedCount(kind)-flights.count { it.kind==kind }
+    ui.label(canvas,label,count.toString()+doc.caption(label))
    }
   }
   button(canvas,doc.component("pdadownmenubutton"))
@@ -639,7 +685,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val background=doc.component("mapunderlay").attributes.getValue("goldbackground")
   ui.image(canvas,doc.component(background),photographic=true);base(canvas,campaign,campaign.clock)
   playerMapDisplay(canvas,campaign)
-  ui.label(canvas,doc.component("mapunderlay").children.single { it.type=="label" && it.attributes["id"]=="mapscreencaption" },doc.resolve(campaign.currentLevel.title))
+  // The original map keeps the PDA's HINT and MAP buttons on screen.
+  ui.button(canvas,doc.component("hintbutton"));ui.button(canvas,doc.component("mapbutton"))
+  if(campaign.unlimited) ui.label(canvas,doc.component("unlimitedmodemapscreencaption"))
+  else ui.label(canvas,doc.component("mapunderlay").children.single { it.type=="label" && it.attributes["id"]=="mapscreencaption" },doc.resolve(campaign.currentLevel.title))
   for((node,pos) in cards(campaign)) {
    val (x,y)=pos;val a=node.attributes
    canvas.drawBitmap(ui.bitmap(a.getValue("texscene")),x+13f,y+11f,photos)
@@ -647,17 +696,41 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    val src=Rect(0,0,minOf(node.number("w"),frame.width),minOf(node.number("h"),frame.height))
    canvas.drawBitmap(frame,src,Rect(x,y,x+src.width(),y+src.height()),null)
    ui.label(canvas,node,doc.caption(node),x+19,y+115,node.number("w")-19,node.number("h")-115)
-   ui.label(canvas,node.copy(attributes=a+mapOf("halign" to "center","font" to a.getValue("fontitems"))),(campaign.scenes[a.getValue("name")]?.remainingCaptions()?.size ?: 10).toString(),x+160,y+97,22,20)
+   val count=if(campaign.unlimited) campaign.sceneRemaining(a.getValue("name")) else campaign.scenes[a.getValue("name")]?.remainingCaptions()?.size ?: 10
+   ui.label(canvas,node.copy(attributes=a+mapOf("halign" to "center","font" to a.getValue("fontitems"))),count.toString(),x+160,y+97,22,20)
   }
-  doc.component("maptext").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
-  levelLabel(canvas,campaign)
-  // Original map and scenes read "OBJ. RESTANTES".
-  val total=doc.component("itemstofind");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
+  if(campaign.unlimited) {
+   // Unlimited map PDA text, total counter and page arrows (dim at either end) as on the original.
+   doc.component("map_pdatext_container").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
+   val total=doc.component("totalitems");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
+   val last=unlimitedPages(campaign).lastIndex
+   for((id,enabled) in listOf("mapleftarrowbutton" to (mapPage>0 && !campaign.unlimitedFinished),"maprightarrowbutton" to (mapPage<last && !campaign.unlimitedFinished))) {
+    val node=doc.component(id)
+    if(enabled) button(canvas,node) else { canvas.saveLayerAlpha(RectF(ui.rect(node)),110);ui.button(canvas,node);canvas.restore() }
+   }
+  } else {
+   doc.component("maptext").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
+   levelLabel(canvas,campaign)
+   // Original map and scenes read "OBJ. RESTANTES".
+   val total=doc.component("itemstofind");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
+  }
  }
- override fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String?=cards(campaign).firstOrNull { (n,p) -> Rect(p.first,p.second,p.first+n.number("w"),p.second+n.number("h")).contains(x,y) }?.first?.attributes?.get("name")
+ override fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String? {
+  if(campaign.unlimited && !campaign.unlimitedFinished) {
+   val last=unlimitedPages(campaign).lastIndex
+   if(ui.rect(doc.component("mapleftarrowbutton")).contains(x,y)) { if(mapPage>0) mapPage--;return null }
+   if(ui.rect(doc.component("maprightarrowbutton")).contains(x,y)) { if(mapPage<last) mapPage++;return null }
+  }
+  return cardAt(campaign,x,y)
+ }
+ private fun cardAt(campaign:SdaCampaign,x:Int,y:Int):String?=cards(campaign).firstOrNull { (n,p) -> Rect(p.first,p.second,p.first+n.number("w"),p.second+n.number("h")).contains(x,y) }?.first?.attributes?.get("name")
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean) {
   base(canvas,campaign,campaign?.clock ?: clock)
-  campaign?.let { levelLabel(canvas,it) }
+  if(campaign?.unlimited==true) {
+   // eyespyunlimitedtext: the scene name replaces the level number in unlimited scenes.
+   val name=doc.component("mapunderlay").children.firstOrNull { it.type=="scenebutton" && it.attributes["name"]==campaign.currentSceneName }?.let(doc::caption).orEmpty()
+   ui.label(canvas,doc.component("scenenamelabel"),name)
+  } else campaign?.let { levelLabel(canvas,it) }
   if(!paused && campaign?.phase==SdaCampaignPhase.SCENE) campaign.hint?.let { hint ->
    val node=doc.component("hintbutton");val bounds=ui.rect(node)
    if(hint.ready) button(canvas,node) else {
@@ -676,9 +749,9 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
     }
    }
   }
-  doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
+  doc.component(if(campaign?.unlimited==true) "eyespyunlimitedtext" else "eyespytext").children.filter { it.type=="label" && it.attributes["id"]!="scenenamelabel" }.forEach { ui.label(canvas,it) }
   // Scene indicators: lit while this scene still holds an uncollected key/chip, dimmed otherwise.
-  if(campaign!=null) sceneIndicators(canvas,campaign,scene)
+  if(campaign!=null && !campaign.unlimited) sceneIndicators(canvas,campaign,scene)
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
@@ -690,7 +763,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    ui.label(canvas,label,row.caption,y=label.number("y")+slot*label.number("h"),opacity=row.alpha)
   }
   campaign?.let(::checkRankUp)
-  if(campaign==null || !drawRankUp(canvas,campaign)) {
+  if(campaign?.unlimited==true) {
+   val sceneItems=doc.component("sceneitems");ui.label(canvas,sceneItems,doc.caption(sceneItems)+" "+campaign.sceneRemaining(requireNotNull(campaign.currentSceneName)))
+   val total=doc.component("totalitems");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
+  } else if(campaign==null || !drawRankUp(canvas,campaign)) {
    val total=doc.component("itemstofind")
    ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
   }

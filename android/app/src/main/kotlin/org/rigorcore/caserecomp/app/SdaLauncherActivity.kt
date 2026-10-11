@@ -44,6 +44,8 @@ class SdaLauncherActivity : Activity() {
     private var hostMenu: android.app.Dialog? = null
     private var changingProfile=false
     private var freshLaunch=false
+    /** True while the unlimited search (UNLIMITED.XUI) is the loaded run instead of the investigation. */
+    private var unlimitedMode=false
     private var campaignMusicReady=false
     private var lastMusicRequest:SdaMusicRequest?=null
     private var clock: SdaClock? = null
@@ -134,16 +136,18 @@ class SdaLauncherActivity : Activity() {
 
             val levelsRaw = sdaContent.read("LEVELS_1.XUI")
             if (levelsRaw != null && !intent.hasExtra(EXTRA_SCENE)) {
-                // Full campaign mode
-                val levels = SdaLevels.parse(levelsRaw)
+                // Full campaign mode, or the unlimited search when the menu asked for it.
+                val unlimitedRaw = sdaContent.read("UNLIMITED.XUI")
+                unlimitedMode = intent.getBooleanExtra(EXTRA_UNLIMITED,false) && unlimitedRaw != null
+                val levels = if (unlimitedMode) listOf(SdaLevels.parseUnlimited(unlimitedRaw!!)) else SdaLevels.parse(levelsRaw)
                 val finaleBinding = if (sdaContent.gameId == "vegas_heist") SdaRiddleBinding("ENVS.MSE","firstriddle") else null
                 val profile=if(sdaContent.gameId=="vegas_heist") VegasVisualProfile(sdaContent) else null
-                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } }, bonusTimeReward=profile?.let { it::bonusTimeReward } ?: { 0 }, collectibleLimit=profile?.let { it::collectibleLimit } ?: { Int.MAX_VALUE })
+                val camp = SdaCampaign(levels, seed = System.currentTimeMillis() and 0xFFFFFFFFL, firstRiddle = finaleBinding, hintPolicy=profile?.hintPolicy(), hintRechargeImmediately=profile?.immediateHintRecharge(this)==true, secondRiddle=if(profile!=null) SdaRiddleBinding("ENVS.MSE","secondriddle") else null, interactiveRiddleFactory=profile?.let { adapter -> { c,seed,checkpoint -> requireNotNull(adapter.interactiveRiddle(c,seed,checkpoint)) } }, bonusTimeReward=profile?.let { it::bonusTimeReward } ?: { 0 }, collectibleLimit=profile?.let { it::collectibleLimit } ?: { Int.MAX_VALUE }, unlimited=unlimitedMode)
                 campaign = camp
                 repository.configureCampaignSlots(sdaContent.gameId)
 
                 // Restore campaign checkpoint if saved
-                val savedCampJson = repository.loadCampaignCheckpoint()
+                val savedCampJson = if (unlimitedMode) repository.loadUnlimitedCheckpoint() else repository.loadCampaignCheckpoint()
                 if (!savedCampJson.isNullOrBlank()) {
                     try {
                         val savedState = SdaCampaignState.fromJson(savedCampJson)
@@ -174,7 +178,12 @@ class SdaLauncherActivity : Activity() {
                     view.pauseForMenu();view.visibility=View.INVISIBLE
                 }
                 setContentView(view)
-                if(view.visuals!=null) {
+                refreshInvestigationStatus(view)
+                if(view.visuals!=null && intent.getBooleanExtra(EXTRA_SKIP_MENU,false)) {
+                    // A mode switch from the main menu goes straight to that run's map.
+                    intent.removeExtra(EXTRA_SKIP_MENU)
+                    view.post { if(!isFinishing) { view.visibility=View.VISIBLE;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);showUnlimitedMapDialogs(view) } }
+                } else if(view.visuals!=null) {
                     val initialMenu=if(intent.getBooleanExtra("sda-player-selection",false)) SdaMenuEntry.PLAYER_SELECTION else SdaMenuEntry.MAIN
                     intent.removeExtra("sda-player-selection")
                     // Fresh launches play the original GAMESTART splash; recreations (profile switch) go straight to the menu.
@@ -260,6 +269,7 @@ class SdaLauncherActivity : Activity() {
         if(hostMenu?.isShowing==true) return
         view.pauseForMenu()
         autoSave()
+        refreshInvestigationStatus(view)
         val dialog=android.app.Dialog(this)
         val nativeMenu=view.visuals?.menuView(this,campaign,entry,audioSession) { action ->
             when(action) {
@@ -284,6 +294,9 @@ class SdaLauncherActivity : Activity() {
                     } else Toast.makeText(this,"No se pudo cambiar de jugador; se conserva la partida",Toast.LENGTH_SHORT).show()
                 }
                 SdaMenuAction.RESUME -> dialog.dismiss()
+                SdaMenuAction.START_UNLIMITED -> switchRun(dialog,unlimited=true,restart=false)
+                SdaMenuAction.RESTART_UNLIMITED -> switchRun(dialog,unlimited=true,restart=true)
+                SdaMenuAction.RESUME_INVESTIGATION -> switchRun(dialog,unlimited=false,restart=false)
                 // Original EXIT returns to the multi-game host after saving.
                 SdaMenuAction.RETURN_TO_CATALOGUE -> { autoSave();dialog.dismiss();finish() }
                 else -> Toast.makeText(this,"Pantalla pendiente de implementar",Toast.LENGTH_SHORT).show()
@@ -345,7 +358,7 @@ class SdaLauncherActivity : Activity() {
         val dialog=android.app.Dialog(this)
         val panel=view.visuals?.collectibleDialog(this,kind) { dialog.dismiss() } ?: return
         panel.onSoundEffect={ audioSession?.playEffect(it) }
-        view.pauseForMenu()
+        view.pauseForDialog()
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         dialog.setContentView(panel)
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
@@ -380,12 +393,15 @@ class SdaLauncherActivity : Activity() {
                 view.spriteBitmaps = bitmaps
                 Log.i(TAG, "Entered scene $sceneName in campaign (level ${camp.levelIndex + 1})")
                 autoSave()
+                // The original greets an already emptied unlimited location with its scene-complete dialog.
+                if (camp.unlimited && camp.phase == SdaCampaignPhase.SCENE_COMPLETE) view.post { showUnlimitedDialog(view,"scenecomplete") {} }
             }
         }
 
         view.onReturnToMapListener = {
             campaign?.toInvestigationMap()
             autoSave()
+            showUnlimitedMapDialogs(view)
         }
 
         view.onStartBonusListener = {
@@ -427,13 +443,71 @@ class SdaLauncherActivity : Activity() {
         view.onSceneCompleteListener = {
             // Completion belongs to the game's resource UI, not added host notifications.
             autoSave()
+            val camp=campaign
+            if (camp != null && camp.unlimited && camp.phase == SdaCampaignPhase.SCENE_COMPLETE) view.post { showUnlimitedDialog(view,"scenecomplete") {} }
+        }
+    }
+
+    /** Save the loaded run, then reload the activity on the investigation or the unlimited search map. */
+    private fun switchRun(dialog:android.app.Dialog,unlimited:Boolean,restart:Boolean) {
+        if(!autoSave()) { Toast.makeText(this,"No se pudo guardar la partida",Toast.LENGTH_SHORT).show();return }
+        if(restart && !repository.saveUnlimitedCheckpoint("")) return
+        changingProfile=true
+        intent.putExtra(EXTRA_UNLIMITED,unlimited).putExtra(EXTRA_SKIP_MENU,true)
+        campaign=null;scene=null;gameView=null
+        dialog.dismiss();recreate()
+    }
+
+    /** Investigation facts for the menu and the unlimited map, read from whichever save is not loaded. */
+    private fun refreshInvestigationStatus(view:SdaGameView) {
+        val visuals=view.visuals ?: return
+        val loaded=campaign ?: return
+        fun state(json:String?)=json?.takeIf { it.isNotBlank() }?.let { runCatching { SdaCampaignState.fromJson(it) }.getOrNull() }
+        val investigation=if(loaded.unlimited) state(repository.loadCampaignCheckpoint()) else loaded.snapshot()
+        val unlimited=if(loaded.unlimited) loaded.snapshot() else state(repository.loadUnlimitedCheckpoint())
+        val total=content?.read("UNLIMITED.XUI")?.let { runCatching { SdaLevels.parseUnlimited(it).objects }.getOrNull() }
+        visuals.investigationStatus=SdaInvestigationStatus(
+            player=repository.getActiveProfile().name,
+            played=investigation!=null && (investigation.levelIndex>0 || investigation.points>0 || investigation.completedObjects>0),
+            keys=investigation?.collectedScenes?.get("key")?.size ?: 0,
+            chips=investigation?.collectedScenes?.get("chip")?.size ?: 0,
+            solved=investigation?.phase==SdaCampaignPhase.CAMPAIGN_COMPLETE.name,
+            points=investigation?.points ?: 0,
+            clues=investigation?.levelIndex ?: 0,
+            unlimitedFinished=unlimited!=null && total!=null && unlimited.completedObjects>=total,
+        )
+    }
+
+    /** Unlimited search dialogs: a fully searched scene, and the finished search on the map. */
+    private fun showUnlimitedDialog(view:SdaGameView,kind:String,onConfirm:()->Unit) {
+        if(hostMenu!=null || isFinishing || isDestroyed) return
+        val dialog=android.app.Dialog(this)
+        val panel=view.visuals?.unlimitedDialog(this,kind) { dialog.dismiss();onConfirm() } ?: return
+        panel.onSoundEffect={ audioSession?.playEffect(it) }
+        view.pauseForDialog()
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dialog.setContentView(panel)
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        dialog.setCancelable(false)
+        dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave() }
+        hostMenu=dialog;dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
+        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+    }
+
+    private fun showUnlimitedMapDialogs(view:SdaGameView) {
+        val camp=campaign ?: return
+        if(camp.unlimitedFinished && camp.phase==SdaCampaignPhase.MAP) {
+            view.post { showUnlimitedDialog(view,"finished") { autoSave();refreshInvestigationStatus(view);view.post { showResourceMenu(view,SdaMenuEntry.MAIN) } } }
         }
     }
 
     private fun autoSave():Boolean {
         return try {
             val camp=campaign
-            if(camp!=null) repository.saveCampaignCheckpoint(camp.snapshot().toJson())
+            if(camp!=null && camp.unlimited) repository.saveUnlimitedCheckpoint(camp.snapshot().toJson())
+            else if(camp!=null) repository.saveCampaignCheckpoint(camp.snapshot().toJson())
             else scene?.let { repository.saveCheckpoint(it.snapshot().toJson()) } ?: true
         } catch(e:Exception) {
             Log.w(TAG,"Failed to auto-save SDA checkpoint",e)
@@ -525,6 +599,8 @@ class SdaLauncherActivity : Activity() {
         const val EXTRA_PLAY = "extra-play-sda"
         const val EXTRA_PACKAGE_PATH = "package_path"
         const val EXTRA_SCENE = "extra-scene"
+        const val EXTRA_UNLIMITED = "sda-unlimited"
+        const val EXTRA_SKIP_MENU = "sda-skip-menu"
         private const val TAG = "CaseRecompSda"
     }
 }

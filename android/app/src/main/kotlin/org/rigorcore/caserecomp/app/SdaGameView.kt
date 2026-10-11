@@ -89,7 +89,11 @@ class SdaGameView(
     var onPauseChangedListener: (() -> Unit)? = null
     private var resumePointerId: Int? = null
     var onMenuListener: (() -> Unit)? = null
+    /** Original in-scene dialogs (key/chip found, unlimited search) freeze play without the PAUSED veil. */
+    private var pauseVeil=true
+    fun pauseForDialog() { pauseForMenu();pauseVeil=false }
     fun pauseForMenu() {
+        pauseVeil=true
         isPaused=true;onPauseChangedListener?.invoke();invalidate()
     }
     fun resumeFromMenu() {
@@ -179,7 +183,7 @@ class SdaGameView(
             drawScene(canvas, null)
         }
 
-        if(isPaused) visuals?.drawPause(canvas)
+        if(isPaused && pauseVeil) visuals?.drawPause(canvas)
         canvas.restore()
     }
 

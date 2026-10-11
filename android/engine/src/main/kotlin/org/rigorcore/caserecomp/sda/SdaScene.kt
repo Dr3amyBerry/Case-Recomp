@@ -96,6 +96,8 @@ data class SdaSceneState(
     val history: List<HistoryMark>,
     val historyVariant: Int?,
     val historyPruned: Boolean,
+    /** Unlimited-mode sets still waiting for a list slot; null for normal batches. */
+    val refillQueue: List<List<String>>? = null,
 ) {
     fun toJson(): String {
         val map = mutableMapOf<String, Any?>()
@@ -135,6 +137,7 @@ data class SdaSceneState(
         }
         map["historyVariant"] = historyVariant
         map["historyPruned"] = historyPruned
+        if (refillQueue != null) map["refillQueue"] = refillQueue
         return org.rigorcore.caserecomp.MiniJson.canonical(map)
     }
 
@@ -188,6 +191,7 @@ data class SdaSceneState(
             }
             val historyVariant = (raw["historyVariant"] as? Number)?.toInt()
             val historyPruned = raw["historyPruned"] as Boolean
+            val refillQueue = raw["refillQueue"] as? List<List<String>>
 
             return SdaSceneState(
                 sceneName = sceneName,
@@ -207,6 +211,7 @@ data class SdaSceneState(
                 history = history,
                 historyVariant = historyVariant,
                 historyPruned = historyPruned,
+                refillQueue = refillQueue,
             )
         }
     }
@@ -287,6 +292,40 @@ class SdaScene(
 
     val batchRetired: Boolean
         get() = rows.isNotEmpty() && rows.values.all { it.removed }
+
+    /** Unlimited search: sets not yet listed. The list keeps up to [REFILL_ROWS] rows and refills one by one. */
+    var refillQueue: MutableList<List<String>>? = null
+        private set
+
+    fun startRefill(order: List<List<String>>) {
+        require(order.toSet() == candidateSets.toSet()) { "refill order must cover the scene sets" }
+        activeSets = order.take(REFILL_ROWS)
+        refillQueue = order.drop(REFILL_ROWS).toMutableList()
+        targets = activeSets.flatten()
+        rows.clear()
+        for (ids in activeSets) rows[ids] = SdaTargetRow()
+    }
+
+    /** Drops retired rows, shifts the list up and appends queued sets that fade in. */
+    fun refill(): Boolean {
+        val queue = refillQueue ?: return false
+        val retired = activeSets.filter { rows[it]?.removed == true }
+        if (retired.isEmpty()) return false
+        val kept = activeSets.filterNot { it in retired }.toMutableList()
+        for (ids in retired) rows.remove(ids)
+        while (kept.size < REFILL_ROWS && queue.isNotEmpty()) {
+            val next = queue.removeAt(0)
+            kept += next
+            rows[next] = SdaTargetRow(alpha = 0f, phase = SdaTargetRow.FADE_IN)
+        }
+        activeSets = kept
+        targets = kept.flatten()
+        return true
+    }
+
+    /** Every set of an unlimited scene has been found and retired. */
+    val refillExhausted: Boolean
+        get() = refillQueue?.isEmpty() == true && activeSets.all { rows[it]?.removed != false }
 
     fun nextBatch(seed: Long): List<List<String>> {
         require(deck != null) { "explicit diagnostic sets do not have a native selection deck" }
@@ -407,6 +446,7 @@ class SdaScene(
             history = history.toList(),
             historyVariant = historyVariant,
             historyPruned = historyPruned,
+            refillQueue = refillQueue?.toList(),
         )
     }
 
@@ -457,5 +497,10 @@ class SdaScene(
         for (rState in state.rows) {
             rows[rState.set] = SdaTargetRow(rState.alpha, rState.phase, rState.removed)
         }
+        refillQueue = state.refillQueue?.toMutableList()
+    }
+
+    companion object {
+        const val REFILL_ROWS = 10
     }
 }

@@ -15,9 +15,27 @@ data class SdaLevel(
     val title: String,
     val bonus: String,
     val bonusImage: String = "",
+    /** UNLIMITED.XUI setsinscene: sets to find per scene, aligned with [scenes]. */
+    val sceneQuotas: List<Int> = emptyList(),
 )
 
 object SdaLevels {
+    /** No-limit clock for the unlimited search: 99:59:59 shown counting up. */
+    const val UNLIMITED_TIME = 359999f
+
+    /** UNLIMITED.XUI: one level listing every scene with its set count; it has no time or bonus. */
+    fun parseUnlimited(raw: ByteArray): SdaLevel {
+        val root = SdaXml.parse(raw).documentElement
+        val nodes = root.getElementsByTagNameNS("*", "level").let { list -> (0 until list.length).map { list.item(it) as Element } }
+            .ifEmpty { root.getElementsByTagName("mpi:level").let { list -> (0 until list.length).map { list.item(it) as Element } } }
+        val level = nodes.singleOrNull() ?: throw IllegalArgumentException("unlimited definition needs one level")
+        val scenes = level.getAttribute("scenes").split(',').map { it.trim().lowercase() }
+        val quotas = level.getAttribute("setsinscene").split(',').map { it.trim().toIntOrNull() ?: throw IllegalArgumentException("invalid setsinscene") }
+        require(scenes.isNotEmpty() && scenes.size == quotas.size && scenes.distinct().size == scenes.size &&
+            scenes.all { it.matches(Regex("[a-z0-9_]+")) } && quotas.all { it > 0 }) { "invalid unlimited scene list" }
+        return SdaLevel(1, UNLIMITED_TIME, quotas.sum(), scenes, "@ID_UNLIMITEDMODE", "", "", quotas)
+    }
+
     fun parse(raw: ByteArray): List<SdaLevel> {
         val doc = SdaXml.parse(raw)
         val root = doc.documentElement

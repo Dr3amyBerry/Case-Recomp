@@ -129,7 +129,10 @@ class SdaResourceCanvas(val document:SdaUiDocument,private val content:SdaConten
 
 }
 
-enum class SdaMenuAction { DELETE_PROFILE, SWITCH_PROFILE, RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE }
+enum class SdaMenuAction { DELETE_PROFILE, SWITCH_PROFILE, RESUME, RETURN_TO_CATALOGUE, OPTIONS, INSTRUCTIONS, UNAVAILABLE,
+ START_UNLIMITED, RESTART_UNLIMITED, RESUME_INVESTIGATION }
+/** Investigation facts the menu and unlimited map need while another run is loaded. */
+data class SdaInvestigationStatus(val player:String,val played:Boolean,val keys:Int,val chips:Int,val solved:Boolean,val points:Int,val clues:Int,val unlimitedFinished:Boolean)
 enum class SdaMenuEntry { PAUSE, MAIN, PLAYER_SELECTION }
 
 data class SdaMusicRequest(val stream:String,val loop:Boolean)
@@ -137,6 +140,11 @@ data class SdaMusicRequest(val stream:String,val loop:Boolean)
 interface SdaVisualProfile {
  fun campaignMusic(phase:SdaCampaignPhase):SdaMusicRequest? = null
  fun introView(context:android.content.Context,onDone:()->Unit):android.view.View? = null
+ var investigationStatus:SdaInvestigationStatus?
+  get() = null
+  set(_) {}
+ /** Original unlimited-search dialogs: "scenecomplete", "finished". */
+ fun unlimitedDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? = null
  fun audioSession(context:android.content.Context):SdaAudioSession? = null
  fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?=null,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun sceneFeedback(found:Boolean):String? = null

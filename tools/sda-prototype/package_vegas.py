@@ -60,9 +60,11 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
         files_data["STRINGS.TXT"] = res.read("STRINGS.TXT")
 
     if full_campaign:
-        # Levels definition
+        # Levels definition, plus the unlimited search scene list
         if "LEVELS_1.XUI" in res.entries:
             files_data["LEVELS_1.XUI"] = res.read("LEVELS_1.XUI")
+        if "UNLIMITED.XUI" in res.entries:
+            files_data["UNLIMITED.XUI"] = res.read("UNLIMITED.XUI")
 
         # Wordsearch text
         if "WORDSEARCH.TXT" in res.entries:
