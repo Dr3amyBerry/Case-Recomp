@@ -233,8 +233,9 @@ class DirectorLauncherActivity : Activity() {
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges)
-                val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES)
-                    HuntsvilleSessionCheckpoint(runtime, store, store::atomically) { Log.w(TAG, "checkpoint failed", it) } else null
+                val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES || titleId == DirectorPresentationProfiles.PRIME_ID)
+                    HuntsvilleSessionCheckpoint(runtime, store, store::atomically,
+                        primeSuspects = titleId == DirectorPresentationProfiles.PRIME_ID) { Log.w(TAG, "checkpoint failed", it) } else null
                 return Session(loaded, runtime, renderer, output, profile, clock, checkpoint, titleId)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }

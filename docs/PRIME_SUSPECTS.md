@@ -137,6 +137,30 @@ tras las correcciones de texto y alpha.
 El tablero de memoria del caso 2 también termina su secuencia posterior:
 Siguiente inicia el caso 3 (`getPlayerRoundNum() = 3`) y se alcanza su mapa.
 El almacén original de ese mapa se exportó para continuar la verificación.
+El recorrido privado completa también los casos 3 a 10, alternando tableros
+de piezas y memoria y verificando sus getters de finalización y cada número
+de caso siguiente. El caso 11 queda iniciado en el mapa con un almacén original
+exportado. La búsqueda visita primero la localización de batería indicada por
+los datos originales para poder investigar las escenas oscuras; mueve el ratón
+y deja actualizar la iluminación antes de pulsar. No modifica inventarios ni
+tableros directamente.
+El recorrido siguiente completa también los casos 11–20, verificando cada
+tablero y transición mediante getters originales. El caso 21 queda abierto
+en el mapa con su almacén exportado. El conductor reconoce el mismo botón
+Siguiente tanto en su imagen normal como en rollover, sin cambiar el juego.
+El recorrido privado ya completa el caso 21 y verifica la transición al 22.
+La búsqueda del último caso alcanza `metagame4`; siete movimientos legales
+por clic llevan la caja al estado original `endAnim`. Tras su animación y
+cerrar el aviso, aparece la carta final con el nombre del jugador, el diamante
+recuperado y la medalla. Se renderizó e inspeccionó esa captura privada.
+Así queda probado el recorrido hasta la carta final en JVM, con guardados
+intermedios y bytecode original; no equivale a fidelidad final en Android.
+PROBADO posteriormente: el getter original confirma el estado final 23 antes
+y después del regreso al menú. Otro motor, inicializado solo con el almacén
+final exportado, reconoce al jugador y conserva `getPlayerRoundNum() = 23`.
+Ambos recorridos privados pasaron sus comprobaciones. La ejecución inicial
+había sido impedida por un límite de uso de la revisión automática; al volver
+a estar disponible se ejecutó sin saltar esa revisión.
 
 ## Verificación y siguientes bloques
 
@@ -150,9 +174,35 @@ Prioridad pendiente:
 
 1. Verificar en dispositivo la activación por título y sus portadas, conservando
    el paquete y las partidas actuales de Huntsville.
-2. Ampliar el recorrido original: más objetos, regreso al mapa, puzles,
-   progresión, guardados y restauración; no traducir manualmente el Lingo.
+2. Verificar guardados interrumpidos en cada tipo de puzle y restauración
+   de escena; el recorrido completo de los 22 casos ya pasó en JVM.
 3. Contrastar scripts e instrucciones con una ejecución de LibreShockwave.
 4. Comparar Windows/Android y medir audio, animación y memoria en sesiones largas.
 
-El juego completo y la fidelidad final siguen NO VERIFICADOS.
+El recorrido hasta la carta final está PROBADO en JVM. La entrega completa
+Android y la fidelidad final siguen NO VERIFICADAS. El Launcher aplica el
+checkpoint existente a Prime usando sus handlers originales. Quedan pendientes el contraste independiente de
+instrucciones, audio y animación frente a Windows, medidas de memoria en
+sesiones largas y pruebas de importación/restauración/jugabilidad en dispositivo.
+
+Persistencia parcial PROBADA en JVM: durante loc18 se recogieron tres pistas
+y se ejecutaron los handlers originales `setPlayerLocData`,
+`setPlayerPuzzleData` y `updatePrefs`, sin salir de la escena ni reiniciar el
+tablero. Un motor nuevo recuperó las tres marcas, volvió al mapa y entró de
+nuevo en loc18 conservándolas. Esta prueba establece el contrato de guardado;
+la restauración directa de escena y las pruebas de pausa/cierre en dispositivo
+siguen pendientes.
+
+IMPLEMENTADO y probado con la película original en la prueba JVM de la app: el checkpoint existente
+acepta Prime y ejecuta esos handlers periódicamente, al pausar y al salir.
+El guardado real mediante `checkpoint.save()` conserva tres pistas en loc18;
+un runtime nuevo importa ese almacén y confirma las tres marcas antes y después
+de volver a la localización. Se reutilizó el conductor privado existente.
+También pasó el recorrido con `afterFrame()` activo en cada tick, cubriendo
+el guardado periódico. En el caso final se conserva el tablero original con
+`setPlayerPuzzleData(VOID)` y se actualizan pistas, tiempo y demás metadatos.
+La ruta y la clave de bookmark de Huntsville se conservan; Prime no consume
+ese bookmark ni escribe en él. La app y el APK pasan pruebas/compilación.
+Prime restaura por su flujo original desde el menú; falta restaurar directamente
+la escena interrumpida y verificar recreación de la app. La caja de gemas final
+no tiene tablero serializado por el original y conserva su reinicio original.

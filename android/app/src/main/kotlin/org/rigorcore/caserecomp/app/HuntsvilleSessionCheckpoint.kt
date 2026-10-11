@@ -45,10 +45,11 @@ internal class HuntsvilleSessionCheckpoint(
     private val runtime: DirectorRuntime,
     private val store: DirectorStore,
     private val atomic: (() -> Unit) -> Unit,
+    private val primeSuspects: Boolean = false,
     private val onError: (Exception) -> Unit,
 ) {
     companion object { const val KEY = "__case_recomp/huntsville-bookmark-v1" }
-    private var pending = store.get(KEY)?.let { runCatching { HuntsvilleBookmark.decode(it) }.getOrNull() }
+    private var pending = if (primeSuspects) null else store.get(KEY)?.let { runCatching { HuntsvilleBookmark.decode(it) }.getOrNull() }
     private var phase = 0
     private var observedLabel = ""
     private var stableFrames = 0
@@ -83,6 +84,7 @@ internal class HuntsvilleSessionCheckpoint(
     }
 
     fun save() {
+        if (primeSuspects) { savePrimeProgress(); return }
         if (pending != null) return // Never replace the checkpoint with an intermediate boot frame.
         if (label !in listOf("map", "metagame", "mainmenu") && !label.matches(Regex("loc([1-9]|1[0-9]|20)"))) return
         runtime.vm.resetBudget()
@@ -103,6 +105,35 @@ internal class HuntsvilleSessionCheckpoint(
             call(user, "setPlayerPuzzleData", board)
             call("gPrefManager", "updatePrefs")
             store.put(KEY, bookmark.encode())
+        }
+    }
+
+    /** Original handlers serialize Prime's inventory, clocks, hints and puzzle data. */
+    private fun savePrimeProgress() {
+        if (label !in listOf("map", "mainmenu", "casebook", "metagame1", "metagame2", "metagame3", "metagame4") &&
+            !label.matches(Regex("loc([1-9]|[12][0-9])"))) return
+        runtime.vm.resetBudget()
+        val user = global("gUserData") as? LInstance ?: return
+        if (call(user, "getUserName").asText().isEmpty()) return
+        val round = call(user, "getPlayerRoundNum").toInt()
+        if (round !in 1..23) return
+        atomic {
+            if (label.startsWith("loc")) {
+                call(user, "setPlayerLocData", runtime.vm.getObjectProp(global("gLocationManager"), "m_userDataArray"))
+            } else call(user, "setPlayerData", Void)
+            // The final gem box has no native serialized board; preserve its original restart behavior.
+            if (round < 22) {
+                val boardName = when (call(user, "getPlayerMetaGameNum").toInt()) {
+                    1 -> "gMetaGameBoard"; 2 -> "gMemoryGameBoard"; 3 -> "gWordGameBoard"
+                    else -> error("unsupported Prime puzzle type")
+                }
+                var board = runtime.vm.getObjectProp(global(boardName), "m_gameBoardArray")
+                if (boardName == "gWordGameBoard" && board is LList) {
+                    board = LList(board.items.toMutableList().also { it.add(runtime.vm.getObjectProp(global(boardName), "m_storedWordData")) })
+                }
+                call(user, "setPlayerPuzzleData", board)
+            } else call(user, "setPlayerPuzzleData", Void)
+            call("gPrefManager", "updatePrefs")
         }
     }
 
