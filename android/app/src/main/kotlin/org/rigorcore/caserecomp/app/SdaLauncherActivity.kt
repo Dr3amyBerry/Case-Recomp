@@ -43,6 +43,7 @@ class SdaLauncherActivity : Activity() {
     private var audioSession:SdaAudioSession? = null
     private var hostMenu: android.app.Dialog? = null
     private var changingProfile=false
+    private var freshLaunch=false
     private var campaignMusicReady=false
     private var lastMusicRequest:SdaMusicRequest?=null
     private var clock: SdaClock? = null
@@ -67,6 +68,7 @@ class SdaLauncherActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        freshLaunch=savedInstanceState==null
         repository = PrivateSdaRepository(this)
 
         val directPath = intent.getStringExtra(EXTRA_PACKAGE_PATH)
@@ -146,6 +148,8 @@ class SdaLauncherActivity : Activity() {
                     try {
                         val savedState = SdaCampaignState.fromJson(savedCampJson)
                         camp.restore(savedState, sdaContent)
+                        // Like the original, a resumed investigation reopens on the map, not inside the last scene.
+                        if (camp.phase == SdaCampaignPhase.SCENE) camp.toInvestigationMap()
                         Log.i(TAG, "Restored campaign checkpoint at level ${camp.levelIndex + 1}, phase ${camp.phase}")
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed to restore campaign checkpoint; preserving stored save", e)
@@ -173,7 +177,9 @@ class SdaLauncherActivity : Activity() {
                 if(view.visuals!=null) {
                     val initialMenu=if(intent.getBooleanExtra("sda-player-selection",false)) SdaMenuEntry.PLAYER_SELECTION else SdaMenuEntry.MAIN
                     intent.removeExtra("sda-player-selection")
-                    view.post { if(!isFinishing) showResourceMenu(view,initialMenu) }
+                    // Fresh launches play the original GAMESTART splash; recreations (profile switch) go straight to the menu.
+                    if(freshLaunch && initialMenu==SdaMenuEntry.MAIN) view.post { if(!isFinishing) showIntro(view) }
+                    else view.post { if(!isFinishing) showResourceMenu(view,initialMenu) }
                 }
 
             } else {
@@ -238,6 +244,18 @@ class SdaLauncherActivity : Activity() {
         if(request==null) audio.stopMusic() else audio.playMusic(request.stream,request.loop)
     }
 
+    private fun showIntro(view:SdaGameView) {
+        val dialog=android.app.Dialog(this,android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        var done=false
+        val intro=view.visuals?.introView(this) { if(!done) { done=true;dialog.dismiss() } }
+        if(intro==null) { showResourceMenu(view,SdaMenuEntry.MAIN);return }
+        dialog.setContentView(intro)
+        dialog.setCancelable(false)
+        dialog.setOnDismissListener { hostMenu=null;if(!isFinishing && !isDestroyed) showResourceMenu(view,SdaMenuEntry.MAIN) }
+        hostMenu=dialog;dialog.show()
+        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+    }
+
     private fun showResourceMenu(view:SdaGameView,entry:SdaMenuEntry) {
         if(hostMenu?.isShowing==true) return
         view.pauseForMenu()
@@ -276,7 +294,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;view.visibility=View.VISIBLE;if(!changingProfile) { campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
+            dialog.setOnDismissListener { hostMenu=null;if(!changingProfile) { view.visibility=View.VISIBLE;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())

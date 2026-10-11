@@ -68,6 +68,19 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
         if "WORDSEARCH.TXT" in res.entries:
             files_data["WORDSEARCH.TXT"] = res.read("WORDSEARCH.TXT")
 
+        # Startup splash definition; "std:" URIs name distributor files outside Resources.dll and are not packaged.
+        if "GAMESTART.XUI" in res.entries:
+            raw = res.read("GAMESTART.XUI")
+            files_data["GAMESTART.XUI"] = raw
+            for uri in referenced_resources(raw):
+                if uri.startswith("std:") or uri.casefold() in resource_paths:
+                    continue
+                if uri.upper() in res.entries:
+                    files_data[uri] = res.read(uri.upper())
+                    resource_paths.add(uri.casefold())
+                else:
+                    missing_references.add(uri)
+
         # All scenes
         scenes = [k for k in res.entries if k.startswith("SCENE_") and k.endswith(".MSL")]
         # All bonus definitions

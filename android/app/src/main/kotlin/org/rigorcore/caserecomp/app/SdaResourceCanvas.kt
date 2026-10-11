@@ -136,12 +136,20 @@ data class SdaMusicRequest(val stream:String,val loop:Boolean)
 
 interface SdaVisualProfile {
  fun campaignMusic(phase:SdaCampaignPhase):SdaMusicRequest? = null
+ fun introView(context:android.content.Context,onDone:()->Unit):android.view.View? = null
  fun audioSession(context:android.content.Context):SdaAudioSession? = null
  fun menuView(context:android.content.Context,campaign:SdaCampaign?,entry:SdaMenuEntry,audio:SdaAudioSession?=null,onAction:(SdaMenuAction)->Unit):android.view.View? = null
  fun sceneFeedback(found:Boolean):String? = null
  fun collectibleLimit(kind:String):Int = Int.MAX_VALUE
  fun collectibleSound(kind:String):String? = null
  fun collectibleDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? = null
+ fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible):Boolean = false
+ fun collectiblePickSound():String? = null
+ fun meterFillSound():String? = null
+ fun advanceEffects(seconds:Float):List<String> = emptyList()
+ fun drawEffects(canvas:Canvas) {}
+ fun sceneFound(sprite:SdaSprite,gain:Int) {}
+ fun sceneMiss(x:Int,y:Int) {}
  fun hintPolicy():SdaHintPolicy? = null
  fun immediateHintRecharge(context:android.content.Context):Boolean = false
  fun hintRect(campaign:SdaCampaign):Rect? = null

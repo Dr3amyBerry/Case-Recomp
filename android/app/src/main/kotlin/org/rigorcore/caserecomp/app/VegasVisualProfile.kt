@@ -20,6 +20,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val name=musicState.select(mode) ?: return null
   return musicRequests[name]
  }
+ override fun introView(context:android.content.Context,onDone:()->Unit):android.view.View? =
+  if(content.read("GAMESTART.XUI")!=null) VegasIntroView(context,content,onDone) else null
  override fun audioSession(context:android.content.Context):SdaAudioSession {
   val sliders=doc.component("mainoptionsdlg").children.filter { it.type=="slider" }
   val prefs=context.getSharedPreferences("case-recomp-vegas-options",android.content.Context.MODE_PRIVATE)
@@ -41,8 +43,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   return SdaResourceMenuView(context,ui,container,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
    "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
    if(action==confirm) onConfirm()
-  }
+  }.also { it.openDialogSound=::dialogSound }
  }
+ /** XUI leavedialog bindings: the sound played when their overlay container opens. */
+ private fun dialogSound(container:String):String? =
+  doc.nodes("leavedialog").firstOrNull { it.attributes["overlay"]==container }?.attributes?.get("opendialogsfx")
  override fun hintPolicy()=SdaHintPolicy(20f,1.5f,67.5f) // 00426f70 / 00427050.
  override fun immediateHintRecharge(context:android.content.Context)=context.getSharedPreferences("case-recomp-vegas-options",0).getBoolean("rapidhints",false)
  override fun hintRect(campaign:SdaCampaign):Rect? =
@@ -54,13 +59,20 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    "mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright")
   val playerRepository=PrivateSdaRepository(context).apply { configureCampaignSlots(content.gameId) }
   val activePlayer=playerRepository.getActiveProfile()
+  playerName=activePlayer.name
   val portrait="img_mm_id"+activePlayer.avatar.takeIf { it in setOf("generic","male","female") }.orEmpty().ifEmpty { "generic" }
+  // Native main menu choices: continue/start fader by progress, locked/unlocked fader by the 25 keys and 25 chips.
+  val played=campaign!=null && (campaign.levelIndex>0 || campaign.points>0 || campaign.completedObjects>0)
+  val unlimitedOpen=campaign!=null && campaign.collectedCount("key")>=25 && campaign.collectedCount("chip")>=25
+  val faders=setOf(if(played) "levelsplayed" else "levelsstart",if(unlimitedOpen) "unlimitedstart" else "unlimitedlocked")
   val main=doc.component("mainmenuunderlay").let { node ->
+   val unusedFaderLabels=node.children.filter { it.type=="imagefader" && it.attributes["id"] !in faders }.mapNotNull { it.attributes["label"] }.toSet()
    node.copy(children=node.children.filter { child ->
     val id=child.attributes["id"]
     when(child.type) {
-     "image" -> id==null || id in setOf(portrait,"imagelock")
-     "label" -> id !in setOf("recover","unlocked","unlimited")
+     "image" -> id==null || id==portrait || (id=="imagelock" && !unlimitedOpen)
+     "imagefader" -> id in faders
+     "label" -> id!="unlimited" && id !in unusedFaderLabels
      "allbutton" -> id !in setOf("unlimitedbtn","unlimitedspotbtn","disunlimitedspotbtn")
      "quitbutton" -> true
      else -> false
@@ -219,10 +231,52 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    } else if(node==view.checkboxes.getOrNull(1)) campaign?.hintRechargeImmediately=value
   }
   view.onSoundEffect={ audio?.playEffect(it) }
+  view.openDialogSound=::dialogSound
+  view.onDrawOverlay={ canvas,dt -> if(view.screenId=="mainmenuunderlay") logoHighlight.draw(canvas,dt) else false }
+  logoHighlight.shown()
   if(entry==SdaMenuEntry.PLAYER_SELECTION) { show("mainmenuunderlay");showPlayers() } else show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view
  }
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
+ private var playerName=""
+ private var bestRank=1
+ /** Map footer (mpi:playermapdisplay): player, total score, clues found and rank (004189c0 ranks). */
+ private fun playerMapDisplay(canvas:Canvas,campaign:SdaCampaign) {
+  val display=doc.component("playermapdisplay");val ox=display.number("x");val oy=display.number("y")
+  fun put(node:SdaUiNode,text:String) { ui.label(canvas,node,text,x=ox+node.number("x"),y=oy+node.number("y")) }
+  val labels=display.children.filter { it.type=="label" }
+  labels.firstOrNull { it.attributes["id"]=="playernamedisplay" }?.let { put(it,playerName) }
+  labels.firstOrNull { it.attributes["id"]=="totalscoredisplay" }?.let {
+   put(it,doc.resolve(display.attributes.getValue("totalscore"))+String.format(java.util.Locale.US,"%,d",campaign.points))
+  }
+  display.children.firstOrNull { it.attributes["id"]=="playermapdisplay_default" }?.children?.filter { it.type=="label" }?.let { clue ->
+   clue.getOrNull(0)?.let { put(it,doc.resolve(display.attributes.getValue("clues"))) }
+   clue.getOrNull(1)?.let { put(it,"${campaign.levelIndex}/${campaign.levels.size}") }
+  }
+  labels.firstOrNull { it.attributes["caption"]=="@ID_HSCORE_RANK" }?.let { put(it,doc.caption(it)) }
+  bestRank=VegasRankRules.displayed(bestRank,campaign.points,campaign.collectedCount("key"),campaign.collectedCount("chip"))
+  labels.firstOrNull { it.attributes["id"]=="playerrankdisplay" }?.let { put(it,doc.caption(doc.component("rank$bestRank"))) }
+ }
+ /** Main-menu logo glint (0043dc60/0043e1b0/0043df90): 30 s idle (27 s pre-elapsed on the first menu of a
+  *  run), then a 2 s sweep at 0.5*268 px/s over 268 px with alpha (134-|centre-x|)/134*0.85+0.15. */
+ private inner class LogoHighlight {
+  private var first=true;private var state=1;private var timer=27f;private var x=0f;private var direction=1f
+  fun shown() { if(first) first=false else { state=1;timer=0f } }
+  fun draw(canvas:Canvas,dt:Float):Boolean {
+   val node=doc.component("mainmenulogoanim_image");val start=node.number("x").toFloat()
+   timer+=dt
+   if(state==1) { x=start;direction=1f;if(timer>30f) { timer=0f;state=2 };return true }
+   x+=dt*.5f*direction*268f
+   if(x>start+268f) { direction=-direction;x=start+268f }
+   if(x<start) { direction=-direction;x=start }
+   if(timer>2f) { state=1;timer=0f }
+   val alpha=(134f-kotlin.math.abs(start+134f-x))/134f*.85f+.15f
+   val paint=Paint(Paint.FILTER_BITMAP_FLAG).apply { this.alpha=(alpha.coerceIn(0f,1f)*255).toInt() }
+   canvas.drawBitmap(ui.bitmap(node.attributes.getValue("tex")),x,node.number("y").toFloat(),paint)
+   return true
+  }
+ }
+ private val logoHighlight=LogoHighlight()
  private val photos=Paint(Paint.FILTER_BITMAP_FLAG)
  private val tileCanvases=mutableMapOf<String,SdaResourceCanvas>()
  override val returnMapRect get()=ui.rect(doc.component("mapbutton"))
@@ -265,10 +319,16 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    "label" -> ui.label(canvas,node)
   }
  }
- fun drawCollectionMeters(canvas:Canvas,keys:Int,chips:Int) {
-  for((id,top) in listOf("keyfull" to VegasCollectionMeterRules.keyCropTop(keys),"chipsfull" to VegasCollectionMeterRules.chipCropTop(chips))) {
+ fun drawCollectionMeters(canvas:Canvas,keys:Int,chips:Int) = drawCollectionMeters(canvas,keys.toFloat(),chips.toFloat())
+ /** Fractional counts interpolate the native crop rows while a meter fills. */
+ fun drawCollectionMeters(canvas:Canvas,keys:Float,chips:Float) {
+  fun crop(count:Float,rule:(Int)->Int):Int {
+   val low=count.toInt().coerceIn(0,25);val high=minOf(25,low+1);val f=(count-low).coerceIn(0f,1f)
+   return Math.round(rule(low)+(rule(high)-rule(low))*f)
+  }
+  for((id,top) in listOf("keyfull" to crop(keys,VegasCollectionMeterRules::keyCropTop),"chipsfull" to crop(chips,VegasCollectionMeterRules::chipCropTop))) {
    // The chip component starts with a zero-height image until its first count update.
-   if(id=="chipsfull" && chips==0) continue
+   if(id=="chipsfull" && chips<=0f) continue
    val node=doc.component(id);val image=ui.bitmap(node.attributes.getValue("tex"))
    val width=minOf(node.number("w",image.width),image.width)
    if(top>=image.height) continue
@@ -277,16 +337,126 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    canvas.drawBitmap(image,source,destination,null)
   }
  }
+ // Native pickup state machine (0043a0f0/00439f50/0043a4f0): click arms a 1.1 s pulse whose scale bounces
+ // between 0.8 and 1.2 at 3.333*0.4 per second; then 25 frames fade alpha by 0.04 while moving to (75,520);
+ // arrival (00443ea0) bumps the PDA count and cross-fades the small indicator over 1.5 s (00444400).
+ // The native frame step is assumed to be 1/60 s; the gradual meter fill is an Android addition.
+ private class Flight(val kind:String,val bitmap:Bitmap,val x:Int,val y:Int) {
+  var timer=1.1f;var scale=1f;var velocity=1f;var frame=-1;var frameTime=0f
+ }
+ private val flights=mutableListOf<Flight>()
+ private val shownCounts=mutableMapOf<String,Float>()
+ private val meterTargets=mutableMapOf<String,Int>()
+ private val indicatorFade=mutableMapOf<String,Float>()
+ private var effectsScene:String?=null
+ private val nativeFrameSeconds=1f/60f;private val meterFillSeconds=.5f;private val indicatorFadeSeconds=1.5f
+ override fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible):Boolean {
+  val bitmap=item.sprite.image.nativeImage as? Bitmap ?: return false
+  flights+=Flight(item.definition.kind,bitmap,item.sprite.x,item.sprite.y)
+  return true
+ }
+ override fun collectiblePickSound():String? = doc.component("eyespypauseunderlay").attributes["keypickedsfx"]
+ override fun meterFillSound():String? = doc.component("eyespypauseunderlay").attributes["itemfillsfx"]
+ override fun advanceEffects(seconds:Float):List<String> {
+  val landed=mutableListOf<String>()
+  for(f in flights.toList()) {
+   if(f.frame<0) {
+    f.timer-=seconds
+    f.scale+=seconds*3.3333333f*f.velocity*.4f
+    if(f.scale>1.2f) { f.scale=1.2f;f.velocity=-f.velocity }
+    if(f.scale<.8f) { f.scale=.8f;f.velocity=-f.velocity }
+    if(f.timer<=0f) { f.scale=1f;f.frame=0 }
+   } else {
+    f.frameTime+=seconds
+    while(f.frameTime>=nativeFrameSeconds && f.frame<=25) { f.frameTime-=nativeFrameSeconds;f.frame++ }
+    if(f.frame>25) { flights.remove(f);indicatorFade[f.kind]=0f;landed+=f.kind }
+   }
+  }
+  for(kind in indicatorFade.keys.toList()) indicatorFade[kind]=indicatorFade.getValue(kind)+seconds
+  bursts.forEach { it.age+=seconds };floatingPoints.forEach { it.age+=seconds }
+  for((kind,target) in meterTargets) {
+   val shown=shownCounts[kind] ?: target.toFloat()
+   shownCounts[kind]=if(shown>target) target.toFloat() else minOf(target.toFloat(),shown+seconds/meterFillSeconds)
+  }
+  return landed
+ }
+ private fun meterCount(c:SdaCampaign,kind:String):Float {
+  val target=c.collectedCount(kind)-flights.count { it.kind==kind }
+  meterTargets[kind]=target
+  return (shownCounts[kind] ?: target.toFloat().also { shownCounts[kind]=it }).coerceAtMost(target.toFloat())
+ }
+ // Scene click feedback: eyespyanimsucess centred on the found object's bounds (as 00455430 centres it),
+ // eyespyanimwrong centred on a missed click, both at 0.09 s per frame (00454760), and eyespypoints text.
+ // The floating-points rise/fade timing is not recovered and is calibrated here.
+ private class Burst(val id:String,val x:Int,val y:Int,var age:Float=0f)
+ private class FloatingPoints(val text:String,val x:Int,val y:Int,var age:Float=0f)
+ private val bursts=mutableListOf<Burst>()
+ private val floatingPoints=mutableListOf<FloatingPoints>()
+ private val burstFrameSeconds=.09f;private val pointsSeconds=1.2f;private val pointsRise=40f
+ private fun frames(id:String):Int { val n=doc.component(id);val b=ui.bitmap(n.attributes.getValue("tex"));return (b.width/n.number("framew"))*(b.height/n.number("frameh")) }
+ override fun sceneFound(sprite:SdaSprite,gain:Int) {
+  val n=doc.component("eyespyanimsucess")
+  bursts+=Burst("eyespyanimsucess",sprite.x+sprite.image.width/2-n.number("framew")/2,sprite.y+sprite.image.height/2-n.number("frameh")/2)
+  if(gain>0) floatingPoints+=FloatingPoints(String.format(java.util.Locale.US,"+%,d",gain),sprite.x+sprite.image.width/2,sprite.y+sprite.image.height/2)
+ }
+ override fun sceneMiss(x:Int,y:Int) {
+  val n=doc.component("eyespyanimwrong")
+  bursts+=Burst("eyespyanimwrong",x-n.number("framew")/2,y-n.number("frameh")/2)
+ }
+ private fun drawSceneFeedback(canvas:Canvas) {
+  for(b in bursts.toList()) {
+   val n=doc.component(b.id);val frame=(b.age/burstFrameSeconds).toInt()
+   if(frame>=frames(b.id)) { bursts.remove(b);continue }
+   ui.spriteFrame(canvas,ui.bitmap(n.attributes.getValue("tex")),n.number("framew"),n.number("frameh"),frame,b.x,b.y)
+  }
+  val node=doc.component("eyespypoints")
+  for(p in floatingPoints.toList()) {
+   if(p.age>=pointsSeconds) { floatingPoints.remove(p);continue }
+   val t=p.age/pointsSeconds;val opacity=if(t<.6f) 1f else (1f-t)/.4f
+   ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "center","valign" to "middle")),p.text,
+    x=p.x-150,y=(p.y-20-pointsRise*t).toInt(),width=300,height=40,opacity=opacity.coerceIn(0f,1f),clipToBounds=false)
+  }
+ }
+ override fun drawEffects(canvas:Canvas) {
+  drawSceneFeedback(canvas)
+  val paint=Paint(Paint.FILTER_BITMAP_FLAG)
+  for(f in flights) {
+   val w=f.bitmap.width.toFloat();val h=f.bitmap.height.toFloat()
+   if(f.frame<0) {
+    paint.alpha=255
+    canvas.save();canvas.scale(f.scale,f.scale,f.x+w/2,f.y+h/2);canvas.drawBitmap(f.bitmap,f.x.toFloat(),f.y.toFloat(),paint);canvas.restore()
+   } else {
+    val t=f.frame.coerceAtMost(25)/25f
+    paint.alpha=Math.round(255*(25-f.frame).coerceAtLeast(0)*.04f)
+    canvas.drawBitmap(f.bitmap,f.x+(75-f.x)*t,f.y+(520-f.y)*t,paint)
+   }
+  }
+ }
+ private fun sceneIndicators(canvas:Canvas,campaign:SdaCampaign,scene:SdaScene) {
+  if(effectsScene!=scene.name) { effectsScene=scene.name;flights.clear();indicatorFade.clear();bursts.clear();floatingPoints.clear() }
+  // Original art: gold small key/chip once this scene's item is collected, blue while it is still hidden.
+  for((kind,id) in listOf("key" to "smallkey","chip" to "smallchip")) {
+   val collected=scene.collectibles.any { it.definition.kind==kind } &&
+    scene.collectibles.none { it.definition.kind==kind && campaign.collectibleAvailable(it) } && flights.none { it.kind==kind }
+   val fade=indicatorFade[kind]
+   ui.image(canvas,doc.component(id+"disabled"))
+   if(!collected) continue
+   if(fade==null || fade>=indicatorFadeSeconds) ui.image(canvas,doc.component(id))
+   else { canvas.saveLayerAlpha(null,Math.round(255*fade/indicatorFadeSeconds));ui.image(canvas,doc.component(id));canvas.restore() }
+  }
+ }
  private fun base(canvas:Canvas,c:SdaCampaign?,clock:SdaClock?) {
   doc.component("pdacontrol").children.filter { it.type=="image" && it.attributes["id"]==null }.forEach { ui.image(canvas,it) }
   val timer=doc.component("clock")
   // User-requested Android layout: one centered clock line, separated from score.
   compactInfo(canvas,timer,doc.caption(timer)+" "+clock?.text().orEmpty(),timer.number("y")-5)
+  // PDA captions above the two collection meters.
+  doc.component("pdacontrol").children.filter { it.type=="label" && it.attributes["caption"] in setOf("@ID_KEYS","@ID_CHIPS") }.forEach { ui.label(canvas,it) }
   if(c!=null) {
-   drawCollectionMeters(canvas,c.collectedCount("key"),c.collectedCount("chip"))
+   drawCollectionMeters(canvas,meterCount(c,"key"),meterCount(c,"chip"))
    for((kind,id) in listOf("key" to "keyscollected","chip" to "chipscollected")) {
     val label=doc.component(id)
-    ui.label(canvas,label,c.collectedCount(kind).toString()+doc.caption(label))
+    ui.label(canvas,label,(c.collectedCount(kind)-flights.count { it.kind==kind }).toString()+doc.caption(label))
    }
   }
   button(canvas,doc.component("pdadownmenubutton"))
@@ -312,6 +482,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   // Native 0043f580 completes the map crossfade onto goldbackground; render that stable state.
   val background=doc.component("mapunderlay").attributes.getValue("goldbackground")
   ui.image(canvas,doc.component(background),photographic=true);base(canvas,campaign,campaign.clock)
+  playerMapDisplay(canvas,campaign)
   ui.label(canvas,doc.component("mapunderlay").children.single { it.type=="label" && it.attributes["id"]=="mapscreencaption" },doc.resolve(campaign.currentLevel.title))
   for((node,pos) in cards(campaign)) {
    val (x,y)=pos;val a=node.attributes
@@ -350,10 +521,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
   // Scene indicators: lit while this scene still holds an uncollected key/chip, dimmed otherwise.
-  if(campaign!=null) for((kind,id) in listOf("key" to "smallkey","chip" to "smallchip")) {
-   val pending=scene.collectibles.any { it.definition.kind==kind && campaign.collectibleAvailable(it) }
-   ui.image(canvas,doc.component(if(pending) id else id+"disabled"))
-  }
+  if(campaign!=null) sceneIndicators(canvas,campaign,scene)
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
@@ -476,7 +644,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   return SdaResourceMenuView(context,ui,container,listOf("mpi_diag_tleft","mpi_diag_tmid","mpi_diag_tright",
    "mpi_diag_left","mpi_diag_mid","mpi_diag_right","mpi_diag_bleft","mpi_diag_bmid","mpi_diag_bright"),800,600) { action ->
    if(action==expected) onConfirm()
-  }
+  }.also { it.openDialogSound=::dialogSound }
  }
  override fun drawRiddlePlaced(canvas:Canvas,game:SdaPlacementRiddleGame,id:String):Boolean {
   if(game !is SdaSecondRiddleGame) return false

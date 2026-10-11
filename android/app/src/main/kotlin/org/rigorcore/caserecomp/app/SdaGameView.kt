@@ -231,7 +231,7 @@ class SdaGameView(
             }
         }
 
-        visuals?.let { it.drawHud(canvas,camp,scene,clock,isPaused); return }
+        visuals?.let { it.drawHud(canvas,camp,scene,clock,isPaused); it.drawEffects(canvas); return }
 
         // 3. Draw sidebar / HUD at x: 0..142
         canvas.drawRect(0f, 0f, 142f, 600f, sidebarPaint)
@@ -736,13 +736,19 @@ class SdaGameView(
                         val result = camp.clickScene(logicalX, logicalY)
                         when (result) {
                             is SdaClickResult.Found -> {
+                                camp.currentScene?.objects?.get(result.id)?.let { visuals?.sceneFound(it,result.gain) }
                                 onObjectFoundListener?.invoke(result.id, result.gain)
                                 if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE || camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
                                     onSceneCompleteListener?.invoke()
                                 }
                             }
-                            is SdaClickResult.Collected -> onCollectibleFoundListener?.invoke(result.kind)
-                            is SdaClickResult.Miss -> onMissListener?.invoke(result.penalty)
+                            is SdaClickResult.Collected -> {
+                                // Native order: pickup sound now; count, dialog and bonus sound when the item lands in the PDA.
+                                val item=camp.currentScene?.collectibles?.firstOrNull { it.definition.id==result.id }
+                                if(item!=null && visuals?.collectiblePicked(camp,item)==true) visuals?.collectiblePickSound()?.let { onEffectListener?.invoke(it) }
+                                else onCollectibleFoundListener?.invoke(result.kind)
+                            }
+                            is SdaClickResult.Miss -> { visuals?.sceneMiss(logicalX,logicalY);onMissListener?.invoke(result.penalty) }
                             is SdaClickResult.Outside -> {}
                         }
                         invalidate()
@@ -818,6 +824,9 @@ class SdaGameView(
 
     fun step(seconds: Float) {
         if(isPaused) { postInvalidateOnAnimation();return }
+        visuals?.let { v ->
+            for(kind in v.advanceEffects(seconds)) { v.meterFillSound()?.let { onEffectListener?.invoke(it) };onCollectibleFoundListener?.invoke(kind) }
+        }
         val camp = campaign
         if (camp != null) {
             val phaseBefore=camp.phase

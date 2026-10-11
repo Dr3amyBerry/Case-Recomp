@@ -104,18 +104,38 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   if(value!=sliderValue(node)) { setSliderValue(node,value);onSliderValue?.invoke(node,value) }
  }
  override fun onDetachedFromWindow() { onClose?.invoke();super.onDetachedFromWindow() }
+ /** Maps a container id to the XUI opendialogsfx played when it opens. */
+ var openDialogSound:((String)->String?)?=null
+ private fun playOpenSound() { openDialogSound?.invoke(screenId)?.let { onSoundEffect?.invoke(it) } }
+ override fun onAttachedToWindow() { super.onAttachedToWindow();playOpenSound() }
  val screenId get()=container.attributes["id"].orEmpty()
  val labels get()=container.children.filter { it.type=="label" }
  val buttons get()=container.children.filter { (it.type=="allbutton" && it.attributes["value"]!=null) || it.type=="quitbutton" }
  private var background:List<SdaUiNode> = emptyList()
  fun show(node:SdaUiNode,background:List<SdaUiNode> = emptyList()) {
   if(node.children.none { it.type=="editbox" }) hideKeyboard()
-  container=node;this.background=background;listCaptured=null;captured=null;sliderCaptured=null;checkboxCaptured=null;hovered=null;pressed=false;gesturePointer=null;invalidate()
+  val reopened=node.attributes["id"].orEmpty()==screenId
+  container=node;this.background=background;faderAlpha.clear();listCaptured=null;captured=null;sliderCaptured=null;checkboxCaptured=null;hovered=null;pressed=false;gesturePointer=null;invalidate()
+  if(isAttachedToWindow && !reopened) playOpenSound()
  }
  private var captured:SdaUiNode?=null
+ // mpi:imagefader: a label fades toward hotspotalpha while the pointer is over its hotspot, else outeralpha.
+ // The XUI speed (0.2) is applied as 5*speed alpha per second; the native fader update is not recovered.
+ private val faderAlpha=mutableMapOf<SdaUiNode,Float>()
+ private var pointer:Pair<Int,Int>?=null
+ private var lastFrameNanos=0L
+ /** Extra per-screen drawing in container coordinates; returns true while it needs more frames. */
+ var onDrawOverlay:((Canvas,Float)->Boolean)?=null
+ private fun faders()=container.children.filter { it.type=="imagefader" }
+ private fun faderTarget(node:SdaUiNode):Float {
+  val p=pointer
+  val inside=p!=null && Rect(node.number("hotspotx"),node.number("hotspoty"),node.number("hotspotx")+node.number("hotspotw"),node.number("hotspoty")+node.number("hotspoth")).contains(p.first-container.number("x"),p.second-container.number("y"))
+  return (if(inside) node.attributes["hotspotalpha"] else node.attributes["outeralpha"])?.toFloatOrNull() ?: 0f
+ }
  private var pressed=false
  private var gesturePointer:Int?=null
- init { tag="sda-resource-menu";isFocusable=true }
+ // A full-screen focused view would get Android's translucent default focus highlight over the whole menu.
+ init { tag="sda-resource-menu";isFocusable=true;defaultFocusHighlightEnabled=false }
  private fun containerWidth()=container.children.singleOrNull { it.type=="dialogimg" }?.number("w") ?: container.number("w",logicalWidth)
  fun buttonBounds(node:SdaUiNode)=ui.rect(node,containerWidth()).apply { offset(container.number("x"),container.number("y")) }
  override fun onDraw(canvas:Canvas) {
@@ -126,9 +146,20 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   canvas.translate(container.number("x").toFloat(),container.number("y").toFloat())
   val panel=container.children.singleOrNull { it.type=="dialogimg" }
   if(panel!=null) ui.tiledPanel(canvas,panelTextures,Rect(0,0,panel.number("w"),panel.number("h")))
+  val now=System.nanoTime();val dt=if(lastFrameNanos==0L) 0f else ((now-lastFrameNanos)/1e9f).coerceAtMost(.1f);lastFrameNanos=now
+  val faded=container.children.filter { it.type=="imagefader" }.mapNotNull { it.attributes["label"] }.toSet()
+  var animating=false
   for(node in container.children) when(node.type) {
    "image" -> ui.image(canvas,node,photographic=true)
-   "label" -> ui.label(canvas,node,opacity=if(node.attributes["disabled"]=="true") .45f else 1f)
+   "label" -> if(node.attributes["id"] !in faded) ui.label(canvas,node,opacity=if(node.attributes["disabled"]=="true") .45f else 1f)
+   "imagefader" -> {
+    val target=faderTarget(node);val rate=5f*(node.attributes["speed"]?.toFloatOrNull() ?: .2f)
+    val current=faderAlpha[node] ?: target
+    val next=if(current<target) minOf(target,current+rate*dt) else maxOf(target,current-rate*dt)
+    faderAlpha[node]=next;if(next!=target) animating=true
+    val label=container.children.firstOrNull { it.type=="label" && it.attributes["id"]==node.attributes["label"] }
+    if(label!=null && next>0f) ui.label(canvas,label,opacity=next.coerceIn(0f,1f))
+   }
    "checkbox" -> {
     val on=checkboxValue(node)
     val normal=if(on) "texon" else "texoff"
@@ -169,12 +200,16 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
    canvas.drawBitmap(cursor,(node.number("x")+ui.textWidth(font,edited)-offset).toFloat(),(node.number("y")+(node.number("h")-cursor.height)/2).toFloat(),null)
    canvas.restore()
   }
+  onDrawOverlay?.let { if(it(canvas,dt)) animating=true }
   canvas.restore()
+  if(animating) postInvalidateOnAnimation() else lastFrameNanos=0L
  }
  override fun onHoverEvent(event:MotionEvent):Boolean {
   val scale=minOf(width/logicalWidth.toFloat(),height/logicalHeight.toFloat());if(scale<=0f) return false
   val x=((event.x-(width-logicalWidth*scale)/2)/scale).toInt()
   val y=((event.y-(height-logicalHeight*scale)/2)/scale).toInt()
+  pointer=if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) null else x to y
+  if(faders().isNotEmpty()) invalidate()
   val next=if(event.actionMasked==MotionEvent.ACTION_HOVER_EXIT) null else
    buttons.firstOrNull { enabled(it) && buttonBounds(it).contains(x,y) } ?: sliders.firstOrNull { enabled(it) && sliderKnobBounds(it).contains(x,y) } ?: checkboxes.firstOrNull { enabled(it) && checkboxBounds(it).contains(x,y) }
   if(next!=hovered) { hovered=next;next?.attributes?.get("sfxrollover")?.let { onSoundEffect?.invoke(it) };invalidate() }
@@ -195,6 +230,7 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
   val y=((event.getY(index)-(height-logicalHeight*scale)/2)/scale).toInt()
   when(event.actionMasked) {
    MotionEvent.ACTION_DOWN -> {
+    pointer=x to y
     listCaptured=rowAt(x,y)
     if(editBounds()?.contains(x,y)==true) { requestFocus();(context.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).showSoftInput(this,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT) }
     sliderCaptured=sliders.firstOrNull { enabled(it) && sliderKnobBounds(it).contains(x,y) }
@@ -202,9 +238,10 @@ class SdaResourceMenuView(context:Context,private val ui:SdaResourceCanvas,
     sliderCaptured?.let { sliderGrab=x-sliderKnobBounds(it).left;sliderInitial=sliderValue(it);it.attributes["clicknobsfx"]?.let { sound -> onSoundEffect?.invoke(sound) } }
     captured=if(sliderCaptured==null && checkboxCaptured==null) buttons.firstOrNull { enabled(it) && buttonBounds(it).contains(x,y) } else null;pressed=captured!=null || checkboxCaptured!=null
    }
-   MotionEvent.ACTION_MOVE -> { sliderCaptured?.let { updateSlider(it,x) };pressed=checkboxCaptured?.let { checkboxBounds(it).contains(x,y) } ?: captured?.let { buttonBounds(it).contains(x,y) } ?: false }
-   MotionEvent.ACTION_CANCEL -> { listCaptured=null;sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null }
+   MotionEvent.ACTION_MOVE -> { pointer=x to y;sliderCaptured?.let { updateSlider(it,x) };pressed=checkboxCaptured?.let { checkboxBounds(it).contains(x,y) } ?: captured?.let { buttonBounds(it).contains(x,y) } ?: false }
+   MotionEvent.ACTION_CANCEL -> { pointer=null;listCaptured=null;sliderCaptured?.let { setSliderValue(it,sliderInitial);onSliderValue?.invoke(it,sliderInitial) };sliderCaptured=null;checkboxCaptured=null;captured=null;pressed=false;gesturePointer=null }
    MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP -> {
+    if(event.getToolType(index)!=MotionEvent.TOOL_TYPE_MOUSE) pointer=null
     gesturePointer=null
     val chosen=listCaptured?.takeIf { it==rowAt(x,y) };listCaptured=null
     if(chosen!=null) { selectedRow=listRows[chosen].id;onListSelection?.invoke(selectedRow!!);performClick() }
