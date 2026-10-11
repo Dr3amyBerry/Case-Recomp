@@ -165,6 +165,10 @@ class SdaLauncherActivity : Activity() {
                 audioSession=view.visuals?.audioSession(this)
                 wireViewCallbacks(view, sdaContent)
                 gameView = view
+                if(view.visuals!=null) {
+                    // Startup opens on the menu: keep the paused scene hidden until the menu is dismissed.
+                    view.pauseForMenu();view.visibility=View.INVISIBLE
+                }
                 setContentView(view)
                 if(view.visuals!=null) {
                     val initialMenu=if(intent.getBooleanExtra("sda-player-selection",false)) SdaMenuEntry.PLAYER_SELECTION else SdaMenuEntry.MAIN
@@ -272,7 +276,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setContentView(nativeMenu)
             dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
             dialog.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            dialog.setOnDismissListener { hostMenu=null;if(!changingProfile) { campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
+            dialog.setOnDismissListener { hostMenu=null;view.visibility=View.VISIBLE;if(!changingProfile) { campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
             dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
@@ -280,7 +284,7 @@ class SdaLauncherActivity : Activity() {
             val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
                 .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
                     if(item==1) { autoSave();finish() }
-                }.setOnDismissListener { hostMenu=null;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } }.create()
+                }.setOnDismissListener { hostMenu=null;view.visibility=View.VISIBLE;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } }.create()
             hostMenu=fallback;fallback.show()
         }
     }
