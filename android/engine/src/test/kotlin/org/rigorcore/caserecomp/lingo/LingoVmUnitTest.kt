@@ -11,6 +11,13 @@ import org.rigorcore.caserecomp.lingo.LingoValue.LSymbol
 import kotlin.random.Random
 
 class LingoVmUnitTest {
+    @Test fun nonempty_strings_are_true_without_numeric_coercion() {
+        org.junit.Assert.assertTrue(LingoValue.LString("mem_59_2").isTruthy())
+        org.junit.Assert.assertTrue(LingoValue.LString("0").isTruthy())
+        org.junit.Assert.assertFalse(LingoValue.LString("").isTruthy())
+        org.junit.Assert.assertFalse(LingoValue.LInt(0).isTruthy())
+        org.junit.Assert.assertFalse(LingoValue.Void.isTruthy())
+    }
     private val names = mutableListOf<String>()
     private fun asm() = Asm(names)
     private fun Asm.ret(argCount: Int = 1) = op(0x43, argCount).named(0x57, "return").op(0x01)

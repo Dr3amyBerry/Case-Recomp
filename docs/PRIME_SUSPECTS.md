@@ -60,6 +60,17 @@ IMPLEMENTADO y PROBADO mediante pruebas sintéticas y recorrido privado:
 - Coerción numérica de referencias de sprite a su canal, necesaria para
   expresiones como `spriteRef + 1`; contrastada con LibreShockwave.
 - Propiedad universal `.ilk`, incluyendo referencias de cast vacías.
+- Verdad booleana de textos: un texto no vacío es verdadero, incluso `"0"`.
+  Contrastado con `Datum::boolValue()` de LibreShockwave. La conversión numérica
+  anterior interpretaba como falsas las fichas de memoria y saltaba el caso 2.
+- `image.setAlpha()` numérico o con máscara de ocho bits y `extractAlpha()`.
+  Pruebas sintéticas cubren RGB conservado, máscara, tamaños y profundidad.
+  El recorrido original ya inicializa la escena de linterna de loc14; falta
+  verificar visualmente el efecto y el uso de su batería.
+  Las máscaras grises extraídas conservan la transparencia parcial y RGB;
+  los valores escalares se limitan a 0–255. Para máscaras de color se usa su
+  canal azul, mientras LibreShockwave usa luminancia y heurísticas de polaridad.
+  Ese caso requiere contraste con Windows antes de afirmar fidelidad completa.
 - Transparencia de fondo (ink 36) en formas blancas, igual que en bitmaps.
 - El lector Score conserva referencias a miembros no estirados con tamaños
   cero. El renderizador existente obtiene el tamaño natural del bitmap.
@@ -87,8 +98,45 @@ el Launcher recibe el título seleccionado y lo conserva al recrearse.
 La suite de la app y la compilación del APK pasaron; la revisión no encontró
 defectos bloqueantes. Falta verificar este flujo en un dispositivo.
 El recorrido JVM también recoge las ocho pistas de loc18 sin penalizaciones.
-NO VERIFICADO: portada en dispositivo, restauración de una partida de Prime,
-todos los casos, puzles y desenlace.
+PROBADO en JVM: cerrar el aviso original de localización completada devuelve
+al mapa y guarda las ocho pistas mediante los handlers originales. Un motor
+nuevo, inicializado solo con ese almacén exportado, reconoce al jugador,
+recupera las ocho marcas del inventario y vuelve al mapa al pulsar Jugar.
+El contador temporal `m_itemsFound` no representa el inventario persistido;
+la comprobación consulta las marcas originales de loc18. Los comandos y
+guardados privados se mantuvieron fuera de Git. Para estos recorridos se
+fuerza la ejecución de Gradle: sus entradas no incluyen los comandos externos.
+NO VERIFICADO: portada en dispositivo, guardado al interrumpir una localización,
+restauración en Android, todos los casos, puzles y desenlace.
+
+PROBADO en JVM para el primer caso: tras restaurar loc18, el recorrido completa
+las ocho pistas de loc1 y alcanza las seis necesarias de loc7 (22 en total).
+El aviso original conduce a `metagame1`. El conductor privado existente resuelve
+el tablero por clics, incluido el tutorial, y el handler original devuelve
+`getPuzzleCompleted() = 1` después de 39 intercambios. Se conservan capturas
+privadas. El conductor permite elegir el canal del diálogo de Prime (572),
+manteniendo el valor anterior de Huntsville (275); no se modificó el motor
+para forzar la solución ni se alteró directamente el estado del tablero.
+La secuencia posterior al puzle termina y el botón original Siguiente inicia
+el segundo caso: `getPlayerRoundNum() = 2`, inventario nuevo y tablero de memoria.
+Se exportó el almacén original y otro motor restauró el caso 2, mostró su
+presentación y alcanzó su mapa mediante Investigar. El cierre del primer caso
+y esta transición están probados en JVM; el puzle de memoria sigue pendiente.
+Al ampliar el caso 2 apareció el salto indebido al caso 3 causado por la verdad
+de textos. Tras corregirlo, la búsqueda conserva el caso 2 y alcanza loc14.
+El conductor ya recoge la batería por clic en el sprite original 158 y completa
+la búsqueda del caso 2, incluida loc14. Se verifican `getPlayerRoundNum() = 2`,
+`getPlayerMetaGameNum() = 2` y entrada a `metagame2` (frame 258).
+El conductor empareja las fichas mediante clics y el getter original confirma
+`gMemoryGameBoard.getPuzzleCompleted() = 1`. Se renderizó e inspeccionó la
+captura privada posterior, con la foto y el rótulo INOCENTE. Al cerrar el aviso
+había una ficha seleccionada: el conductor respeta esa selección y comienza
+por su pareja. Queda pendiente contrastar la entrega del clic del aviso con
+Windows. Las suites completas de motor y app y la compilación del APK pasaron
+tras las correcciones de texto y alpha.
+El tablero de memoria del caso 2 también termina su secuencia posterior:
+Siguiente inicia el caso 3 (`getPlayerRoundNum() = 3`) y se alcanza su mapa.
+El almacén original de ese mapa se exportó para continuar la verificación.
 
 ## Verificación y siguientes bloques
 

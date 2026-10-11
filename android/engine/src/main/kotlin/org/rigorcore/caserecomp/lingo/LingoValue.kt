@@ -75,12 +75,12 @@ fun LingoValue.toDouble(): Double = when (this) {
     else -> throw LingoError("expected a number, got ${ilkOf()}")
 }
 
-/** Lingo truth: only numbers can be tested; VOID is false. */
+/** Numeric zero, empty text and VOID are false; nonempty text is true. */
 fun LingoValue.isTruthy(): Boolean = when (this) {
     is LingoValue.LInt -> value != 0
     is LingoValue.LFloat -> value != 0.0
     LingoValue.Void -> false
-    is LingoValue.LString -> value.isNotEmpty() && toDouble() != 0.0
+    is LingoValue.LString -> value.isNotEmpty()
     else -> true
 }
 

@@ -67,6 +67,24 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
     }
 
     override fun call(method: String, args: List<LingoValue>): LingoValue? = when (method.lowercase()) {
+        "setalpha" -> {
+            val value = args.firstOrNull()
+            if (depth != 32 || value == null || (value is LingoImage &&
+                    (value.depth != 8 || value.width != width || value.height != height))) LingoValue.FALSE
+            else {
+                val level = if (value is LingoImage) 0 else value.toInt().coerceIn(0, 255)
+                for (i in pixels.indices) {
+                    val alpha = if (value is LingoImage) value.pixels[i] and 255 else level
+                    pixels[i] = (pixels[i] and 0xffffff) or (alpha shl 24)
+                }
+                useAlpha = true
+                LingoValue.TRUE
+            }
+        }
+        "extractalpha" -> LingoImage(width, height, 8, IntArray(pixels.size) { i ->
+            val alpha = if (depth == 32) pixels[i] ushr 24 else 255
+            (0xff shl 24) or (alpha * 0x010101)
+        }).also { it.useAlpha = false }
         "fill" -> {
             val (rect, color) = if (args.size >= 5) intRect(LRect(args[0], args[1], args[2], args[3])) to args[4]
                 else intRect(args.getOrElse(0) { rectValue() }) to args.getOrElse(1) { Void }

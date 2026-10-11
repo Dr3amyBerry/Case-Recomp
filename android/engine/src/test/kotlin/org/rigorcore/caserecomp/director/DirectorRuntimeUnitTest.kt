@@ -31,6 +31,32 @@ import kotlin.random.Random
  * on frames 3-4; castLib 2 starts empty and can load "content.cct".
  */
 class DirectorRuntimeUnitTest {
+    @Test fun image_alpha_can_be_set_extracted_and_restored_without_changing_rgb() {
+        val image = LingoImage(2, 1, 32, intArrayOf(0x12345678, 0x7fabcdef))
+        assertEquals(LingoValue.TRUE, image.call("setAlpha", listOf(LInt(255))))
+        assertEquals(0xff345678.toInt(), image.pixels[0])
+        val mask = image.call("extractAlpha", emptyList()) as LingoImage
+        assertEquals(8, mask.depth)
+        assertFalse(mask.useAlpha)
+        mask.pixels[0] = 0xff404040.toInt()
+        assertEquals(LingoValue.TRUE, image.call("setAlpha", listOf(mask)))
+        assertEquals(0x40345678, image.pixels[0])
+        assertEquals(0xffabcdef.toInt(), image.pixels[1])
+        assertEquals(LingoValue.FALSE, image.call("setAlpha", listOf(LingoImage(1, 1, 8))))
+        assertEquals(LingoValue.FALSE, LingoImage(2, 1, 8).call("setAlpha", listOf(LInt(255))))
+    }
+    @Test fun image_alpha_roundtrip_preserves_partial_opacity_and_scalar_values_are_clamped() {
+        val original = intArrayOf(0x00345678, 0x40abcdef, 0xff123456.toInt())
+        val image = LingoImage(3, 1, 32, original.copyOf())
+        val mask = image.call("extractAlpha", emptyList()) as LingoImage
+        assertEquals(0xff404040.toInt(), mask.pixels[1])
+        image.call("setAlpha", listOf(LInt(-1)))
+        assertTrue(image.pixels.all { it ushr 24 == 0 })
+        image.call("setAlpha", listOf(mask))
+        org.junit.Assert.assertArrayEquals(original, image.pixels)
+        image.call("setAlpha", listOf(LInt(256)))
+        assertTrue(image.pixels.all { it ushr 24 == 255 })
+    }
     private val names = mutableListOf<String>()
     private fun asm() = Asm(names)
     private fun handler(name: String, code: Asm, args: List<String> = listOf("me")) = LingoHandler(name, args, emptyList(), code.bytes())
