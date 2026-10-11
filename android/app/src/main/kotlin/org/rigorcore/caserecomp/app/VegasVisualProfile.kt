@@ -297,7 +297,12 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val played=scorePrefs?.getStringSet("rows",emptySet()).orEmpty().mapNotNull { row ->
    runCatching { org.json.JSONObject(row).let { o -> SdaUiNode("hscorerow",o.keys().asSequence().associateWith { o.getString(it) },emptyList()) } }.getOrNull()
   }
-  return (defaults+played).sortedByDescending { it.attributes["score"]?.toLongOrNull() ?: 0L }
+  // Observed on the original: highscore.mse also lists each player with the current investigation score.
+  val current=investigationStatus?.let { st ->
+   SdaUiNode("hscorerow",mapOf("name" to st.player,"score" to st.points.toString(),"rank" to VegasRankRules.displayed(1,st.points,st.keys,st.chips).toString(),
+    "time" to "0","keys" to st.keys.toString(),"chips" to st.chips.toString(),"fingerprints" to "0"),emptyList())
+  }
+  return (defaults+played+listOfNotNull(current)).sortedByDescending { it.attributes["score"]?.toLongOrNull() ?: 0L }
  }
  override fun campaignCompleted(context:android.content.Context,campaign:SdaCampaign) {
   val prefs=context.getSharedPreferences("case-recomp-vegas-scores",android.content.Context.MODE_PRIVATE)
