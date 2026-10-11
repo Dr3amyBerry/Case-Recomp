@@ -35,6 +35,8 @@ local-output/
 *.mp3
 *.wav
 *.png
+# The launcher icon is project art rendered from case_recomp_icon.svg, not game media.
+!android/app/src/main/res/mipmap-*/ic_launcher.png
 *.jpg
 *.jpeg
 manifest.json
