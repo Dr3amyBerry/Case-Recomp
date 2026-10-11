@@ -17,6 +17,9 @@ import org.rigorcore.caserecomp.director.DirectorEnvironment
 import org.rigorcore.caserecomp.director.DirectorRuntime
 import org.rigorcore.caserecomp.director.StageRenderer
 import org.rigorcore.caserecomp.director.StandardXtras
+import org.rigorcore.caserecomp.lingo.LingoValue.LInstance
+import org.rigorcore.caserecomp.lingo.LingoValue.LInt
+import org.rigorcore.caserecomp.lingo.isTruthy
 import java.io.File
 
 /**
@@ -203,13 +206,20 @@ class DirectorLauncherActivity : Activity() {
         try {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
             val store = AndroidDirectorStore(this, DirectorPresentationProfiles.storeId(loaded, file.nameWithoutExtension))
-            pendingSave?.let { name -> importSave(store, name); store.remove(HuntsvilleSessionCheckpoint.KEY); pendingSave = null }
+            pendingSave?.let { name ->
+                importSave(store, name)
+                store.remove(HuntsvilleSessionCheckpoint.KEY)
+                store.remove(HuntsvilleSessionCheckpoint.PRIME_KEY)
+                store.remove(PrimeGemCheckpoint.KEY)
+                store.remove(HuntsvilleSessionCheckpoint.PRIME_POINTER_KEY)
+                pendingSave = null
+            }
             val profile = DirectorPresentationProfiles.resolve(loaded)
             val text = AndroidDirectorText(profile.text)
             val output = AndroidDirectorSound(this, loaded)
             output.pauseAll() // Session loading may finish while the Activity is in the background.
             try {
-                val movie = loaded.movie
+                val movie = PrimeSceneRepairs.apply(loaded.movie, DirectorPresentationProfiles.titleId(loaded))
                 // Original-game FileIO/Buddy API probes must find bundled casts with a realistic size.
                 val xtras = StandardXtras(store, castFileSize = loaded::castFileSize,
                     bundledFile = loaded::file, moviePath = "C:\\CaseRecomp\\")
@@ -233,7 +243,8 @@ class DirectorLauncherActivity : Activity() {
                 val display = resources.displayMetrics
                 val fit = minOf(display.widthPixels.toFloat() / movie.stageWidth, display.heightPixels.toFloat() / movie.stageHeight)
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
-                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges)
+                val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges,
+                    matteWhiteTolerance = profile.matteWhiteTolerance)
                 val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES || titleId == DirectorPresentationProfiles.PRIME_ID)
                     HuntsvilleSessionCheckpoint(runtime, store, store::atomically,
                         primeSuspects = titleId == DirectorPresentationProfiles.PRIME_ID) { Log.w(TAG, "checkpoint failed", it) } else null
@@ -255,9 +266,22 @@ class DirectorLauncherActivity : Activity() {
         checkpoint = session.checkpoint
         val newStage = DirectorStageView(this, session.runtime, session.renderer)
         stage = newStage
+        val flashlight = if (session.titleId == "prime_suspects") PrimeFlashlight(session.runtime, session.renderer) { newStage.pointerPresent } else null
+        val lens = if (flashlight != null) PrimeLensPosition() else null
+        var lensPoint: Pair<Int, Int>? = null
+        var lensDialogWasUp = false
+        newStage.idlePointerAt = { lensPoint }
+        val focusButton = flashlight?.let { adapter -> Button(this).apply {
+            text = "Prender foco"
+            alpha = 0.7f
+            visibility = android.view.View.GONE
+            setOnClickListener { adapter.press() }
+        } }
+        newStage.onPausePresentation = { flashlight?.pause() }
+        if (flashlight != null) newStage.idlePointer = -session.runtime.movie.stageWidth to -session.runtime.movie.stageHeight
         newStage.onQuit = { exitWithSave() }
-        val options = if (session.profile == DirectorPresentationProfiles.HUNTSVILLE_ES)
-            HuntsvilleOptions(session.runtime) {
+        val options = if (session.profile == DirectorPresentationProfiles.HUNTSVILLE_ES || session.titleId == DirectorPresentationProfiles.PRIME_ID)
+            HuntsvilleOptions(session.runtime, primeSuspects = session.titleId == DirectorPresentationProfiles.PRIME_ID) {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(HuntsvilleOptions.SUPPORT_URL)))
                 } catch (_: android.content.ActivityNotFoundException) {
@@ -266,7 +290,32 @@ class DirectorLauncherActivity : Activity() {
             } else null
         newStage.drawStageOverlay = options?.let { adapter -> { canvas -> adapter.draw(canvas) } }
         newStage.stageActionAt = options?.let { adapter -> { x, y -> adapter.actionAt(x, y) } }
-        newStage.afterFrame = { options?.afterFrame(); checkpoint?.afterFrame() }
+        newStage.afterFrame = {
+            options?.afterFrame(); checkpoint?.afterFrame()
+            flashlight?.afterFrame()
+            if (lens != null) {
+                val rt = session.runtime
+                val visor = rt.sprite(154).instances.firstOrNull { it.script.name.equals("xray device sprite script", true) }
+                checkpoint?.takeRestoredPointer()?.let { point ->
+                    if (visor != null) { lens.restore(visor, point); rt.mouseMove(point.first, point.second) }
+                }
+                val game = rt.vm.global("gGameManager") as? LInstance
+                val dialogUp = game?.let { rt.vm.callMethod(it, "getBoolDialogUp", listOf(it)) }
+                    ?.isTruthy() == true
+                val acceptPosition = !dialogUp && !lensDialogWasUp
+                lensPoint = lens.update(visor, if (acceptPosition) rt.mouseX else -1, if (acceptPosition) rt.mouseY else -1)
+                lensDialogWasUp = visor != null && dialogUp
+                lensPoint?.let { (x, y) ->
+                    if (rt.mouseX != x || rt.mouseY != y) rt.mouseMove(x, y)
+                    // Keep the original device visible even while its battery is unpowered.
+                    // Power, portal visibility and item collection remain native decisions.
+                    rt.sprite(154).setProp("locH", LInt(x + 21))
+                    rt.sprite(154).setProp("locV", LInt(y + 104))
+                }
+            }
+            focusButton?.visibility = if (flashlight?.visible == true) android.view.View.VISIBLE else android.view.View.GONE
+            focusButton?.isEnabled = flashlight?.enabled() == true
+        }
         newStage.onRuntimeError = { error ->
             newStage.pauseFrames()
             Log.e(TAG, "Director runtime paused", error)
@@ -283,6 +332,7 @@ class DirectorLauncherActivity : Activity() {
                 alpha = 0.7f
                 setOnClickListener { newStage.showKeyboard() }
             })
+            focusButton?.let { addView(it) }
             addView(Button(this@DirectorLauncherActivity).apply {
                 text = "Salir"
                 alpha = 0.7f
@@ -321,8 +371,16 @@ class DirectorLauncherActivity : Activity() {
     }
 
     private fun exitWithSave() {
-        try { runtime?.requestWindowClose(); checkpoint?.save(); finish() }
+        stage?.pauseFrames()
+        playbackClock?.pause()
+        try {
+            checkpoint?.save()
+            runtime?.requestWindowClose()
+            startActivity(Intent(this, HomeActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finish()
+        }
         catch (e: Exception) {
+            if (activityResumed) { playbackClock?.resume(); stage?.resumeFrames() }
             Log.e(TAG, "cannot save before exit", e)
             Toast.makeText(this, "No se pudo guardar. Intenta salir de nuevo.", Toast.LENGTH_LONG).show()
         }

@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DirectorSessionPersistenceUnitTest {
+    @Test fun prime_bookmarks_preserve_scene_and_all_puzzle_labels_without_affecting_huntsville() {
+        for (label in listOf("loc29", "metagame1", "metagame2", "metagame3", "metagame4", "casebook")) {
+            val bookmark = HuntsvilleBookmark("a".repeat(64), 1, 22, label, 543000, 87000, 0, primeSuspects = true)
+            assertEquals(bookmark, HuntsvilleBookmark.decode(bookmark.encode(), primeSuspects = true))
+            assertThrows(RuntimeException::class.java) { HuntsvilleBookmark.decode(bookmark.encode()) }
+        }
+    }
     @Test fun session_clock_excludes_background_time_without_resetting_playback_time() {
         var wall = 1000L
         val clock = DirectorSessionClock { wall }

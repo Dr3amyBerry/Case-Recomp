@@ -11,12 +11,17 @@ import org.rigorcore.caserecomp.lingo.LingoValue.*
 import org.rigorcore.caserecomp.lingo.isTruthy
 import org.rigorcore.caserecomp.lingo.toInt
 
-/** Applied only after the verified Huntsville profile has been selected. */
-internal class HuntsvilleOptions(private val runtime: DirectorRuntime, private val support: () -> Unit) {
+/** Shared support button; volume calibration remains exclusive to Huntsville. */
+internal class HuntsvilleOptions(
+    private val runtime: DirectorRuntime,
+    private val primeSuspects: Boolean = false,
+    private val support: () -> Unit,
+) {
     private fun LInstance.property(name: String): LingoValue? = properties.entries.firstOrNull { it.key.equals(name, true) }?.value
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     fun afterFrame() {
+        if (primeSuspects) return
         val manager = runtime.vm.global("gSoundManager") as? LInstance ?: return
         for ((property, method) in listOf("m_musicVolume" to "setMusicVolume", "m_effectsVolume" to "setEffectsVolume")) {
             val raw = manager.property(property)?.toInt() ?: continue
@@ -54,14 +59,14 @@ internal class HuntsvilleOptions(private val runtime: DirectorRuntime, private v
     }
 
     private fun supportBounds(): RectF? {
-        val button = runtime.sprite(263)
+        val button = runtime.sprite(if (primeSuspects) 558 else 263)
         if (!button.visible || button.instances.none { it.script.name.equals("fullscreen button script", true) }) return null
         val bounds = button.bounds()
         if (bounds[0] !in 0 until runtime.movie.stageWidth || bounds[1] !in 0 until runtime.movie.stageHeight) return null
         val game = runtime.vm.global("gGameManager") as? LInstance ?: return null
         val dialog = game.properties.values.filterIsInstance<LInstance>().firstOrNull { it.script.name.equals("dialog_options", true) }
         if (dialog?.property("m_boolHelpDisplayed")?.isTruthy() == true) return null
-        val check = runtime.sprite(266).bounds()
+        val check = runtime.sprite(if (primeSuspects) 561 else 266).bounds()
         return RectF(minOf(bounds[0], check[0]).toFloat(), minOf(bounds[1], check[1]).toFloat(),
             maxOf(bounds[2], check[2]).toFloat(), maxOf(bounds[3], check[3]).toFloat())
     }

@@ -401,7 +401,7 @@ class HomeActivity : Activity() {
             })
             return card
         }
-        card.addView(actionButton(if (imported) "Jugar" else "Importar", primary = true) {
+        card.addView(actionButton(if (!imported) "Importar" else if (repository.hasResume(this, game.id)) "Continuar" else "Jugar", primary = true) {
             if (imported) play(game.id) else selectZip(game.id)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         if (imported) {

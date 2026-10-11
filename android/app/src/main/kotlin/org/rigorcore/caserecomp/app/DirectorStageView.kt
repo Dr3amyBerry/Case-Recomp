@@ -65,6 +65,12 @@ internal class DirectorStageView(
     /** Lingo `quit`/`halt`: the title asked to close. */
     var onQuit: (() -> Unit)? = null
     var afterFrame: (() -> Unit)? = null
+    var onPausePresentation: (() -> Unit)? = null
+    /** Prime's large light portal needs a fully off-stage position, not (-1,-1). */
+    var idlePointer: Pair<Int, Int>? = null
+    var idlePointerAt: (() -> Pair<Int, Int>?)? = null
+    private var mouseHover = false
+    val pointerPresent: Boolean get() = down || mouseHover
     var drawStageOverlay: ((Canvas) -> Unit)? = null
     var stageActionAt: ((Int, Int) -> (() -> Unit)?)? = null
     private var pendingStageAction: (() -> Unit)? = null
@@ -103,6 +109,7 @@ internal class DirectorStageView(
 
     fun pauseFrames() {
         active = false
+        onPausePresentation?.invoke()
         removeCallbacks(advance)
     }
 
@@ -171,7 +178,11 @@ internal class DirectorStageView(
      */
     private var pendingDown: Pair<Int, Int>? = null
     private val deliverDown = Runnable { pendingDown?.let { (x, y) -> input { pressAt(x, y) } } }
-    private val liftPointer = Runnable { input { runtime.mouseMove(-1, -1) } }
+    private fun parkPointer() {
+        val point = idlePointerAt?.invoke() ?: idlePointer ?: (-1 to -1)
+        runtime.mouseMove(point.first, point.second)
+    }
+    private val liftPointer = Runnable { input { parkPointer() } }
 
     private fun pressAt(x: Int, y: Int) {
         pendingDown = null
@@ -209,6 +220,7 @@ internal class DirectorStageView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val point = viewport.stagePoint(event.x, event.y, width, height)
         val mouse = event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE
+        if (!mouse) mouseHover = false
         return when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (point == null) return false
@@ -242,9 +254,10 @@ internal class DirectorStageView(
                     pendingDown?.let { (x, y) -> pressAt(x, y) }
                     // An out-of-stage release still reaches mouseUpOutside through hit-testing.
                     runtime.mouseUp(point?.first ?: -1, point?.second ?: -1)
+                    if (!mouse && idlePointer != null) parkPointer()
                 }
                 performClick()
-                if (!mouse) postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+                if (!mouse && idlePointer == null) postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
                 handled
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -253,8 +266,11 @@ internal class DirectorStageView(
                 val pressed = down && pendingDown == null
                 pendingDown = null
                 down = false
-                postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
-                input { if (pressed) runtime.mouseUp(-1, -1) }
+                if (idlePointer == null) postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+                input {
+                    if (pressed) runtime.mouseUp(-1, -1)
+                    if (idlePointer != null) parkPointer()
+                }
             }
             else -> false
         }
@@ -264,12 +280,13 @@ internal class DirectorStageView(
     override fun onHoverEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_HOVER_ENTER, MotionEvent.ACTION_HOVER_MOVE -> {
+                mouseHover = true
                 removeCallbacks(liftPointer)
                 val point = viewport.stagePoint(event.x, event.y, width, height)
-                input { runtime.mouseMove(point?.first ?: -1, point?.second ?: -1) }
+                input { if (point == null) parkPointer() else runtime.mouseMove(point.first, point.second) }
             }
             // Also sent when a button is pressed; the following down cancels the lift.
-            MotionEvent.ACTION_HOVER_EXIT -> postDelayed(liftPointer, TOUCH_LIFT_MILLIS)
+            MotionEvent.ACTION_HOVER_EXIT -> { mouseHover = false; postDelayed(liftPointer, TOUCH_LIFT_MILLIS) }
             else -> return super.onHoverEvent(event)
         }
         return true

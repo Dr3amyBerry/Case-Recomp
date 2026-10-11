@@ -242,3 +242,246 @@ su almacén original de prueba; las tres pistas de loc18 se conservaron después
 de `ActivityScenario.recreate()` (prueba pasada, 4,599 s). La transición explícita
 a CREATED se atascó en la Activity auxiliar de WSA y se retiró del conductor;
 no se cuenta como prueba de pausa completa. No se borraron datos de Huntsville.
+
+## Bot local Android
+
+`tools/prime_android_qa.py` ejecuta por ADB los 22 casos con entradas táctiles,
+getters originales y esperas acotadas. Reutiliza el puente Director y los
+algoritmos del conductor privado: búsqueda, permuta, memoria y grafo de gemas.
+Necesita el APK debug actualizado, WSA/dispositivo conectado y un guardado
+privado del caso 1. Ese guardado sustituye el progreso Prime de prueba; los
+otros títulos se comparan antes/después, incluso cuando el recorrido falla.
+
+Desde PowerShell, en la raíz del repositorio:
+
+```powershell
+$prime = Join-Path $env:LOCALAPPDATA 'Temp/case-recomp-prime-suspects'
+python tools/prime_android_qa.py --adb C:/platform-tools/adb.exe --serial 127.0.0.1:58526 --package "$prime/prime-suspects-score.director.zip" --save "$prime/saves/prime-interrupted-location.json" --out "$prime/bot-$(Get-Date -Format yyyyMMdd-HHmmss)"
+```
+
+No requiere servicios/modelos ni consume tokens al ejecutarse. El directorio
+de salida debe ser nuevo, privado y fuera de Git. Produce `events.jsonl`,
+`result.json`, capturas, logcat y muestras de `meminfo`/`gfxinfo` cada minuto.
+El tiempo mínimo de sesión es una hora (`--soak-seconds`), además del tiempo
+necesario para la campaña completa. Registra pico PSS; no atribuye aprobación
+de rendimiento a un objetivo de dispositivo que todavía no esté definido.
+
+Incluye cierre/reinicio en ubicación y tableros de piezas/memoria, comparación
+del inventario/tablero recuperado, verificación de portada como ImageView
+accesible en catálogo y de los almacenes de otros títulos. El informe falla
+si falta cualquier caso, checkpoint, portada o aislamiento. Las consultas
+por lotes evitan agotar el reloj original con una llamada ADB por ficha.
+
+Implementación compilada; dos pruebas de protección de salida pasaron.
+El smoke WSA ya recuperó el inventario tras cierre de proceso en ubicación.
+El recorrido completo del bot está EN EJECUCIÓN: todavía no demuestra los
+22 casos en Android ni reemplaza la comparación visual/sonora contra Windows.
+
+Revisión visual WSA: la captura del bot detenido mostró texto del panel demasiado
+grande y un rectángulo claro alrededor de EN PAUSA. Prime reutiliza ahora la
+calibración de texto de Huntsville, sin sus offsets específicos. El bitmap de
+pausa tenía fondo JPEG casi blanco (píxel de esquina 255/254/252), que el matte
+exacto no retiraba. Una tolerancia de 12, configurable en el renderer y activada
+solo en Prime, elimina ese borde conectado al exterior. Huntsville conserva 0.
+La segunda captura WSA confirma el borde eliminado y el texto dentro del panel;
+queda pendiente contraste contra Windows para calibración final. Pasaron las
+pruebas del renderer y la app y la compilación del APK.
+
+El bot-run-2 terminó con error `64` después de recuperar el tablero parcial:
+las fichas resueltas ya no estaban en escena. El solver consulta ahora solamente
+los canales visibles, como el conductor privado original. Ese recorrido sigue
+sin contar como campaña Android completada.
+
+### Linterna táctil de Prime (2026-10-11)
+
+Solo `title_id=prime_suspects` instala `PrimeFlashlight`: detecta en el Score
+el comportamiento activo `flashlight script` (ubicaciones 5, 14 y 17 del original),
+sin asumir un número de caso. Debajo de Teclado aparece «Prender foco»; requiere
+la batería original y se deshabilita durante diálogos y durante el pulso. Ilumina
+el escenario durante cinco segundos, con parpadeo el último segundo, y se cancela
+al pausar o cambiar de comportamiento. No modifica inventario, batería ni Score.
+Sin ratón ni dedo, el punto Lingo se aparca completamente fuera del escenario;
+el dedo ilumina mientras toca y arrastra, y al soltar desaparece el portal.
+Huntsville y Vegas no instalan ese adaptador ni ese cambio de entrada.
+
+La corrección compartida de `copyPixels` se limita a planos de índices de alfa
+creados por `extractAlpha`, conservados por `duplicate`/`crop`: el círculo blanco
+RGBA de `shadowViewArea` se convierte a índice blanco 0 para abrir el portal.
+Las imágenes ordinarias de ocho bits conservan la representación anterior.
+Pasaron las pruebas de portal, imagen ordinaria, duración/parpadeo, renderer,
+perfiles y la regresión completa del motor. WSA confirmó visualmente el portal
+y el encendido/apagado del escenario en una copia privada de prueba con batería.
+Otra secuencia de capturas WSA confirmó escena sin portal al entrar, portal en
+dos posiciones al tocar/arrastrar y desaparición al soltar, sin luz residual
+en la esquina.
+
+El bot admite `--speed 2` (predeterminado; rango 1..4), que divide solo las esperas
+de juego. Guardado, cierre/reanudación, muestreo y sesión larga siguen en tiempo
+real; esto no garantiza duplicar el rendimiento total, dado el coste de ADB.
+El bot-run-4 pasó los casos 1..3 y restauró ubicación y puzles 1/2 antes de detenerse
+para instalar este ajuste; no constituye una ejecución completa ni demuestra
+las verificaciones finales de portada y aislamiento. El nuevo recorrido debe
+validar de nuevo todos los controles a la velocidad seleccionada.
+
+El bot-run-6 completó casos 1..6, los tres checkpoints y aislamiento; se detuvo
+en el caso 7 porque un diálogo nativo «Sugerencia» bloqueaba el objeto 62.
+Ahora, si no encuentra un punto accesible, cierra el diálogo mediante su botón
+original y vuelve a comprobar el mismo objeto; si sigue inaccesible, falla.
+`--resume-report` conserva los casos y checkpoints de un informe local anterior
+con casos contiguos y aislamiento comprobado; exige que el caso guardado sea el
+siguiente, sin importar de nuevo la semilla. El nuevo resultado referencia el
+informe previo y su SHA-256; sus tiempos y muestras pertenecen al nuevo tramo.
+Cinco pruebas del bot pasaron. La campaña completa sigue pendiente.
+Tras cerrar el aviso, el sprite 62 de `loc12` seguía sin miembro: el registro
+67 del VWSC original de ese frame es vacío, aunque la tabla de objetos referencia
+«Insecto de plástico». El bot registra objetos inaccesibles y visita otras
+ubicaciones; no inventa sprites ni marca objetos encontrados. Solo cuenta un
+caso cuando el puzle y el cambio de ronda originales lo confirman. Falta contrastar
+esa discrepancia de la escena contra el ejecutable nativo en Windows.
+El bot-run-8 agotó el límite porque faltaba ejecutar el botón MAPA al terminar
+una ubicación bloqueada. El bot ahora pulsa `mapButtonA`, espera la transición
+y excluye esa ubicación al elegir la siguiente en la misma búsqueda. Una prueba
+reproduce el bloqueo y verifica que selecciona otra ubicación; seis pruebas
+del bot pasaron. El bot-run-9 retoma el caso 7 desde el guardado nativo.
+El bot-run-9 volvió a agotar la búsqueda: la espera de recogida reducida a 1,9 s
+permitía tocar durante `m_boolGrabInProgress`, y el original ignoraba esos toques.
+La recogida ahora espera `getBoolGrabInProgress() == 0` con timeout de 30 s;
+solo se aplazan ubicaciones con objetos inaccesibles, para poder volver a las
+que aún conservan pistas. El bot-run-10 continúa el guardado del caso 7.
+
+Pendiente prioritario: corregir objetos pedidos pero desaparecidos/inaccesibles
+en escena, empezando por «Insecto de plástico», sprite 62 de loc12. Saltarlos en
+el bot no resuelve el fallo; contrastar Score, comportamiento y resultado con
+el ejecutable original, restaurar la visualización/interacción y verificar todos
+los casos. No dar esta incidencia por resuelta mientras solo se evite el objeto.
+
+Visor de rayos X: el original activa `xray script` y `xray device sprite script`
+en loc20, loc24 y loc25; es distinto de la linterna de loc5/14/17. Petición Android:
+visor siempre visible, inicio centrado y movimiento con el dedo, conservando la
+última posición al soltar; aviso reutilizando el diálogo y gráficos originales.
+Revisar el círculo negro del portal y la imagen del dispositivo antes de cerrar
+la adaptación. Los relámpagos `light1`..`light6` corresponden a recoger la batería,
+que activa la alimentación original de ambos efectos.
+
+Verificación puntual del visor (2026-10-11): Prime conserva la posición táctil
+al soltar, centra el visor en (330,300) al entrar en una escena de rayos X y
+mantiene visible el dispositivo aunque su batería no esté alimentada. No cambia
+las reglas nativas de batería ni los efectos morados. Comprobado en WSA en loc20
+y loc24. La puerta de loc24 conservaba RGB bajo su transparencia; la decodificación
+Android premultiplicada lo perdía y `setAlpha(255)` dejaba un círculo negro.
+Decodificar sin premultiplicar elimina ese círculo; capturas antes/después privadas.
+Pruebas puntuales de posición, alfa y renderizador y compilación APK correctas.
+
+El guardado de prueba del caso 7 termina con dos piezas intercambiadas. La silueta
+con interrogación está en el recurso original `primeSuspectPhoto19`, elegido por
+el script para este guardado; no es un sustituto por falta de imagen. Se preparó
+un perfil separado `PrimeCaso7` en el registro del original, con copia previa.
+El ejecutable original muestra «Director Player Error: Script Error. Continue?»;
+el mensaje no identifica el handler ni permite atribuir todavía una causa.
+Los objetos ausentes, incluido el sprite 62 de loc12, siguen pendientes de
+restauración fiel: no se dan por corregidos por completar el caso desde otras escenas.
+
+Auditoría del insecto de plástico (2026-10-11): la tabla nativa de loc12 pide
+el sprite 62, pero su canal Score 67 en frame 153 tiene tipo, cast y miembro
+iguales a cero y no tiene comportamiento asociado. La captura de la película
+de JUGAR y la captura del buffer del runtime contienen el mismo VWSC; el paquete
+El paquete base Android conserva esa ausencia. El bitmap `plastic bug`, miembro 44 de `12.cct`,
+sí existe (38x39). No es un fallo de transparencia ni una imagen omitida por el
+empaquetado: falta la colocación del objeto en la escena fuente capturada.
+Esto identifica la discrepancia estructural; aún no demuestra si esa edición
+del original también la presenta visualmente o la completa mediante otro mecanismo.
+Informe detallado privado: `missing-plastic-bug-audit.json` en la carpeta temporal
+de Prime. No se han inventado coordenadas ni modificado el guardado para marcarlo hallado.
+
+Intento de contraste nativo puntual: perfil privado `PrimeInsecto`, caso 7, loc12,
+solo el insecto pendiente. Se abrió JUGAR directamente; los avisos repetidos
+«Director Player Error» impidieron superar la pantalla inicial y llegar a loc12.
+La entrada dirigida y los hooks Frida fueron temporales y autorizados expresamente;
+se retiraron al terminar. Se cerró únicamente el proceso de esta prueba y se
+restauraron las preferencias anteriores. Resultado: confirmación visual nativa
+pendiente; este intento no demuestra presencia ni ausencia del insecto en Windows.
+
+Contraste nativo completado tras cerrar todas las instancias anteriores: una sola
+instancia de JUGAR (proceso padre e hijo) llegó al menú, caso 7 y loc12 sin el error
+de script. La Sala de Teatro de Mingo pide únicamente «Insecto de plástico», pero
+el objeto no aparece. Una pista nativa consume un marcador y dibuja los destellos
+en la esquina superior izquierda, coherente con el sprite vacío situado en (0,0).
+La ausencia también se reproduce en esta copia del original, por lo que no la
+introduce Android. Se comprobó solo esa escena y ese objeto. Hooks retirados tras
+cada entrada; capturas y resultado conservados en privado. Se dejó una sola
+instancia del original abierta en loc12. El error de arranque desapareció en esta
+prueba al eliminar las instancias simultáneas; no se atribuyen a eso otros errores.
+
+Reparación en nuestra copia Android (2026-10-11): `PrimeSceneRepairs` agrega
+únicamente el sprite 62 ausente de loc12 al cargar el perfil Prime reconocido
+por SHA del original. Usa el bitmap original `12.cct/44` y el comportamiento
+original `Internal/13`: las pistas, recogida y guardado siguen siendo nativos.
+La posición (305,470) es nueva, porque la fuente no contiene coordenadas del
+insecto. El cast comienza como `empty.cst`; se conserva la carga dinámica
+original de `12.cct`. No reemplaza un sprite o comportamiento ya existente.
+No altera Huntsville ni Vegas ni marca objetos encontrados desde el bot.
+
+Verificado puntualmente en WSA: imagen visible y alcanzable, toque real cambia
+el objeto 29 de pendiente a encontrado; tras pausa, cierre de proceso y reanudación
+permanece encontrado y no vuelve a aparecer. Capturas privadas `before.png` y
+`after.png` en `insect-repair-161105`. APK instalada. Pasan los 45 tests de app
+seleccionados. La ejecución más amplia encontró aparte un fallo del checkpoint
+privado de Huntsville: método `getPlayerMetaGameNum` no disponible en esa sesión;
+no se presenta como una validación completa de todos los juegos.
+
+Opciones Android (2026-10-11): Prime reemplaza el control de pantalla completa
+por «Apoya al desarrollador», reutilizando estilo y enlace de Huntsville. Usa
+los sprites nativos 558/561 y respeta la pestaña de ayuda. La calibración de
+volumen de Huntsville no se aplica a Prime. APK instalada, 45 tests de app pasan
+y botón comprobado visualmente en las opciones de Prime en WSA.
+
+Estimación de avance global: aproximadamente 90%, orientativa, no medida automática.
+Campaña completa JVM: 22/22. Campaña Android documentada: 9/22 completos (41%);
+restan casos 10–22, fidelidad audiovisual y estabilidad/rendimiento prolongados
+antes de declarar entrega final. Las pruebas puntuales posteriores no cuentan
+como casos completos adicionales.
+
+Salida y continuación Android (2026-10-11): Prime ahora usa un marcador propio
+`prime-bookmark-v2`, separado del marcador v1 de Huntsville. Conserva usuario,
+ronda, escena/puzle y reloj, además del inventario, pistas, batería y tableros
+serializados por los handlers originales. Se guarda periódicamente (5 s), al
+pausar y antes de salir; las escrituras del checkpoint se confirman juntas.
+«Salir» detiene frames/reloj, guarda antes del cierre y vuelve a Home. Un fallo
+real de escritura evita salir y permite reintentar. Home muestra «Continuar» si
+existe un marcador válido fuera del menú interno; al abrir se reconstruye la
+escena directamente mediante los handlers originales. La importación de un
+seed invalida los marcadores previos del mismo namespace.
+
+La caja final añade un checkpoint específico de campos de tablero y posiciones
+de las siete gemas, estado del botón Reset, tiempos relativos y frame Flash.
+La lupa conserva su última posición. La batería sigue siendo nativa: al recogerla
+aparecen rayos morados; su indicador lateral pulsa con energía, y los modos
+linterna/rayos X consultan el flag de batería. El diálogo original avisa si falta.
+
+Pruebas puntuales WSA usando el botón real SALIR y el botón Continuar del selector:
+- loc12: mismo inventario y misma escena, reloj no reiniciado.
+- metagame1: mismo tablero de piezas.
+- metagame2: mismas parejas resueltas del tablero parcial.
+- metagame4: una gema y sus siete posiciones conservadas; tablero sin movimientos
+  conserva resetB y Reset vuelve a limpiar el tablero correctamente.
+- loc20 alimentada: lupa vuelve a point(201,334), con el mismo inventario/batería.
+Capturas y resultados privados en `resume-check-163712`, `164520`, `164356`,
+`165056` y `165210`. 47 tests de app y 7 tests del bot pasan; APK instalada.
+La edición nativa revisada selecciona únicamente puzles 1/2 (y la caja 4 al final);
+no se forzó el puzle de palabras 3 para atribuirle validación de campaña.
+
+Esto conserva el estado jugable reconstruido, no un volcado completo de RAM
+como el save state de un emulador. No demuestra identidad de todos los efectos,
+sonidos, overlays temporales ni estados AVM internos; la rama de animación final
+conserva su frame y temporizador pero no se probó de extremo a extremo. La campaña
+Android 10–22 continúa pendiente; estas pruebas no agregan casos completos.
+
+Portadas del selector (2026-10-11): Prime usa el bitmap original interno 140,
+con el logo MCF/Prime Suspects. Vegas usa `mpi_title.jpg`, el letrero de neón
+de su intro. Los paquetes ya importados reciben una caché de portada nueva
+sin reimportar ni cambiar su SHA/partidas. Huntsville conserva su mecanismo
+anterior. El generador de paquetes Vegas también prefiere la imagen de título,
+con fallback al fondo XUI para recursos antiguos. Verificado visualmente en
+WSA; captura privada `covers/selector-101.png`. Pasan 47 tests de app y tres
+pruebas de empaquetado Vegas; APK instalada. Los recursos comerciales siguen
+fuera del repositorio.

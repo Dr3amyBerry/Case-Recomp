@@ -25,6 +25,7 @@ import java.util.zip.ZipOutputStream
  */
 @RunWith(AndroidJUnit4::class)
 class DirectorLauncherInstrumentationTest {
+    @RequiresPrivateContent
     @Test fun prime_inventory_survives_android_activity_recreation() {
         val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
         val path = args.getString("privateSoundPackage")
@@ -59,6 +60,7 @@ class DirectorLauncherInstrumentationTest {
         }
     }
 
+    @RequiresPrivateContent
     @Test fun director_audio_prepared_after_pause_waits_for_resume() {
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         val path = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("privateSoundPackage")
@@ -145,7 +147,9 @@ class DirectorLauncherInstrumentationTest {
         context.getSharedPreferences("case-recomp-director", Context.MODE_PRIVATE).edit().clear().commit()
         val installed = PrivateDirectorRepository(context).import(zip().inputStream())
         assertTrue(installed.path.isFile)
-        ActivityScenario.launch(DirectorLauncherActivity::class.java).use { scenario ->
+        val intent = android.content.Intent(context, DirectorLauncherActivity::class.java)
+            .putExtra("title_id", installed.titleId)
+        ActivityScenario.launch<DirectorLauncherActivity>(intent).use { scenario ->
             var painted = false
             var lastState = "not inspected"
             // Await asynchronous content import, then inspect the Android stage output.

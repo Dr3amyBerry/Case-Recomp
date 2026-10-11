@@ -9,6 +9,25 @@ import org.rigorcore.caserecomp.lingo.LingoValue.LInt
 import org.rigorcore.caserecomp.lingo.LingoValue.LString
 
 class StageRendererUnitTest {
+    @Test fun optional_matte_tolerance_clears_compressed_white_edge_only() {
+        val almostWhite = 0xFFFFFEFC.toInt()
+        val image = LingoImage(5, 5, 24, IntArray(25) { almostWhite })
+        for (y in 1..3) for (x in 1..3) image.pixels[y * 5 + x] = 0xFF000000.toInt()
+        image.pixels[12] = almostWhite // Enclosed light detail must remain.
+        val provider = object : DirectorMedia {
+            override fun image(castFile: String, member: MemberData) = image
+        }
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), provider)
+        rt.start()
+        rt.sprite(1).setProp("visible", LInt(0))
+        rt.sprite(2).setProp("ink", LInt(8))
+        val exact = StageRenderer(rt).render()
+        assertEquals(almostWhite, exact.pixels[0])
+        val tolerant = StageRenderer(rt, matteWhiteTolerance = 12).render()
+        assertEquals(0xFF000000.toInt(), tolerant.pixels[0])
+        assertEquals(almostWhite, tolerant.pixels[2 * tolerant.width + 4])
+    }
+
     private val o = DirectorMovie.SPRITE_CHANNEL_OFFSET
     private val red = 0xFFFF0000.toInt()
     private val blue = 0xFF0000FF.toInt()

@@ -62,6 +62,7 @@ internal data class DirectorPresentationProfile(
     val revision: Int,
     val text: DirectorTextPresentation,
     val approvedLegacyNudges: Map<String, Pair<Int, Int>> = emptyMap(),
+    val matteWhiteTolerance: Int = 0,
     val scopedNudges: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
 ) {
     /** Moved menu and case-report controls translate their input areas with the drawing. */
@@ -96,6 +97,9 @@ internal object DirectorPresentationProfiles {
     private const val HUNTSVILLE_SOURCE = "0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d"
 
     fun supportsTitle(id: String) = id == HUNTSVILLE_ID || id == PRIME_ID
+
+    fun sessionStoreId(title: String, packageHash: String): String =
+        storeId(title, if (title == PRIME_ID) PRIME_SOURCE else "", packageHash)
 
     /** Content identity selects a library slot, never a visual calibration or game code. */
     fun titleId(movie: ByteArray, lingo: ByteArray): String {
@@ -191,8 +195,12 @@ internal object DirectorPresentationProfiles {
     fun select(fingerprint: BundleFingerprint): DirectorPresentationProfile =
         if (fingerprint in verifiedBundles) HUNTSVILLE_ES else GENERIC
 
-    fun resolve(content: DirectorContent): DirectorPresentationProfile = select(BundleFingerprint.of(
-        content.read("movie.json") ?: error("movie bundle missing"),
-        content.read("lingo.json") ?: error("Lingo bundle missing"),
-    ))
+    val PRIME = DirectorPresentationProfile("prime-suspects-presentation", 1, 1, HUNTSVILLE_ES.text,
+        matteWhiteTolerance = 12)
+
+    fun resolve(content: DirectorContent): DirectorPresentationProfile {
+        val movie = content.read("movie.json") ?: error("movie bundle missing")
+        val lingo = content.read("lingo.json") ?: error("Lingo bundle missing")
+        return if (titleId(movie, lingo) == PRIME_ID) PRIME else select(BundleFingerprint.of(movie, lingo))
+    }
 }

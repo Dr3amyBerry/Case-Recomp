@@ -48,6 +48,8 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
 
     override val ilk = "image"
     var useAlpha: Boolean = depth == 32
+    /** extractAlpha returns raw alpha indexes; ordinary 8-bit RGB images stay unchanged. */
+    private var alphaPlane = false
 
     fun rectValue(): LRect = LRect(LInt(0), LInt(0), LInt(width), LInt(height))
 
@@ -84,7 +86,7 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         "extractalpha" -> LingoImage(width, height, 8, IntArray(pixels.size) { i ->
             val alpha = if (depth == 32) pixels[i] ushr 24 else 255
             (0xff shl 24) or (alpha * 0x010101)
-        }).also { it.useAlpha = false }
+        }).also { it.useAlpha = false; it.alphaPlane = true }
         "fill" -> {
             val (rect, color) = if (args.size >= 5) intRect(LRect(args[0], args[1], args[2], args[3])) to args[4]
                 else intRect(args.getOrElse(0) { rectValue() }) to args.getOrElse(1) { Void }
@@ -111,7 +113,9 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         else -> null
     }
 
-    fun duplicate(): LingoImage = LingoImage(width, height, depth, pixels.copyOf()).also { it.useAlpha = useAlpha }
+    fun duplicate(): LingoImage = LingoImage(width, height, depth, pixels.copyOf()).also {
+        it.useAlpha = useAlpha; it.alphaPlane = alphaPlane
+    }
 
     fun crop(r: IntArray): LingoImage {
         val left = r[0].coerceIn(0, width); val top = r[1].coerceIn(0, height)
@@ -119,6 +123,7 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         val out = LingoImage(right - left, bottom - top, depth)
         for (y in top until bottom) System.arraycopy(pixels, y * width + left, out.pixels, (y - top) * out.width, right - left)
         out.useAlpha = useAlpha
+        out.alphaPlane = alphaPlane
         return out
     }
 
@@ -148,8 +153,15 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
                 if (tx !in 0 until width) continue
                 val sx = src[0] + x * sw / dw
                 if (sx !in 0 until source.width) continue
-                val p = source.pixels[sy * source.width + sx]
-                if ((ink == 36 || ink == 8) && !sourceAlpha && (p and 0xFFFFFF) == white) continue
+                val original = source.pixels[sy * source.width + sx]
+                // Director's default 8-bit palette indexes white at 0, black at 255.
+                // Alpha planes hold those raw indexes; RGB white must open the portal.
+                val p = if (alphaPlane && !source.alphaPlane) {
+                    val index = 255 - (((original shr 16) and 255) * 30 +
+                        ((original shr 8) and 255) * 59 + (original and 255) * 11) / 100
+                    (original and 0xff000000.toInt()) or (index * 0x010101)
+                } else original
+                if ((ink == 36 || ink == 8) && !sourceAlpha && (original and 0xFFFFFF) == white) continue
                 var alpha = if (sourceAlpha) (p ushr 24) else 255
                 alpha = alpha * blend / 255
                 if (alpha == 0) continue

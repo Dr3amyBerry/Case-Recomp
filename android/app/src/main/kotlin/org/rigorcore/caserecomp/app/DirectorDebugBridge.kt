@@ -35,6 +35,17 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
     }
 
     private fun answer(rt: DirectorRuntime, parts: List<String>): String = when (parts[0]) {
+        "batchjson" -> {
+            val commands = org.json.JSONArray(parts.drop(1).joinToString("|"))
+            require(commands.length() <= 150)
+            org.json.JSONArray().apply {
+                for (i in 0 until commands.length()) {
+                    val command = commands.getString(i).split('|')
+                    require(command[0] in setOf("label", "sprites", "propjson", "calljson"))
+                    put(answer(rt, command))
+                }
+            }.toString()
+        }
         "touch" -> {
             val action = when (parts[1]) {
                 "down" -> android.view.MotionEvent.ACTION_DOWN
@@ -46,6 +57,11 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
             stage()?.debugTouch(action, parts[2].toInt(), parts[3].toInt())?.toString() ?: "error: no view"
         }
         "label" -> "${rt.frame} ${rt.getMovieProp("frameLabel")?.asText()}"
+        "imageinfo" -> {
+            val member = rt.sprite(parts[1].toInt()).member ?: error("no member")
+            val image = member.pixels ?: error("no image")
+            "${member.number}|${image.width}x${image.height}|depth=${image.depth}|alpha=${image.useAlpha}|minAlpha=${image.pixels.minOf { it ushr 24 }}|white=${image.pixels.count { it == -1 }}|ink=${rt.sprite(parts[1].toInt()).ink}"
+        }
         "sprites" -> (parts[1].toInt()..parts[2].toInt()).mapNotNull { n ->
             val s = rt.sprite(n)
             val m = s.member ?: return@mapNotNull null
@@ -57,6 +73,11 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
         "text" -> rt.sprite(parts[1].toInt()).member?.let { m -> "${m.name}|${m.width}x${m.height}|${m.text.replace('\r', '/')}" } ?: "none"
         "global" -> rt.vm.global(parts[1]).asText()
         "prop" -> rt.vm.getObjectProp(target(rt, parts[1]), parts[2]).asText()
+        "propjson" -> json(rt.vm.getObjectProp(target(rt, parts[1]), parts[2]))
+        "calljson" -> {
+            val target = target(rt, parts[1])
+            json(rt.vm.callMethod(target, parts[2], listOf(target) + parts.drop(3).map(::argument)) ?: LingoValue.Void)
+        }
         "call" -> {
             val target = target(rt, parts[1])
             rt.vm.callMethod(target, parts[2], listOf(target) + parts.drop(3).map(::argument))?.asText() ?: "<void>"
@@ -73,6 +94,17 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
         spec.startsWith("global:") -> rt.vm.global(spec.removePrefix("global:"))
         spec.startsWith("sprite:") -> rt.sprite(spec.removePrefix("sprite:").toInt())
         else -> throw IllegalArgumentException("target must be global:name or sprite:n")
+    }
+
+    private fun json(value: LingoValue): String = when (value) {
+        LingoValue.Void -> "null"
+        is LingoValue.LInt -> value.value.toString()
+        is LingoValue.LFloat -> if (value.value.isFinite()) value.value.toString() else "null"
+        is LingoValue.LList -> value.items.joinToString(",", "[", "]", transform = ::json)
+        is LingoValue.LPropList -> value.entries.joinToString(",", "{", "}") { (key, item) ->
+            org.json.JSONObject.quote(key.asText()) + ":" + json(item)
+        }
+        else -> org.json.JSONObject.quote(value.asText())
     }
 
     private fun argument(text: String): LingoValue = when {

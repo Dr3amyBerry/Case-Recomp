@@ -52,6 +52,7 @@ class StageRenderer(
     nudges: Map<String, Pair<Int, Int>> = emptyMap(),
     /** Scoped drawing offsets: sprite number and member name must both match. */
     scopedNudges: Map<Pair<Int, String>, Pair<Int, Int>> = emptyMap(),
+    private val matteWhiteTolerance: Int = 0,
 ) {
     private val nudges = nudges.mapKeys { it.key.lowercase() }
     private val scopedNudges = scopedNudges.mapKeys { (key, _) -> key.first to key.second.lowercase() }
@@ -64,14 +65,19 @@ class StageRenderer(
     private val fh = height * scale
     val frame = LingoImage(fw, fh)
 
-    init { require(scale in 1..4) { "stage scale must be 1..4" } }
+    init {
+        require(scale in 1..4) { "stage scale must be 1..4" }
+        require(matteWhiteTolerance in 0..16)
+    }
 
     private val swfBitmaps = HashMap<Pair<Any, Int>, LingoImage?>()
     private val textCache = HashMap<CastMember, Triple<String, Pair<Int, Int>, LingoImage?>>()
+    /** Optional player accessibility filter; never changes Score or VM state. */
+    var drawItem: ((DisplayItem) -> Boolean)? = null
 
     fun render(): LingoImage {
         masksInUse = 0
-        val items = runtime.displayList()
+        val items = runtime.displayList().filter { drawItem?.invoke(it) != false }
         // An opaque full-stage backdrop overwrites every pixel: clearing first is wasted work.
         if (items.firstOrNull()?.let { coversStage(it) } != true) frame.pixels.fill(background)
         for (item in items) draw(item)
@@ -209,7 +215,12 @@ class StageRenderer(
         val queue = IntArray(w * h)
         var head = 0; var tail = 0
         fun visit(i: Int) {
-            if (!clear[i] && (px[i] and 0xFFFFFF) == 0xFFFFFF) { clear[i] = true; queue[tail++] = i }
+            val p = px[i]
+            val threshold = 255 - matteWhiteTolerance
+            if (!clear[i] && ((p ushr 16) and 255) >= threshold &&
+                ((p ushr 8) and 255) >= threshold && (p and 255) >= threshold) {
+                clear[i] = true; queue[tail++] = i
+            }
         }
         for (x in 0 until w) { visit(x); visit((h - 1) * w + x) }
         for (y in 0 until h) { visit(y * w); visit(y * w + w - 1) }

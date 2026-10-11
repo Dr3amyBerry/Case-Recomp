@@ -6,5 +6,8 @@
         android:debuggable="true"
         android:label="Case Recomp Debug"
         android:usesCleartextTraffic="false"
-        tools:replace="android:label" />
+        tools:replace="android:label">
+        <activity android:name=".DirectorLauncherActivity" android:exported="true"
+            tools:replace="android:exported" />
+    </application>
 </manifest>

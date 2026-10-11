@@ -13,16 +13,19 @@ import java.security.MessageDigest
 internal data class HuntsvilleBookmark(
     val userHash: String, val userIndex: Int, val round: Int, val label: String,
     val remaining: Int, val cumulative: Int, val reportCase: Int,
+    val primeSuspects: Boolean = false,
 ) {
     init {
         require(userHash.matches(Regex("[a-f0-9]{64}")))
-        require(userIndex in 1..5 && round in 1..16)
-        require(label == "map" || label == "metagame" || label == "mainmenu" || label.matches(Regex("loc([1-9]|1[0-9]|20)")))
+        require(userIndex in 1..5 && round in 1..if (primeSuspects) 23 else 16)
+        require(if (primeSuspects) label in listOf("map", "mainmenu", "casebook", "metagame1", "metagame2", "metagame3", "metagame4") ||
+            label.matches(Regex("loc([1-9]|[12][0-9])")) else
+            label == "map" || label == "metagame" || label == "mainmenu" || label.matches(Regex("loc([1-9]|1[0-9]|20)")))
         require(remaining in 0..86_400_000 && cumulative >= 0 && reportCase in 0..round)
     }
-    fun encode() = """{"version":1,"userHash":"$userHash","userIndex":$userIndex,"round":$round,"label":"$label","remaining":$remaining,"cumulative":$cumulative,"reportCase":$reportCase}"""
+    fun encode() = """{"version":${if (primeSuspects) 2 else 1},"userHash":"$userHash","userIndex":$userIndex,"round":$round,"label":"$label","remaining":$remaining,"cumulative":$cumulative,"reportCase":$reportCase}"""
     companion object {
-        fun decode(json: String): HuntsvilleBookmark {
+        fun decode(json: String, primeSuspects: Boolean = false): HuntsvilleBookmark {
             require(json.length <= 1024)
             val m = MiniJson.parse(json) as? Map<*, *> ?: error("invalid bookmark")
             require(m.keys == setOf("version", "userHash", "userIndex", "round", "label", "remaining", "cumulative", "reportCase"))
@@ -31,9 +34,9 @@ internal data class HuntsvilleBookmark(
                 require(n in Int.MIN_VALUE..Int.MAX_VALUE)
                 return n.toInt()
             }
-            require(number("version") == 1)
+            require(number("version") == if (primeSuspects) 2 else 1)
             return HuntsvilleBookmark(m["userHash"] as String, number("userIndex"), number("round"),
-                m["label"] as String, number("remaining"), number("cumulative"), number("reportCase"))
+                m["label"] as String, number("remaining"), number("cumulative"), number("reportCase"), primeSuspects)
         }
         fun hash(name: String) = MessageDigest.getInstance("SHA-256").digest(name.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
@@ -48,14 +51,21 @@ internal class HuntsvilleSessionCheckpoint(
     private val primeSuspects: Boolean = false,
     private val onError: (Exception) -> Unit,
 ) {
-    companion object { const val KEY = "__case_recomp/huntsville-bookmark-v1" }
-    private var pending = if (primeSuspects) null else store.get(KEY)?.let { runCatching { HuntsvilleBookmark.decode(it) }.getOrNull() }
+    companion object {
+        const val KEY = "__case_recomp/huntsville-bookmark-v1"
+        const val PRIME_KEY = "__case_recomp/prime-bookmark-v2"
+        const val PRIME_POINTER_KEY = "__case_recomp/prime-pointer-v1"
+    }
+    private val bookmarkKey = if (primeSuspects) PRIME_KEY else KEY
+    private var pending = store.get(bookmarkKey)?.let { runCatching { HuntsvilleBookmark.decode(it, primeSuspects) }.getOrNull() }
     private var phase = 0
     private var observedLabel = ""
     private var stableFrames = 0
     private var loadedRemaining = 0
     private var loadedCumulative = 0
     private var lastSavedAt = runtime.milliseconds()
+    private var restoredPointer: Pair<Int, Int>? = null
+    fun takeRestoredPointer(): Pair<Int, Int>? = restoredPointer.also { restoredPointer = null }
     private val label get() = runtime.getMovieProp("frameLabel")?.asText()?.lowercase().orEmpty()
     private fun global(name: String) = runtime.vm.global(name)
     private fun call(target: LingoValue, method: String, vararg args: LingoValue): LingoValue =
@@ -84,8 +94,8 @@ internal class HuntsvilleSessionCheckpoint(
     }
 
     fun save() {
-        if (primeSuspects) { savePrimeProgress(); return }
         if (pending != null) return // Never replace the checkpoint with an intermediate boot frame.
+        if (primeSuspects) { savePrimeProgress(); return }
         if (label !in listOf("map", "metagame", "mainmenu") && !label.matches(Regex("loc([1-9]|1[0-9]|20)"))) return
         runtime.vm.resetBudget()
         val user = global("gUserData") as? LInstance ?: return
@@ -117,11 +127,17 @@ internal class HuntsvilleSessionCheckpoint(
         if (call(user, "getUserName").asText().isEmpty()) return
         val round = call(user, "getPlayerRoundNum").toInt()
         if (round !in 1..23) return
+        val puzzleLabel = if (round == 22) "metagame4" else "metagame${call(user, "getPlayerMetaGameNum").toInt()}"
+        // Native transitions can advance the round before leaving the old Score span.
+        val resumeLabel = if (label.startsWith("metagame") && label != puzzleLabel) "map" else label
+        val bookmark = HuntsvilleBookmark(HuntsvilleBookmark.hash(call(user, "getUserName").asText()),
+            call(user, "getUserIndex").toInt(), round, resumeLabel,
+            call("gTimeManager", "getTimeRemaining").toInt(), call("gTimeManager", "getCumulativeTime").toInt(), 0, true)
         atomic {
             if (label.startsWith("loc")) {
                 call(user, "setPlayerLocData", runtime.vm.getObjectProp(global("gLocationManager"), "m_userDataArray"))
             } else call(user, "setPlayerData", Void)
-            // The final gem box has no native serialized board; preserve its original restart behavior.
+            // The final gem box uses the separate checkpoint below instead of native board serialization.
             if (round < 22) {
                 val boardName = when (call(user, "getPlayerMetaGameNum").toInt()) {
                     1 -> "gMetaGameBoard"; 2 -> "gMemoryGameBoard"; 3 -> "gWordGameBoard"
@@ -134,6 +150,13 @@ internal class HuntsvilleSessionCheckpoint(
                 call(user, "setPlayerPuzzleData", board)
             } else call(user, "setPlayerPuzzleData", Void)
             call("gPrefManager", "updatePrefs")
+            if (label == "metagame4") PrimeGemCheckpoint.save(runtime, store)
+            else store.remove(PrimeGemCheckpoint.KEY)
+            val visor = runtime.sprite(154)
+            if (label.startsWith("loc") && visor.instances.any { it.script.name.equals("xray device sprite script", true) }) {
+                store.put(PRIME_POINTER_KEY, "${visor.locH - 21},${visor.locV - 104}")
+            } else store.remove(PRIME_POINTER_KEY)
+            store.put(bookmarkKey, bookmark.encode())
         }
     }
 
@@ -148,7 +171,7 @@ internal class HuntsvilleSessionCheckpoint(
                 call(user, "getPlayerRoundNum").toInt() != bookmark.round ||
                 HuntsvilleBookmark.hash(call(user, "getUserName").asText()) != bookmark.userHash) {
                 pending = null
-                store.remove(KEY)
+                store.remove(bookmarkKey)
                 return
             }
             loadedRemaining = minOf(bookmark.remaining, call("gTimeManager", "getTimeRemaining").toInt())
@@ -160,22 +183,31 @@ internal class HuntsvilleSessionCheckpoint(
         if (phase == 1) {
             if (bookmark.label == "mainmenu" && label == "mainmenu") { complete(bookmark); return }
             if (label != "map") return
-            val report = call("gGameManager", "getCaseReport")
-            call(report, "Hide")
+            if (!primeSuspects) call(call("gGameManager", "getCaseReport"), "Hide")
             val dialog = call("gGameManager", "getGoodJobDialog")
             call(dialog, "Hide", LInt(1))
             if (bookmark.label == "map") { complete(bookmark); return }
             if (bookmark.label.startsWith("loc")) {
                 call("gGameManager", "setLocationIndex", LInt(bookmark.label.removePrefix("loc").toInt()))
                 call("gGameManager", "setGameState", LSymbol("fadeToLocation"))
-            } else call("gGameManager", "setGameState", LSymbol("fadeToMetaGame"))
+            } else call("gGameManager", "setGameState", LSymbol(if (bookmark.label == "casebook") "fadeToCaseBook" else "fadeToMetaGame"))
             phase = 2
             return
         }
-        if (phase == 2 && label == bookmark.label) complete(bookmark)
+        if (phase == 2 && label == bookmark.label) {
+            if (primeSuspects && label == "metagame4") PrimeGemCheckpoint.restore(runtime, store)
+            complete(bookmark)
+        } else if (phase == 2 && label.startsWith("metagame") && bookmark.label.startsWith("metagame")) {
+            // A changed puzzle type must not lock checkpoint saving forever.
+            complete(bookmark)
+        }
     }
 
     private fun complete(bookmark: HuntsvilleBookmark) {
+        if (primeSuspects) {
+            val coordinates = store.get(PRIME_POINTER_KEY)?.split(',')?.mapNotNull(String::toIntOrNull)
+            if (coordinates?.size == 2) restoredPointer = coordinates[0] to coordinates[1]
+        }
         call("gTimeManager", "setTimeRemaining", LInt(loadedRemaining))
         call("gTimeManager", "setCumulativeTime", LInt(loadedCumulative))
         runtime.vm.setObjectProp(global("gTimeManager"), "m_timeUpdateLast", LInt(runtime.milliseconds().toInt()))

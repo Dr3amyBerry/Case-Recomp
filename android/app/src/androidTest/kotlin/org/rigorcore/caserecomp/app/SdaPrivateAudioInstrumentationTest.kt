@@ -11,6 +11,7 @@ import org.rigorcore.caserecomp.sda.*
 import java.io.File
 
 /** Private codec, adapter and real launcher-input checks. Not audible or full-campaign acceptance. */
+@RequiresPrivateContent
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateAudioInstrumentationTest {
  @Test fun scene_found_and_missed_audio_follow_real_android_input() {

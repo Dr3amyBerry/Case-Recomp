@@ -49,7 +49,7 @@ internal class PrivateDirectorRepository(filesDir: File, private val preferences
                 it.verifyAll(requireSourceBinding = true)
                 val title = DirectorPresentationProfiles.titleId(it)
                 require(expectedTitle == null || expectedTitle == title) { "el paquete no corresponde al juego seleccionado" }
-                title to it.coverPng()
+                title to if (title == DirectorPresentationProfiles.PRIME_ID) it.read("media/internal/140.png") ?: it.coverPng() else it.coverPng()
             }
             val destination = File(packages, "$sha.zip")
             if (destination.exists()) {
@@ -69,9 +69,32 @@ internal class PrivateDirectorRepository(filesDir: File, private val preferences
     fun hasActive(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): Boolean =
         preferences.getString(activeKey(title), null)?.let { SHA.matches(it) && File(packages, "$it.zip").isFile } == true
 
+    fun hasResume(context: Context, title: String): Boolean {
+        val sha = preferences.getString(activeKey(title), null)?.takeIf(SHA::matches) ?: return false
+        val prime = title == DirectorPresentationProfiles.PRIME_ID
+        val key = if (prime) HuntsvilleSessionCheckpoint.PRIME_KEY else HuntsvilleSessionCheckpoint.KEY
+        val prefix = DirectorPresentationProfiles.sessionStoreId(title, sha)
+        val value = context.getSharedPreferences("case-recomp-director-user-data", Context.MODE_PRIVATE)
+            .getString("$prefix/$key", null) ?: return false
+        return runCatching { HuntsvilleBookmark.decode(value, prime).label != "mainmenu" }.getOrDefault(false)
+    }
+
     /** The active package's cover PNG, saved at import from the package's own media. */
-    fun activeCover(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): File? = preferences.getString(activeKey(title), null)?.takeIf(SHA::matches)
-        ?.let { File(packages, "$it.cover.png") }?.takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
+    fun activeCover(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): File? {
+        val sha = preferences.getString(activeKey(title), null)?.takeIf(SHA::matches) ?: return null
+        if (title == DirectorPresentationProfiles.PRIME_ID) {
+            val cover = File(packages, "$sha.title.cover.png")
+            if (!cover.isFile) runCatching {
+                DirectorContent.open(File(packages, "$sha.zip"), ImageDecoder { null }).use { content ->
+                    if (DirectorPresentationProfiles.titleId(content) == title) {
+                        content.read("media/internal/140.png")?.takeIf { it.size <= MAX_COVER_BYTES }?.let(cover::writeBytes)
+                    }
+                }
+            }
+            if (cover.isFile && cover.length() in 1..MAX_COVER_BYTES) return cover
+        }
+        return File(packages, "$sha.cover.png").takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
+    }
 
     private fun saveCover(sha: String, png: ByteArray?) {
         val file = File(packages, "$sha.cover.png")

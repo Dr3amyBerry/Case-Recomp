@@ -30,7 +30,12 @@ internal object AndroidDirectorImageDecoder : ImageDecoder {
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth !in 1..MAX_SIDE || bounds.outHeight !in 1..MAX_SIDE ||
             bounds.outWidth.toLong() * bounds.outHeight > MAX_PIXELS) return null
-        val options = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+        val options = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+            // Director can reset a member's alpha (the x-ray door does this).
+            // Premultiplication destroys RGB below alpha=0 and leaves a black hole.
+            inPremultiplied = false
+        }
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return null
         return try {
             val pixels = IntArray(bitmap.width * bitmap.height)

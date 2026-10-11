@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /** Real catalogue, DocumentsUI, profile and campaign inputs; no forced engine states or solve calls. */
+@RequiresPrivateContent
 @RunWith(AndroidJUnit4::class)
 class SdaPrivateCampaignE2EInstrumentationTest {
  @Test fun catalogue_document_import_new_player_and_all_levels_reach_earned_finale() {

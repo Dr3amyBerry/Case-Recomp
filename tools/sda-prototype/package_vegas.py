@@ -40,8 +40,7 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
     resource_paths = set()
     missing_references = set()
 
-    # A catalog thumbnail of the authentic menu background, not a Windows
-    # execution capture. Resolve its URI from XUI rather than a distributor file.
+    # Prefer the authentic intro title; older resource sets fall back to the XUI menu.
     tree = parse_xui(res.read("ENVS.MSE"))
     menu = next(node for node in tree.iter() if local_name(node.tag) == "mainmenu")
     background = next(node for node in menu if local_name(node.tag) == "image"
@@ -49,7 +48,7 @@ def build_package(resources_dll_path: Path, output_zip_path: Path, full_campaign
                       and node.attrib.get("y", "0") == "0" and "tex" in node.attrib)
     textures = {node.attrib["id"]: node.attrib["uri"] for node in tree.iter()
                 if local_name(node.tag) == "texture" and "id" in node.attrib and "uri" in node.attrib}
-    cover = res.image(textures[background.attrib["tex"]]).copy()
+    cover = res.image("mpi_title.jpg" if "MPI_TITLE.JPG" in res.entries else textures[background.attrib["tex"]]).copy()
     cover.thumbnail((320, 240), Image.Resampling.LANCZOS)
     cover_buf = io.BytesIO()
     cover.save(cover_buf, format="PNG")

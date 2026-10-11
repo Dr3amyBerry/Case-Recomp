@@ -80,7 +80,7 @@ internal class PrivateSdaRepository internal constructor(
             // Validate package entries against manifest
             val cover = SdaContent.open(stage, SdaImageDecoder { null }).use {
                 it.verifyAll()
-                it.coverPng()
+                if (it.gameId == "vegas_heist") it.read("mpi_title.jpg") ?: it.coverPng() else it.coverPng()
             }
 
             val destination = File(packages, "$sha.zip")
@@ -100,8 +100,18 @@ internal class PrivateSdaRepository internal constructor(
     fun hasActive(): Boolean =
         preferences.getString(ACTIVE, null)?.let { SHA.matches(it) && File(packages, "$it.zip").isFile } == true
 
-    fun activeCover(): File? = preferences.getString(ACTIVE, null)?.takeIf(SHA::matches)
-        ?.let { File(packages, "$it.cover.png") }?.takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
+    fun activeCover(): File? {
+        val sha = preferences.getString(ACTIVE, null)?.takeIf(SHA::matches) ?: return null
+        val cover = File(packages, "$sha.title.cover.jpg")
+        if (!cover.isFile) runCatching {
+            SdaContent.open(File(packages, "$sha.zip"), SdaImageDecoder { null }).use { content ->
+                if (content.gameId == "vegas_heist") content.read("mpi_title.jpg")
+                    ?.takeIf { it.size <= MAX_COVER_BYTES }?.let(cover::writeBytes)
+            }
+        }
+        if (cover.isFile && cover.length() in 1..MAX_COVER_BYTES) return cover
+        return File(packages, "$sha.cover.png").takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
+    }
 
     private fun saveCover(sha: String, png: ByteArray?) {
         val file = File(packages, "$sha.cover.png")

@@ -23,6 +23,23 @@ class SyntheticResources:
         return Image.new("RGBA", (800, 600), (10, 80, 30, 255))
 
 class PackageCoverTest(unittest.TestCase):
+    def test_intro_title_is_preferred_over_menu_background(self):
+        class TitleResources(SyntheticResources):
+            def __init__(self, path):
+                super().__init__(path)
+                self.data["MPI_TITLE.JPG"] = b"synthetic title resource"
+            def image(self, name):
+                if name == "mpi_title.jpg":
+                    return Image.new("RGB", (800, 600), (200, 20, 40))
+                return super().image(name)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "content.zip"
+            with patch("package_vegas.Resources", TitleResources):
+                build_package(Path(directory) / "Resources.dll", target)
+            with zipfile.ZipFile(target) as archive:
+                image = Image.open(io.BytesIO(archive.read("cover.png")))
+                self.assertEqual(image.convert("RGB").getpixel((160, 120)), (200, 20, 40))
+
     def test_cover_uses_xui_background_without_external_distributor_file(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "content.zip"
