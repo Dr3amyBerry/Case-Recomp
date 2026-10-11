@@ -424,7 +424,43 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  }
  override fun collectiblePickSound():String? = doc.component("eyespypauseunderlay").attributes["keypickedsfx"]
  override fun meterFillSound():String? = doc.component("eyespypauseunderlay").attributes["itemfillsfx"]
+ // Rank-up (004162e0/004188a0/00444080/00444510): when the score lifts the rank during play, the PDA swaps
+ // "OBJ. RESTANTES" for newranklabel. Its counter starts at 10 and drops each time a 0.5 s fade reaches
+ // alpha 0 or 1 (first event at once, alpha 1), so it blinks for 4.5 s; rankupsfx plays on the alpha-1 event
+ // seen with counter 2 (t=4.0 s); rankupdlg shows "MPI n - rank" and the total score meanwhile.
+ private var rankCampaign:SdaCampaign?=null
+ private var rankUpTime=-1f;private var rankUpRank=0
+ private val pendingSounds=mutableListOf<String>()
+ override fun drainEffectSounds():List<String> = pendingSounds.toList().also { pendingSounds.clear() }
+ private fun checkRankUp(campaign:SdaCampaign) {
+  val rank=VegasRankRules.displayed(bestRank,campaign.points,campaign.collectedCount("key"),campaign.collectedCount("chip"))
+  if(rankCampaign!==campaign) { rankCampaign=campaign;bestRank=rank;return }
+  if(rank>bestRank) { bestRank=rank;rankUpRank=rank;rankUpTime=0f }
+ }
+ private fun advanceRankUp(seconds:Float) {
+  if(rankUpTime<0f) return
+  val before=rankUpTime;rankUpTime+=seconds
+  if(before<4f && rankUpTime>=4f) doc.component("pdacontrol").attributes["rankupsfx"]?.let(pendingSounds::add)
+  if(rankUpTime>=4.5f) rankUpTime=-1f
+ }
+ private fun drawRankUp(canvas:Canvas,campaign:SdaCampaign):Boolean {
+  if(rankUpTime<0f) return false
+  val event=(rankUpTime/.5f).toInt();val f=(rankUpTime/.5f-event).coerceIn(0f,1f)
+  val alpha=if(event%2==0) 1f-f else f
+  ui.label(canvas,doc.component("newranklabel"),opacity=alpha.coerceIn(0f,1f))
+  val dialog=doc.component("rankupdlg");val ox=dialog.number("x");val oy=dialog.number("y")
+  for(label in dialog.children.filter { it.type=="label" }) {
+   val text=when(label.attributes["id"]) {
+    "lblrank2" -> "MPI $rankUpRank - "+doc.caption(doc.component("rank$rankUpRank"))
+    "lblrank3" -> doc.caption(label)+" "+String.format(java.util.Locale.US,"%,d",campaign.points)
+    else -> doc.caption(label)
+   }
+   ui.label(canvas,label,text,x=ox+label.number("x"),y=oy+label.number("y"))
+  }
+  return true
+ }
  override fun advanceEffects(seconds:Float):List<String> {
+  advanceRankUp(seconds)
   val landed=mutableListOf<String>()
   for(f in flights.toList()) {
    if(f.frame<0) {
@@ -653,8 +689,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    placeCaptionBursts(slot,row.objects,label)
    ui.label(canvas,label,row.caption,y=label.number("y")+slot*label.number("h"),opacity=row.alpha)
   }
-  val total=doc.component("itemstofind")
-  ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
+  campaign?.let(::checkRankUp)
+  if(campaign==null || !drawRankUp(canvas,campaign)) {
+   val total=doc.component("itemstofind")
+   ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
+  }
   button(canvas,doc.component("mapbutton"))
  }
  override fun drawBonusBase(canvas:Canvas,campaign:SdaCampaign) {

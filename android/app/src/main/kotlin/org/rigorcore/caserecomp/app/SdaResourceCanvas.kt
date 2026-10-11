@@ -147,6 +147,8 @@ interface SdaVisualProfile {
  fun collectiblePickSound():String? = null
  fun meterFillSound():String? = null
  fun advanceEffects(seconds:Float):List<String> = emptyList()
+ /** Effect sounds queued by profile animations, played by the view after each step. */
+ fun drainEffectSounds():List<String> = emptyList()
  fun drawEffects(canvas:Canvas) {}
  /** Minigame state used to pick click/found sounds around one input event. */
  fun bonusSoundState(game:SdaBonusGame):Triple<String,Int,Boolean>? = null

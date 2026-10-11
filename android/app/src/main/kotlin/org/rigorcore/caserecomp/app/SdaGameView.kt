@@ -838,6 +838,7 @@ class SdaGameView(
         if(isPaused) { postInvalidateOnAnimation();return }
         visuals?.let { v ->
             for(kind in v.advanceEffects(seconds)) { v.meterFillSound()?.let { onEffectListener?.invoke(it) };onCollectibleFoundListener?.invoke(kind) }
+            v.drainEffectSounds().forEach { onEffectListener?.invoke(it) }
         }
         val camp = campaign
         if (camp != null) {
