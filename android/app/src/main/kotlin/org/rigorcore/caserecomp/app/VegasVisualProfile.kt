@@ -403,7 +403,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  // Native pickup state machine (0043a0f0/00439f50/0043a4f0): click arms a 1.1 s pulse whose scale bounces
  // between 0.8 and 1.2 at 3.333*0.4 per second; then 25 frames fade alpha by 0.04 while moving to (75,520);
  // arrival (00443ea0) bumps the PDA count and cross-fades the small indicator over 1.5 s (00444400).
- // The native frame step is assumed to be 1/60 s; the gradual meter fill is an Android addition.
+ // Native updates run about every 40 ms (Frida dt sample on the original: 30-49 ms, mode 40 ms), so a
+ // per-update step is 0.04 s here; the gradual meter fill is an Android addition.
  private class Flight(val kind:String,val bitmap:Bitmap,val x:Int,val y:Int) {
   var timer=1.1f;var scale=1f;var velocity=1f;var frame=-1;var frameTime=0f
  }
@@ -412,10 +413,13 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  private val meterTargets=mutableMapOf<String,Int>()
  private val indicatorFade=mutableMapOf<String,Float>()
  private var effectsScene:String?=null
- private val nativeFrameSeconds=1f/60f;private val meterFillSeconds=.5f;private val indicatorFadeSeconds=1.5f
- override fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible):Boolean {
+ private val nativeFrameSeconds=.04f;private val meterFillSeconds=.5f;private val indicatorFadeSeconds=1.5f
+ override fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible,x:Int,y:Int):Boolean {
   val bitmap=item.sprite.image.nativeImage as? Bitmap ?: return false
   flights+=Flight(item.definition.kind,bitmap,item.sprite.x,item.sprite.y)
+  // 004251f0/00421da0/004539c0: sparkles centred on the item and "+ 10,000" at the click.
+  successBurst(item.sprite.x+item.sprite.image.width/2,item.sprite.y+item.sprite.image.height/2)
+  floatingPoints+=FloatingPoints("+ 10,000",x,y)
   return true
  }
  override fun collectiblePickSound():String? = doc.component("eyespypauseunderlay").attributes["keypickedsfx"]
@@ -448,37 +452,91 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   meterTargets[kind]=target
   return (shownCounts[kind] ?: target.toFloat().also { shownCounts[kind]=it }).coerceAtMost(target.toFloat())
  }
- // Scene click feedback: eyespyanimsucess centred on the found object's bounds (as 00455430 centres it),
- // eyespyanimwrong centred on a missed click, both at 0.09 s per frame (00454760), and eyespypoints text.
- // The floating-points rise/fade timing is not recovered and is calibrated here.
- private class Burst(val id:String,val x:Int,val y:Int,var age:Float=0f)
+ // Scene click feedback from the eyespy area (00422870 binds eyespyoverlaymain's animations; 0.0675 s
+ // frames, hint 0.1075 s): a found object sparkles animpda centred on its PDA caption (00421fd0), a miss
+ // plays animwrong centred at the click offset by (-3,+5) (00422200). Points text (00453600/0042e750/
+ // 0042e860): a 200x20 box at the click, rising 2 px per 40 ms update, alpha fading linearly over 3.0 s.
+ private class Burst(val node:SdaUiNode,var x:Int,var y:Int,val target:String?=null,var age:Float=0f)
  private class FloatingPoints(val text:String,val x:Int,val y:Int,var age:Float=0f)
+ private fun successBurst(cx:Int,cy:Int) {
+  val n=doc.component("eyespyanimsucess")
+  bursts+=Burst(n,cx-n.number("framew")/2,cy-n.number("frameh")/2)
+ }
  private val bursts=mutableListOf<Burst>()
  private val floatingPoints=mutableListOf<FloatingPoints>()
- private val burstFrameSeconds=.09f;private val pointsSeconds=1.2f;private val pointsRise=40f
- private fun frames(id:String):Int { val n=doc.component(id);val b=ui.bitmap(n.attributes.getValue("tex"));return (b.width/n.number("framew"))*(b.height/n.number("frameh")) }
- override fun sceneFound(sprite:SdaSprite,gain:Int) {
-  val n=doc.component("eyespyanimsucess")
-  bursts+=Burst("eyespyanimsucess",sprite.x+sprite.image.width/2-n.number("framew")/2,sprite.y+sprite.image.height/2-n.number("frameh")/2)
-  if(gain>0) floatingPoints+=FloatingPoints(String.format(java.util.Locale.US,"+%,d",gain),sprite.x+sprite.image.width/2,sprite.y+sprite.image.height/2)
+ private val burstFrameSeconds=.0675f;private val pointsSeconds=3f;private val pointsRisePerSecond=2f/.04f
+ private fun eyespyAnimation(texture:String)=doc.component("eyespyoverlaymain").let { root ->
+  fun all(n:SdaUiNode):List<SdaUiNode> = listOf(n)+n.children.flatMap(::all)
+  all(root).first { it.type=="eyespyanimation" && it.attributes["tex"]==texture }
  }
- override fun sceneMiss(x:Int,y:Int) {
-  val n=doc.component("eyespyanimwrong")
-  bursts+=Burst("eyespyanimwrong",x-n.number("framew")/2,y-n.number("frameh")/2)
+ private fun frames(n:SdaUiNode):Int { val b=ui.bitmap(n.attributes.getValue("tex"));return (b.width/n.number("framew"))*(b.height/n.number("frameh")) }
+ override fun sceneFound(sprite:SdaSprite,gain:Int,x:Int,y:Int) {
+  // Observed on the original: big sparkles centred on the object (00422440) plus the PDA caption sparkle
+  // (00421fd0; position resolved against the caption row on the next HUD draw).
+  successBurst(sprite.x+sprite.image.width/2,sprite.y+sprite.image.height/2)
+  bursts+=Burst(eyespyAnimation("animpda"),0,0,sprite.identity)
+  // 00453430 lines: "+ 5,000"; a fast find adds the speed-bonus caption and "++ <bonus>".
+  floatingPoints+=FloatingPoints("+ 5,000",x,y)
+  if(gain>5000) {
+   floatingPoints+=FloatingPoints(doc.resolve(doc.component("score").attributes.getValue("speedbonusstring")),x+10,y+21)
+   floatingPoints+=FloatingPoints("++ "+String.format(java.util.Locale.US,"%,d",gain-5000),x+30,y+42)
+  }
+ }
+ override fun hintPenaltyPoints() { floatingPoints+=FloatingPoints("- 7,500",30,377) } // 00453950
+ override fun sceneMiss(x:Int,y:Int,penalty:Boolean):String? {
+  val n=eyespyAnimation("animwrong")
+  bursts+=Burst(n,x-3-n.number("framew")/2,y+5-n.number("frameh")/2)
+  if(!penalty) return null
+  // 00453830: five misses inside 2 s cost 2,500 points with penaltysfx and a "-2,500" points text.
+  floatingPoints+=FloatingPoints("- 2,500",x,y)
+  return doc.component("score").attributes["penaltysfx"]
+ }
+ private fun placeCaptionBursts(slot:Int,objects:List<String>,label:SdaUiNode) {
+  for(b in bursts) if(b.target!=null && b.target in objects && b.x==0 && b.y==0) {
+   b.x=label.number("x")+label.number("w")/2-b.node.number("framew")/2
+   b.y=label.number("y")+slot*label.number("h")+label.number("h")/2-b.node.number("frameh")/2
+  }
  }
  private fun drawSceneFeedback(canvas:Canvas) {
   for(b in bursts.toList()) {
-   val n=doc.component(b.id);val frame=(b.age/burstFrameSeconds).toInt()
-   if(frame>=frames(b.id)) { bursts.remove(b);continue }
+   val n=b.node;val frame=(b.age/burstFrameSeconds).toInt()
+   if(frame>=frames(n)) { bursts.remove(b);continue }
+   if(b.target!=null && b.x==0 && b.y==0) continue
    ui.spriteFrame(canvas,ui.bitmap(n.attributes.getValue("tex")),n.number("framew"),n.number("frameh"),frame,b.x,b.y)
   }
   val node=doc.component("eyespypoints")
   for(p in floatingPoints.toList()) {
    if(p.age>=pointsSeconds) { floatingPoints.remove(p);continue }
-   val t=p.age/pointsSeconds;val opacity=if(t<.6f) 1f else (1f-t)/.4f
-   ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "center","valign" to "middle")),p.text,
-    x=p.x-150,y=(p.y-20-pointsRise*t).toInt(),width=300,height=40,opacity=opacity.coerceIn(0f,1f),clipToBounds=false)
+   val opacity=1f-p.age/pointsSeconds
+   // Observed: the text starts at the click (left aligned in its 200x20 box).
+   ui.label(canvas,node.copy(attributes=node.attributes+mapOf("halign" to "left","valign" to "middle")),p.text,
+    x=p.x,y=(p.y-pointsRisePerSecond*p.age).toInt(),width=200,height=20,opacity=opacity.coerceIn(0f,1f),clipToBounds=false)
   }
+ }
+ private fun bonusFamily(game:SdaBonusGame)=when(game) {
+  is SdaTileRotGame -> "tilerotgameunderlay";is SdaTileSwapGame -> "tilegameunderlay"
+  is SdaWordSearchGame -> "wordsearchgameunderlay";is SdaJigsawGame -> "jigsawgameunderlay";else -> null
+ }
+ override fun bonusSoundState(game:SdaBonusGame):Triple<String,Int,Boolean>? {
+  bonusFamily(game) ?: return null
+  val solved=when(game) {
+   is SdaTileRotGame -> game.tileRotations.count { it==0 }
+   is SdaTileSwapGame -> game.tilePositions.withIndex().count { (i,p) -> i==p }
+   is SdaWordSearchGame -> game.foundWords.size
+   is SdaJigsawGame -> game.interaction.board.placed.size
+   else -> 0
+  }
+  return Triple(game.state().toString(),solved,game.isSolved)
+ }
+ /** XUI minigame sounds: clickedsfx on an accepted press, foundsfx/placedsfx when a unit is solved,
+  *  and the completed window's sfx (levelwinsfx) when the board becomes solved. */
+ override fun bonusSound(game:SdaBonusGame,before:Triple<String,Int,Boolean>,after:Triple<String,Int,Boolean>,pressed:Boolean):List<String> {
+  val node=doc.component(bonusFamily(game) ?: return emptyList()).attributes
+  val sounds=mutableListOf<String>()
+  if(after.second>before.second) (node["placedsfx"] ?: node["foundsfx"])?.let(sounds::add)
+  else if(pressed && after.first!=before.first) node["clickedsfx"]?.let(sounds::add)
+  if(after.third && !before.third) doc.component("tilegamewon").attributes["sfx"]?.let(sounds::add)
+  return sounds
  }
  override fun drawEffects(canvas:Canvas) {
   drawSceneFeedback(canvas)
@@ -497,15 +555,14 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
  }
  private fun sceneIndicators(canvas:Canvas,campaign:SdaCampaign,scene:SdaScene) {
   if(effectsScene!=scene.name) { effectsScene=scene.name;flights.clear();indicatorFade.clear();bursts.clear();floatingPoints.clear() }
-  // Original art: gold small key/chip once this scene's item is collected, blue while it is still hidden.
+  // Observed on the original: the gold small key/chip shows while this scene's item is still hidden; once it
+  // reaches the PDA the gold icon fades out over 1.5 s (00444400) to the blue disabled art.
   for((kind,id) in listOf("key" to "smallkey","chip" to "smallchip")) {
-   val collected=scene.collectibles.any { it.definition.kind==kind } &&
-    scene.collectibles.none { it.definition.kind==kind && campaign.collectibleAvailable(it) } && flights.none { it.kind==kind }
+   val pending=scene.collectibles.any { it.definition.kind==kind && campaign.collectibleAvailable(it) } || flights.any { it.kind==kind }
    val fade=indicatorFade[kind]
    ui.image(canvas,doc.component(id+"disabled"))
-   if(!collected) continue
-   if(fade==null || fade>=indicatorFadeSeconds) ui.image(canvas,doc.component(id))
-   else { canvas.saveLayerAlpha(null,Math.round(255*fade/indicatorFadeSeconds));ui.image(canvas,doc.component(id));canvas.restore() }
+   if(pending) ui.image(canvas,doc.component(id))
+   else if(fade!=null && fade<indicatorFadeSeconds) { canvas.saveLayerAlpha(null,Math.round(255*(1-fade/indicatorFadeSeconds)));ui.image(canvas,doc.component(id));canvas.restore() }
   }
  }
  private fun base(canvas:Canvas,c:SdaCampaign?,clock:SdaClock?) {
@@ -558,7 +615,8 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   doc.component("maptext").children.forEach { if(it.type=="image") ui.image(canvas,it) else if(it.type=="label") ui.label(canvas,it) }
   levelLabel(canvas,campaign)
-  val total=doc.component("totalitems");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
+  // Original map and scenes read "OBJ. RESTANTES".
+  val total=doc.component("itemstofind");ui.label(canvas,total,doc.caption(total)+" "+campaign.remainingObjects)
  }
  override fun sceneAt(campaign:SdaCampaign,x:Int,y:Int):String?=cards(campaign).firstOrNull { (n,p) -> Rect(p.first,p.second,p.first+n.number("w"),p.second+n.number("h")).contains(x,y) }?.first?.attributes?.get("name")
  override fun drawHud(canvas:Canvas,campaign:SdaCampaign?,scene:SdaScene,clock:SdaClock?,paused:Boolean) {
@@ -574,7 +632,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    hint.target?.let(scene.objects::get)?.takeIf { !it.found && !it.hidden }?.let { sprite ->
     val animation=doc.component("eyespyanimhint");val bitmap=ui.bitmap(animation.attributes.getValue("tex"))
     val w=animation.number("framew");val h=animation.number("frameh")
-    val cols=bitmap.width/w;val frames=cols*(bitmap.height/h);val frame=(hint.animationAge/.14f).toInt()
+    val cols=bitmap.width/w;val frames=cols*(bitmap.height/h);val frame=(hint.animationAge/.1075f).toInt() // 00422870: animhint frame time
     if(cols>0 && frame in 0 until frames) {
      val x=sprite.x+(sprite.image.width-w)/2;val y=sprite.y+(sprite.image.height-h)/2
      canvas.save();canvas.clipRect(ui.rect(doc.component("pdacontrol")).right,0,800,600)
@@ -592,9 +650,10 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   if(!paused) for((slot,row) in scene.targetPresentation().withIndex()) {
    val attributes=definitions.getValue(row.objects).attributes
    val label=SdaUiNode("label",attributes+mapOf("halign" to "center","valign" to "middle"),emptyList())
+   placeCaptionBursts(slot,row.objects,label)
    ui.label(canvas,label,row.caption,y=label.number("y")+slot*label.number("h"),opacity=row.alpha)
   }
-  val total=doc.component("totalitems")
+  val total=doc.component("itemstofind")
   ui.label(canvas,total,doc.caption(total)+" "+(campaign?.remainingObjects ?: scene.remainingCaptions().size))
   button(canvas,doc.component("mapbutton"))
  }

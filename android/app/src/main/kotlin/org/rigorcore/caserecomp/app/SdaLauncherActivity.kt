@@ -362,6 +362,7 @@ class SdaLauncherActivity : Activity() {
             val random=org.rigorcore.caserecomp.sda.SdaRng(android.os.SystemClock.uptimeMillis() and 0xFFFFFFFFL)
             if(campaign?.requestHint { size -> random.next()%size }==true) {
                 view.visuals?.hintSound()?.let { audioSession?.playEffect(it) }
+                view.visuals?.hintPenaltyPoints()
                 autoSave()
             }
         }

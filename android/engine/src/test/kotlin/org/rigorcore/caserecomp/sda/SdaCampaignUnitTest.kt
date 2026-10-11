@@ -56,14 +56,15 @@ class SdaCampaignUnitTest {
         repeat(100) { camp.advance(.04f) }
     }
 
-    @Test fun collecting_optional_items_does_not_count_as_object_or_change_score() = withContent { content ->
+    @Test fun collecting_optional_items_adds_native_bonus_without_counting_as_object() = withContent { content ->
         val camp=SdaCampaign(levels(),seed=8)
         camp.enterScene("one",content)
         val before=camp.snapshot()
         assertEquals(SdaClickResult.Collected("key","key"),camp.clickScene(311,21))
         assertEquals(SdaClickResult.Collected("chip","chip"),camp.clickScene(411,21))
         assertEquals(1,camp.collectedCount("key"));assertEquals(1,camp.collectedCount("chip"))
-        assertEquals(before.points,camp.points);assertEquals(before.completedObjects,camp.completedObjects)
+        // 004539c0 (and the original's observed score): each pickup is worth 10,000 points.
+        assertEquals(before.points+2*SdaCampaign.COLLECTIBLE_POINTS,camp.points);assertEquals(before.completedObjects,camp.completedObjects)
         assertEquals(before.clockElapsed,camp.clock.elapsed,0f)
         assertEquals(SdaCampaignPhase.SCENE,camp.phase)
         assertTrue(camp.currentScene!!.collectibles.all { !camp.collectibleAvailable(it) })
@@ -98,7 +99,7 @@ class SdaCampaignUnitTest {
         assertEquals(SdaCampaignPhase.SCENE_COMPLETE,camp.phase)
         val before=camp.points;val completed=camp.completedObjects
         assertEquals(SdaClickResult.Collected("key","key"),camp.clickScene(311,21))
-        assertEquals(1,camp.collectedCount("key"));assertEquals(before,camp.points)
+        assertEquals(1,camp.collectedCount("key"));assertEquals(before+SdaCampaign.COLLECTIBLE_POINTS,camp.points)
         assertEquals(completed,camp.completedObjects);assertEquals(SdaCampaignPhase.SCENE_COMPLETE,camp.phase)
         assertTrue(camp.clickScene(100,100) is SdaClickResult.Outside)
     }

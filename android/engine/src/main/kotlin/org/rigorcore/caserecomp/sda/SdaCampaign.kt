@@ -132,6 +132,7 @@ class SdaCampaign(
     private val collectedScenes=mutableMapOf<String,MutableSet<String>>()
 
     companion object {
+        const val COLLECTIBLE_POINTS = 10000
         val RANKS = listOf(
             "Sabueso novato",
             "Aspirante a investigador",
@@ -280,6 +281,9 @@ class SdaCampaign(
         val item=sc.collectibles.asReversed().firstOrNull { collectibleAvailable(it) && it.sprite.hit(x,y) }
         if(item!=null) {
             collectedScenes.getOrPut(item.definition.kind) { mutableSetOf() }.add(requireNotNull(currentSceneName))
+            // 004539c0: each key or chip pickup adds 10,000 points (observed on the original as well).
+            sc.score.points += COLLECTIBLE_POINTS
+            points = sc.score.points
             return SdaClickResult.Collected(item.definition.id,item.definition.kind)
         }
         if(phase!=SdaCampaignPhase.SCENE) return SdaClickResult.Outside

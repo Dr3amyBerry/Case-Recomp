@@ -566,6 +566,18 @@ class SdaGameView(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        val bonus=campaign?.takeIf { it.phase==SdaCampaignPhase.BONUS }?.bonusGame
+        val before=bonus?.let { visuals?.bonusSoundState(it) }
+        try {
+            return handleTouch(event)
+        } finally {
+            if(bonus!=null && before!=null) visuals?.bonusSoundState(bonus)?.let { after ->
+                visuals?.bonusSound(bonus,before,after,event.actionMasked==MotionEvent.ACTION_DOWN)?.forEach { onEffectListener?.invoke(it) }
+            }
+        }
+    }
+
+    private fun handleTouch(event: MotionEvent): Boolean {
         // A resume click belongs to the overlay, including its release; never click through.
         if(resumePointerId!=null) {
             if(event.actionMasked==MotionEvent.ACTION_UP || event.actionMasked==MotionEvent.ACTION_CANCEL) resumePointerId=null
@@ -736,7 +748,7 @@ class SdaGameView(
                         val result = camp.clickScene(logicalX, logicalY)
                         when (result) {
                             is SdaClickResult.Found -> {
-                                camp.currentScene?.objects?.get(result.id)?.let { visuals?.sceneFound(it,result.gain) }
+                                camp.currentScene?.objects?.get(result.id)?.let { visuals?.sceneFound(it,result.gain,logicalX,logicalY) }
                                 onObjectFoundListener?.invoke(result.id, result.gain)
                                 if (camp.phase == SdaCampaignPhase.SCENE_COMPLETE || camp.phase == SdaCampaignPhase.OBJECTS_COMPLETE) {
                                     onSceneCompleteListener?.invoke()
@@ -745,10 +757,10 @@ class SdaGameView(
                             is SdaClickResult.Collected -> {
                                 // Native order: pickup sound now; count, dialog and bonus sound when the item lands in the PDA.
                                 val item=camp.currentScene?.collectibles?.firstOrNull { it.definition.id==result.id }
-                                if(item!=null && visuals?.collectiblePicked(camp,item)==true) visuals?.collectiblePickSound()?.let { onEffectListener?.invoke(it) }
+                                if(item!=null && visuals?.collectiblePicked(camp,item,logicalX,logicalY)==true) visuals?.collectiblePickSound()?.let { onEffectListener?.invoke(it) }
                                 else onCollectibleFoundListener?.invoke(result.kind)
                             }
-                            is SdaClickResult.Miss -> { visuals?.sceneMiss(logicalX,logicalY);onMissListener?.invoke(result.penalty) }
+                            is SdaClickResult.Miss -> { visuals?.sceneMiss(logicalX,logicalY,result.penalty)?.let { onEffectListener?.invoke(it) };onMissListener?.invoke(result.penalty) }
                             is SdaClickResult.Outside -> {}
                         }
                         invalidate()

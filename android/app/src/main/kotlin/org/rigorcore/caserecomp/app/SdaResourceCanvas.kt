@@ -143,14 +143,19 @@ interface SdaVisualProfile {
  fun collectibleLimit(kind:String):Int = Int.MAX_VALUE
  fun collectibleSound(kind:String):String? = null
  fun collectibleDialog(context:android.content.Context,kind:String,onConfirm:()->Unit):SdaResourceMenuView? = null
- fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible):Boolean = false
+ fun collectiblePicked(campaign:SdaCampaign,item:SdaSceneCollectible,x:Int,y:Int):Boolean = false
  fun collectiblePickSound():String? = null
  fun meterFillSound():String? = null
  fun advanceEffects(seconds:Float):List<String> = emptyList()
  fun drawEffects(canvas:Canvas) {}
+ /** Minigame state used to pick click/found sounds around one input event. */
+ fun bonusSoundState(game:SdaBonusGame):Triple<String,Int,Boolean>? = null
+ fun bonusSound(game:SdaBonusGame,before:Triple<String,Int,Boolean>,after:Triple<String,Int,Boolean>,pressed:Boolean):List<String> = emptyList()
  fun campaignCompleted(context:android.content.Context,campaign:SdaCampaign) {}
- fun sceneFound(sprite:SdaSprite,gain:Int) {}
- fun sceneMiss(x:Int,y:Int) {}
+ fun sceneFound(sprite:SdaSprite,gain:Int,x:Int,y:Int) {}
+ /** Returns an extra sound for a penalised miss. */
+ fun sceneMiss(x:Int,y:Int,penalty:Boolean):String? = null
+ fun hintPenaltyPoints() {}
  fun hintPolicy():SdaHintPolicy? = null
  fun immediateHintRecharge(context:android.content.Context):Boolean = false
  fun hintRect(campaign:SdaCampaign):Rect? = null
