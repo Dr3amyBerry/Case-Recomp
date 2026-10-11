@@ -25,6 +25,42 @@ import java.util.zip.ZipOutputStream
  */
 @RunWith(AndroidJUnit4::class)
 class DirectorLauncherInstrumentationTest {
+    @Test fun director_audio_prepared_after_pause_waits_for_resume() {
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val path = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("privateSoundPackage")
+        org.junit.Assume.assumeTrue(path != null && java.io.File(path).isFile)
+        val content = org.rigorcore.caserecomp.director.DirectorContent.open(java.io.File(path!!), AndroidDirectorImageDecoder)
+        val runtime = org.rigorcore.caserecomp.director.DirectorRuntime(content.movie, content.lingo, media = content)
+        val member = runtime.member(org.rigorcore.caserecomp.lingo.LingoValue.LInt(631), null)
+        val audio = AndroidDirectorSound(context, content)
+        try {
+            // Hold the main looper until pause: prepareAsync's callback cannot run first.
+            instrumentation.runOnMainSync { audio.play(1, member, 0); audio.pauseAll() }
+            val deadline = android.os.SystemClock.uptimeMillis() + 5000
+            var prepared = false
+            while (!prepared && android.os.SystemClock.uptimeMillis() < deadline) {
+                instrumentation.runOnMainSync {
+                    val pending = AndroidDirectorSound::class.java.getDeclaredField("pending").apply { isAccessible = true }.get(audio) as Set<*>
+                    prepared = pending.isEmpty()
+                }
+                if (!prepared) android.os.SystemClock.sleep(20)
+            }
+            assertTrue("decoder prepared while the activity was paused", prepared)
+            instrumentation.runOnMainSync {
+                val channels = AndroidDirectorSound::class.java.getDeclaredField("channels").apply { isAccessible = true }.get(audio) as Map<*, *>
+                val slot = channels[1] ?: error("audio preparation failed")
+                val player = slot.javaClass.getDeclaredField("player").apply { isAccessible = true }.get(slot) as android.media.MediaPlayer
+                org.junit.Assert.assertFalse("prepared callback must not start background audio", player.isPlaying)
+                assertTrue("paused sound remains busy to the original scripts", audio.isPlaying(1) == true)
+                audio.resumeAll()
+                assertTrue("resume starts the prepared track", player.isPlaying)
+            }
+        } finally {
+            instrumentation.runOnMainSync { audio.close() }
+            content.close()
+        }
+    }
+
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     private val source = "a".repeat(64)
 

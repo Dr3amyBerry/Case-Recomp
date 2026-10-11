@@ -249,6 +249,7 @@ internal class AndroidDirectorSound(
     private val channels = mutableMapOf<Int, Playback>()
     private val volumes = mutableMapOf<Int, Int>()
     private val pending = mutableSetOf<Int>()
+    private var activityPaused = false
 
     override fun play(channel: Int, member: CastMember, loops: Int) {
         stop(channel)
@@ -276,13 +277,16 @@ internal class AndroidDirectorSound(
             player.setOnPreparedListener {
                 if (channels[channel]?.player === it) {
                     pending -= channel
-                    it.start()
+                    if (activityPaused) paused += channel else it.start()
                 }
             }
             player.setOnCompletionListener {
                 if (channels[channel]?.player === it && !it.isLooping) {
                     remaining--
-                    if (remaining > 0) { it.seekTo(0); it.start() } else stop(channel)
+                    if (remaining > 0) {
+                        it.seekTo(0)
+                        if (activityPaused) paused += channel else it.start()
+                    } else stop(channel)
                 }
             }
             player.setOnErrorListener { _, _, _ -> stop(channel); true }
@@ -309,7 +313,7 @@ internal class AndroidDirectorSound(
     }
 
     override fun isPlaying(channel: Int): Boolean? {
-        if (channel in pending) return true
+        if (channel in pending || channel in paused) return true
         return channels[channel]?.player?.let { runCatching { it.isPlaying }.getOrDefault(false) } ?: false
     }
 
@@ -317,6 +321,7 @@ internal class AndroidDirectorSound(
 
     /** Activity pause: hold every playing channel where it is. */
     fun pauseAll() {
+        activityPaused = true
         for ((channel, playback) in channels) {
             if (runCatching { playback.player.isPlaying }.getOrDefault(false)) {
                 runCatching { playback.player.pause() }
@@ -327,11 +332,13 @@ internal class AndroidDirectorSound(
 
     /** Activity resume: continue the channels [pauseAll] held (e.g. looping music). */
     fun resumeAll() {
+        activityPaused = false
         for (channel in paused) channels[channel]?.let { runCatching { it.player.start() } }
         paused.clear()
     }
 
     override fun close() {
+        activityPaused = true
         paused.clear()
         for (channel in channels.keys.toList()) stop(channel)
     }

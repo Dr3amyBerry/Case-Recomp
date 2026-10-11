@@ -207,6 +207,7 @@ class DirectorLauncherActivity : Activity() {
             val profile = DirectorPresentationProfiles.resolve(loaded)
             val text = AndroidDirectorText(profile.text)
             val output = AndroidDirectorSound(this, loaded)
+            output.pauseAll() // Session loading may finish while the Activity is in the background.
             try {
                 val movie = loaded.movie
                 // Original-game FileIO/Buddy API probes must find bundled casts with a realistic size.
@@ -291,7 +292,10 @@ class DirectorLauncherActivity : Activity() {
         setContentView(layout)
         newStage.requestFocus()
         ready = true
-        if (!isFinishing && activityResumed) newStage.resumeFrames() else playbackClock?.pause()
+        if (!isFinishing && activityResumed) {
+            audio?.resumeAll()
+            newStage.resumeFrames()
+        } else playbackClock?.pause()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

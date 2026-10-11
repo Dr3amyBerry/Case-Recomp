@@ -206,3 +206,32 @@ ese bookmark ni escribe en él. La app y el APK pasan pruebas/compilación.
 Prime restaura por su flujo original desde el menú; falta restaurar directamente
 la escena interrumpida y verificar recreación de la app. La caja de gemas final
 no tiene tablero serializado por el original y conserva su reinicio original.
+
+Persistencia del puzle de memoria PROBADA en la prueba JVM de la app: en el
+caso 2 se resolvieron dos parejas por clic y se guardó con el checkpoint real,
+manteniendo también `afterFrame()` activo. Un runtime nuevo importó ese almacén
+y recuperó exactamente los 42 valores del tablero, incluidas las cuatro fichas
+resueltas. Después completó las parejas restantes por clic y el getter original
+confirmó `getPuzzleCompleted() = 1`. El caso ya iniciado vuelve directamente al
+mapa por el flujo original, sin repetir su libro inicial. Esto no prueba todavía
+pausa/cierre ni recreación en un dispositivo Android.
+
+Audio del paquete verificado: los 59 MP3 recuperados se decodificaron con el
+FFmpeg local mediante `caserecomp.audio.decode_swa`, con errores estrictos y
+los límites existentes. Todos produjeron PCM16 no vacío a 44.100 Hz, mono o
+estéreo; el informe privado conserva hashes del paquete, FFmpeg y cada entrada.
+El recorrido de restauración/completado de memoria también comprobó que cada
+llamada de sonido original encuentra bytes en `DirectorContent.sound`, incluidos
+ambientes y efectos. Esta prueba usa una salida sin reproducción ni duración
+simulada: no demuestra sincronización, continuidad, bucles ni fidelidad audible
+en Android o frente a Windows.
+
+Audio al pausar: corregida en el servicio compartido la carrera en que un
+`onPrepared` posterior a `pauseAll()` iniciaba la pista en segundo plano.
+La pista preparada espera a `resumeAll()` y conserva ocupado su canal para
+los scripts; las repeticiones finitas aplican la misma condición al reiniciar.
+La carga asíncrona del Launcher crea el audio pausado y lo reanuda solo al
+presentar una sesión con la Activity activa, cubriendo la pausa durante la carga.
+Se añadió una prueba al archivo de instrumentación existente, con el argumento
+`privateSoundPackage` apuntando al paquete privado Prime. La app y el APK de
+pruebas compilan; la prueba MediaPlayer sigue NO EJECUTADA por falta de dispositivo.
