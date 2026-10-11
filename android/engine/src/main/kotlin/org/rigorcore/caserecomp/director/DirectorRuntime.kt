@@ -112,7 +112,7 @@ class DirectorRuntime(
 
     init {
         for (lib in castLibs) {
-            val file = if (lib.number == 1) movie.internalCast else movie.externalCast(lib.fileName)
+            val file = if (lib.number == 1) movie.internalCast else movie.internalCasts[lib.number] ?: movie.externalCast(lib.fileName)
             lib.assign(lib.fileName, file)
         }
     }
@@ -317,7 +317,8 @@ class DirectorRuntime(
 
     /** Behaviour instance for a span, with spriteNum and the score parameters applied. */
     private fun instantiate(ref: BehaviorRef, sprite: Sprite?): LInstance? {
-        val script = if (ref.castLib == 1) vm.bundle.scriptNumber(ref.member) else null
+        val script = if (ref.castLib == 1) vm.bundle.scriptNumber(ref.member)
+            else castLib(ref.castLib)?.file?.let { vm.bundle.scriptIn(DirectorMovie.castKey(it.file), ref.member) }
         if (script == null) { warnings += "behaviour member ${ref.castLib}:${ref.member} has no script"; return null }
         val instance = LInstance(script)
         instance.properties["spriteNum"] = LInt(sprite?.number ?: 0)
@@ -569,6 +570,16 @@ class DirectorRuntime(
             "image" -> LingoImage(arg(0).toInt(), arg(1).toInt(), args.getOrNull(2)?.toInt() ?: 32)
             "keypressed" -> LingoValue.bool(arg(0).let { k ->
                 if (k is LInt) pressedKeys.contains("#${k.value}") else pressedKeys.contains(k.asText().lowercase())
+            })
+            // Buddy API: Windows virtual-key code, read from the same key state as keyPressed.
+            "bakeyisdown" -> LingoValue.bool(arg(0).toInt().let { vk ->
+                val key = when (vk) {
+                    in 0x41..0x5A -> (vk + 32).toChar().toString()
+                    in 0x30..0x39, 0x20 -> vk.toChar().toString()
+                    0x0D -> "\r"; 0x08 -> "\b"; 0x09 -> "\t"
+                    else -> "#$vk"
+                }
+                pressedKeys.contains(key)
             })
             "quit", "halt" -> { quitRequested = true; Void }
             "startquitmsg" -> { quitMessageInstalled = true; Void }

@@ -17,6 +17,7 @@ from typing import Any
 from .director import open_archive, read_local
 from .inspector import InspectionError
 from .lingo_index import read_lctx, read_lnam
+from .relationships import internal_cast_orders
 from .score import cast_first_member, parse_cast_order
 
 BUNDLE_FORMAT = "case-recomp-lingo-bundle"
@@ -161,12 +162,12 @@ def parse_script_member(data: bytes) -> dict | None:
     return {"name": name, "script_number": script_number, "script_type": script_type}
 
 
-def build_lingo_bundle(path: Path) -> dict:
-    """Collect every compiled script of a movie (projector-embedded movies included)."""
-    archive, _ = open_archive(path)
-    if archive.kind != "movie":
-        raise InspectionError("Lingo bundle requires a Director movie")
-    entries = {tag: [rid for rid, e in archive.entries.items() if e.tag == tag] for tag in ("Lnam", "LctX", "CAS*")}
+def _archive_scripts(archive, require: bool) -> tuple[list[str], list[dict]]:
+    """Names table and compiled scripts of one file's own script context."""
+    entries = {tag: [rid for rid, e in archive.entries.items() if e.tag == tag] for tag in ("Lnam", "LctX")}
+    entries["CAS*"] = [rid for _, rid in internal_cast_orders(archive)][:1]
+    if not require and not (entries["LctX"] and entries["Lnam"] and entries["CAS*"]):
+        return [], []
     if len(entries["Lnam"]) != 1 or len(entries["LctX"]) != 1 or len(entries["CAS*"]) != 1:
         raise InspectionError("expected exactly one Lnam, LctX and CAS* resource")
     names = read_lnam(archive.get_resource(entries["Lnam"][0]))
@@ -186,6 +187,25 @@ def build_lingo_bundle(path: Path) -> dict:
         scripts.append({"context_index": index, **script,
                         "member": None if member is None else
                         {"number": member["member"], "name": member["name"], "script_type": member["script_type"]}})
+    return list(names), scripts
+
+
+def build_lingo_bundle(path: Path, casts: list[Path] | None = None) -> dict:
+    """Collect every compiled script of a movie (projector-embedded movies included).
+
+    External casts may carry their own script context (Ravenhearst's interface cast). Those
+    scripts keep their cast's names table and record the cast they belong to; movies whose
+    casts hold no scripts produce the same bundle as before.
+    """
+    archive, _ = open_archive(path)
+    if archive.kind != "movie":
+        raise InspectionError("Lingo bundle requires a Director movie")
+    names, scripts = _archive_scripts(archive, require=True)
+    for cast in sorted(casts or [], key=lambda item: item.name.lower()):
+        cast_archive, _ = open_archive(cast)
+        cast_names, cast_scripts = _archive_scripts(cast_archive, require=False)
+        for script in cast_scripts:
+            scripts.append({**script, "cast": cast.stem.lower(), "names": cast_names})
     return {
         "format": BUNDLE_FORMAT, "version": VERSION,
         "source_sha256": sha256(read_local(path)).hexdigest(),

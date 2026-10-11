@@ -258,8 +258,10 @@ class BitdPipelineTests(TestCase):
         self.assertEqual(director_system_windows_color(136), (102,51,51))
         self.assertEqual(director_system_windows_color(19), (255,153,0))
         self.assertEqual(director_system_windows_color(255), (0,0,0))
+        self.assertEqual(director_system_windows_color(1), (0,255,255))
+        self.assertEqual(director_system_windows_color(42), (204,204,255))
         with self.assertRaises(InspectionError):
-            director_system_windows_color(42)
+            director_system_windows_color(246)  # the two reference palettes disagree
         info = BitmapCastInfo(3, 1, 4, 2, 0, 0, -102)
         png, meta = decode_bitd_indexed(bytes((0x07, 0x80)), info)
         self.assertTrue(meta["palette_rgb_resolved"])
@@ -269,7 +271,7 @@ class BitdPipelineTests(TestCase):
         with self.assertRaises(InspectionError):
             decode_bitd_indexed(bytes((0x00,)), BitmapCastInfo(1,1,8,1,0,0,-1))
         with self.assertRaises(InspectionError):
-            decode_bitd_indexed(bytes((42,)), BitmapCastInfo(1,1,8,1,0,0,-102))
+            decode_bitd_indexed(bytes((246,)), BitmapCastInfo(1,1,8,1,0,0,-102))
 
     def test_indexed_bitd_rejects_truecolor_info(self):
         info = BitmapCastInfo(width=1, height=1, bit_depth=16, pitch=2, reg_x=0, reg_y=0, palette_id=-102)

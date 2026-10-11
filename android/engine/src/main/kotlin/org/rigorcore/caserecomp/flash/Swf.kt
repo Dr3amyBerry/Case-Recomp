@@ -374,7 +374,8 @@ object SwfParser {
         val alphaOffset = if (code == 35) r.u32() else -1
         var image = if (code == 35) r.bytes(alphaOffset) else r.rest()
         image = stripErroneousHeader(image)
-        if (code == 6 && tables != null) {
+        // An empty JPEGTables tag (allowed by the SWF format) means each image carries its own tables.
+        if (code == 6 && tables != null && tables.size >= 4) {
             val t = stripErroneousHeader(tables)
             image = t.copyOfRange(0, t.size - 2) + image.copyOfRange(2, image.size)
         }

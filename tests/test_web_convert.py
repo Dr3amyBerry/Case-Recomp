@@ -44,6 +44,18 @@ class WebConvertScanTests(unittest.TestCase):
             self.assertEqual(report["title"]["id"], "prime_suspects")
             self.assertTrue(report["title"]["ready"])
 
+    def test_ravenhearst_casts_across_data_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data" / "game").mkdir(parents=True)
+            (root / "data" / "language").mkdir()
+            for name in ("room1.cct", "room32.cct", "puzz.cct", "sfx.cct"):
+                (root / "data" / "game" / name).write_bytes(b"synthetic")
+            (root / "data" / "language" / "interface_us.cct").write_bytes(b"synthetic")
+            report = json.loads(web_convert.scan(tmp))
+            self.assertEqual(report["title"]["id"], "ravenhearst")
+            self.assertTrue(report["title"]["ready"])
+
     def test_vegas_resources_dll_is_detected_as_sda(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "Resources.dll").write_bytes(synthetic_pe({"LEVELS_1.XUI": b"<xui/>", "UNLIMITED.XUI": b"<xui/>", "ENVS.MSE": b"x"}))

@@ -77,6 +77,8 @@ class DirectorMovie(
     val channelCount: Int,
     sprites: List<SpriteRun>,
     spans: List<SpanData>,
+    /** Further libraries stored inside the movie itself (no file path), by library number. */
+    val internalCasts: Map<Int, CastFile> = emptyMap(),
 ) {
     private val runsByChannel = sprites.groupBy { it.channel }.mapValues { (_, v) -> v.sortedBy { it.start } }
     private val spansByChannel = spans.groupBy { it.channel }.mapValues { (_, v) -> v.sortedBy { it.start } }
@@ -148,6 +150,11 @@ class DirectorMovie(
                         val ref = b as Map<*, *>
                         BehaviorRef(ref.int("cast_lib"), ref.int("member"), ref["parameters"] as? String)
                     })
+                },
+                internalCasts = (root["internal_casts"] as? List<*>).orEmpty().associate { row ->
+                    val cast = row as? Map<*, *> ?: throw LingoError("internal cast must be an object")
+                    val number = cast.int("number")
+                    number to CastFile("internal$number", members(cast.list("members")))
                 },
             )
         }

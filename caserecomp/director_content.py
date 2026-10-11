@@ -18,8 +18,8 @@ from pathlib import Path
 from .director import DirectorArchive, open_archive, read_local
 from .inspector import InspectionError
 from .lingo_bytecode import build_lingo_bundle
-from .movie_bundle import _member_record, build_movie_bundle
-from .relationships import CastRelationships
+from .movie_bundle import _member_record, _single, build_movie_bundle, parse_cast_list
+from .relationships import CastRelationships, internal_cast_orders
 from .score import cast_first_member, parse_cast_order
 
 FORMAT = "case-recomp-director-content"
@@ -101,12 +101,21 @@ def _sound(archive: DirectorArchive, media: dict, ffmpeg: Path | None) -> tuple[
     raise InspectionError("sound member has no audio data")
 
 
-def _archive_media(archive: DirectorArchive, key: str, ffmpeg: Path | None, skipped: Counter):
-    order_ids = [rid for rid, entry in archive.entries.items() if entry.tag == "CAS*"]
-    if not order_ids:
-        return
+def internal_cast_key(number: int) -> str:
+    """Media folder of a further internal library (an embedded cast with no file of its own)."""
+    return f"internal{number}"
+
+
+def _archive_media(archive: DirectorArchive, key: str, ffmpeg: Path | None, skipped: Counter,
+                   order_id: int | None = None, first: int | None = None):
+    if order_id is None:
+        orders = internal_cast_orders(archive)
+        if not orders:
+            return
+        order_id = orders[0][1]
     relations = CastRelationships(archive)
-    for number, rid in enumerate(parse_cast_order(archive.get_resource(order_ids[0])), start=cast_first_member(archive)):
+    start = cast_first_member(archive) if first is None else first
+    for number, rid in enumerate(parse_cast_order(archive.get_resource(order_id)), start=start):
         if not rid:
             continue
         member = _member_record(archive, relations, rid, number)
@@ -167,7 +176,7 @@ def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmp
             raise InspectionError("auxiliary bytes exceed safety cap")
         auxiliary[name] = data
     movie_bundle = build_movie_bundle(movie, casts)
-    lingo_bundle = build_lingo_bundle(movie)
+    lingo_bundle = build_lingo_bundle(movie, casts)
     entries: list[dict] = []
     skipped: Counter = Counter()
     total = 0
@@ -194,6 +203,15 @@ def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmp
                 archive, _ = open_archive(path)
                 for item_path, data, key, number, kind in _archive_media(archive, cast_key(name), ffmpeg, skipped):
                     add(item_path, data, cast=key, member=number, kind=kind)
+                if not name and movie_bundle.get("internal_casts"):
+                    libs = parse_cast_list(_single(archive, "MCsL"), with_ids=True)
+                    orders = dict(internal_cast_orders(archive))
+                    for lib in libs:
+                        if lib["number"] in {c["number"] for c in movie_bundle["internal_casts"]}:
+                            for item_path, data, key, number, kind in _archive_media(
+                                    archive, internal_cast_key(lib["number"]), ffmpeg, skipped,
+                                    orders[lib["id"]], lib.get("min_member", 1)):
+                                add(item_path, data, cast=key, member=number, kind=kind)
             cover_entry = cover_path(cover, movie_bundle) if cover else None
             if cover_entry and not any(e["path"] == cover_entry and e.get("kind") == "bitmap" for e in entries):
                 raise InspectionError("cover member is not a packaged bitmap")

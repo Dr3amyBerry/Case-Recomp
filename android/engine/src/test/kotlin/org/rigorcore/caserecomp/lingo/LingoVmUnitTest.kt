@@ -72,6 +72,29 @@ class LingoVmUnitTest {
         assertEquals(LingoValue.LInt(267), (parsed as LingoValue.LPropList).entries.first().second)
     }
 
+    @Test fun void_compares_as_zero_against_numbers() {
+        assertTrue(lingoEquals(LingoValue.Void, LInt(0)))
+        assertTrue(lingoEquals(LingoValue.LFloat(0.0), LingoValue.Void))
+        assertTrue(!lingoEquals(LInt(1), LingoValue.Void))
+        assertTrue(!lingoEquals(LingoValue.Void, LString("")))
+        assertTrue(lingoEquals(LingoValue.Void, LingoValue.Void))
+    }
+
+    @Test fun external_cast_scripts_keep_their_own_names_and_member_numbers() {
+        val castNames = mutableListOf<String>()
+        val code = Asm(castNames).named(0x45, "fromCast").op(0x43, 1).named(0x57, "return").op(0x01)
+        val cast = LingoScript("item class", 1, ScriptType.PARENT, emptyList(), emptyList(), emptyList(),
+            listOf(LingoHandler("tag", listOf("me"), emptyList(), code.bytes())), cast = "interface_us", names = castNames)
+        names += listOf("unrelated", "names")
+        val own = movie(handler("x", emptyList(), code = asm().int(1).ret()))
+        val machine = vm(own, cast)
+        assertTrue(machine.bundle.scriptNumber(1) === own)
+        assertTrue(machine.bundle.scriptIn("INTERFACE_US", 1) === cast)
+        assertTrue(machine.bundle.scriptNamed("item class") === cast)
+        val instance = machine.newInstance(cast, emptyList())
+        assertEquals(LSymbol("fromCast"), machine.callMethod(instance, "tag", listOf(instance)))
+    }
+
     @Test fun arithmetic_and_return() {
         // on area w, h: return w * h + 3
         val f = handler("area", listOf("w", "h"), code = asm().op(0x4B, 0).op(0x4B, 1).op(0x04).int(3).op(0x05).ret())

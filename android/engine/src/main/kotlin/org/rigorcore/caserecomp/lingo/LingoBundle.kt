@@ -24,6 +24,10 @@ class LingoScript(
     val globals: List<String>,
     val literals: List<LingoValue>,
     val handlers: List<LingoHandler>,
+    /** Cast file key of a script stored in an external cast; null for the movie's own scripts. */
+    val cast: String? = null,
+    /** That cast's own names table; movie scripts use the bundle's. */
+    val names: List<String>? = null,
 ) {
     private val byName = handlers.associateBy { it.name.lowercase() }
 
@@ -35,11 +39,14 @@ class LingoScript(
 
 /** The `case-recomp-lingo-bundle` produced by `python -m caserecomp lingo-bundle`. */
 class LingoBundle(val names: List<String>, val scripts: List<LingoScript>) {
-    private val byMemberName = scripts.filter { it.name.isNotEmpty() }.associateBy { it.name.lowercase() }
-    private val byMemberNumber = scripts.filter { it.memberNumber != null }.associateBy { it.memberNumber!! }
+    // Movie scripts win a name shared with an external cast's script.
+    private val byMemberName = scripts.filter { it.name.isNotEmpty() }.sortedByDescending { it.cast != null }.associateBy { it.name.lowercase() }
+    private val byMemberNumber = scripts.filter { it.memberNumber != null && it.cast == null }.associateBy { it.memberNumber!! }
+    private val byCastMember = scripts.filter { it.memberNumber != null && it.cast != null }.associateBy { it.cast to it.memberNumber!! }
 
     fun scriptNamed(name: String): LingoScript? = byMemberName[name.lowercase()]
     fun scriptNumber(number: Int): LingoScript? = byMemberNumber[number]
+    fun scriptIn(cast: String, number: Int): LingoScript? = byCastMember[cast.lowercase() to number]
     val movieScripts: List<LingoScript> get() = scripts.filter { it.type == ScriptType.MOVIE }
 
     companion object {
@@ -73,6 +80,8 @@ class LingoBundle(val names: List<String>, val scripts: List<LingoScript>) {
                             code = Base64.getDecoder().decode(handler["bytecode"] as? String ?: throw LingoError("handler bytecode")),
                         )
                     },
+                    cast = (row["cast"] as? String)?.lowercase(),
+                    names = (row["names"] as? List<*>)?.map { it as? String ?: throw LingoError("bundle name must be string") },
                 )
             }
             return LingoBundle(names, scripts)

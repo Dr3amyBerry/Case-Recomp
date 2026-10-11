@@ -59,7 +59,7 @@ El archivo de salida no puede estar dentro de la carpeta del repositorio.
 
 > El `.zip` contiene los datos de tu juego. Es solo para ti: **no lo compartas ni lo subas a internet.**
 
-Los otros juegos que aparecen en la app (*Prime Suspects* y *Ravenhearst*) están **en desarrollo** y todavía no se pueden importar.
+*Prime Suspects* y *Ravenhearst* se importan igual, cada uno en su tarjeta, pero siguen **en desarrollo**: pueden tener fallos.
 
 ---
 
@@ -118,7 +118,7 @@ The output file cannot be inside the repository folder.
 
 > The `.zip` holds your game's data. It is for you only: **do not share it or upload it anywhere.**
 
-The other games shown in the app (*Prime Suspects* and *Ravenhearst*) are **in development** and cannot be imported yet.
+*Prime Suspects* and *Ravenhearst* are imported the same way, each on its own card, but they are still **in development** and may have bugs.
 
 ---
 

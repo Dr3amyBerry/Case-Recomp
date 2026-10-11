@@ -110,12 +110,14 @@ class LingoVm(
 
     // ---- interpreter ---------------------------------------------------------------------
 
-    private fun name(index: Int): String = bundle.names.getOrNull(index) ?: throw LingoError("name index $index out of range")
+    private fun name(index: Int, script: LingoScript): String =
+        (script.names ?: bundle.names).getOrNull(index) ?: throw LingoError("name index $index out of range")
 
     private fun execute(frame: Frame): LingoValue {
         val code = frame.handler.code
         val script = frame.handler.script
         val stack = frame.stack
+        fun name(index: Int) = name(index, script)
         fun pop(): LingoValue = (stack.removeLastOrNull() ?: throw LingoError("stack underflow in ${frame.handler.name}")) as? LingoValue
             ?: throw LingoError("expected a value on the stack")
         fun popArgs(): ArgList = stack.removeLastOrNull() as? ArgList ?: throw LingoError("expected an argument list")
@@ -256,10 +258,10 @@ class LingoVm(
     private fun variableRef(kind: Int, frame: Frame, pop: () -> LingoValue): VariableRef {
         val id = pop()
         return when (kind) {
-            1, 2 -> { val n = name(id.toInt()); VariableRef({ global(n) }, { setGlobal(n, it) }) }
+            1, 2 -> { val n = name(id.toInt(), frame.handler.script); VariableRef({ global(n) }, { setGlobal(n, it) }) }
             3 -> {
                 val receiver = frame.receiver ?: throw LingoError("property write without an instance")
-                val key = propertyKey(receiver, name(id.toInt()))
+                val key = propertyKey(receiver, name(id.toInt(), frame.handler.script))
                 VariableRef({ receiver.properties[key] ?: Void }, { receiver.properties[key] = it })
             }
             4 -> { val i = id.toInt(); VariableRef({ frame.args.getOrElse(i) { Void } }, { v -> while (frame.args.size <= i) frame.args += Void; frame.args[i] = v }) }

@@ -176,6 +176,9 @@ class DirectorArchive:
             compression, cursor = _varint(mapping, cursor)
             if cursor + 4 > len(mapping):
                 raise InspectionError("truncated map resource tag")
+            if mapping[cursor:cursor + 4] == b"\0\0\0\0" and compressed_size == uncompressed_size == 0:
+                cursor += 4  # free map slot (Ravenhearst): no resource
+                continue
             tag = _fourcc(mapping[cursor:cursor + 4])
             cursor += 4
             if resource_id in self.entries or compression >= len(self.codecs):

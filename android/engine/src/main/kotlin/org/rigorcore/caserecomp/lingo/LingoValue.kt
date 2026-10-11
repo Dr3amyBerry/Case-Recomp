@@ -131,6 +131,8 @@ fun LingoValue.literalText(): String = when (this) {
 /** Lingo `=`: numbers numerically, strings and symbols case-insensitively, lists element-wise. */
 fun lingoEquals(a: LingoValue, b: LingoValue): Boolean = when {
     a.isNumber() && b.isNumber() -> a.toDouble() == b.toDouble()
+    // VOID compares as 0 against numbers (`findPos(...) <> VOID` is false for 0), as in LibreShockwave.
+    a === LingoValue.Void && b.isNumber() || a.isNumber() && b === LingoValue.Void -> (if (a === LingoValue.Void) b else a).toDouble() == 0.0
     a is LingoValue.LString && b is LingoValue.LString -> a.value.equals(b.value, ignoreCase = true)
     a is LingoValue.LString && b.isNumber() -> a.value.trim().toDoubleOrNull() == b.toDouble()
     a.isNumber() && b is LingoValue.LString -> lingoEquals(b, a)

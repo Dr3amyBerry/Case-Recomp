@@ -29,6 +29,20 @@ class DirectorPresentationProfilesUnitTest {
         assertNotEquals(old, prime)
         assertTrue(prime.matches(Regex("[a-f0-9]{64}")))
     }
+    @Test fun ravenhearst_has_its_own_title_store_and_huntsville_text_only() {
+        val source = "2ca01a3489399d7647c27f7ea312f33b83951f428f5c31b0f6a73ce213440174"
+        assertEquals("ravenhearst", DirectorPresentationProfiles.titleId("""{"source_sha256":"$source"}""".toByteArray(), byteArrayOf()))
+        assertTrue(DirectorPresentationProfiles.supportsTitle("ravenhearst"))
+        val store = DirectorPresentationProfiles.storeId("ravenhearst", source, "a".repeat(64))
+        assertEquals(store, DirectorPresentationProfiles.storeId("ravenhearst", source, "b".repeat(64)))
+        assertEquals(store, DirectorPresentationProfiles.sessionStoreId("ravenhearst", "c".repeat(64)))
+        assertNotEquals(store, DirectorPresentationProfiles.sessionStoreId("prime_suspects", "c".repeat(64)))
+        val raven = DirectorPresentationProfiles.RAVENHEARST
+        assertEquals(DirectorPresentationProfiles.HUNTSVILLE_ES.text, raven.text)
+        assertTrue(raven.scopedNudges.isEmpty() && raven.approvedLegacyNudges.isEmpty())
+        assertEquals(0, raven.matteWhiteTolerance)
+    }
+
     private val profile = DirectorPresentationProfiles.HUNTSVILLE_ES
     private val known = BundleFingerprint(
         "59eaebfb1dc6b258872eccfc1532ae85895c51f9c7f3bf4c74d66bb49a212d6c",

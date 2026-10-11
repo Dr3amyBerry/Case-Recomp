@@ -118,7 +118,8 @@ internal class PrivateDirectorRepository(filesDir: File, private val preferences
 
     private fun activeKey(title: String): String = when (title) {
         DirectorPresentationProfiles.HUNTSVILLE_ID -> ACTIVE // Preserve existing installs exactly.
-        DirectorPresentationProfiles.PRIME_ID, DirectorPresentationProfiles.GENERIC_ID -> "$ACTIVE/$title"
+        DirectorPresentationProfiles.PRIME_ID, DirectorPresentationProfiles.RAVENHEARST_ID,
+        DirectorPresentationProfiles.GENERIC_ID -> "$ACTIVE/$title"
         else -> error("unsupported Director title")
     }
 

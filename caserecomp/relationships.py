@@ -145,3 +145,22 @@ class CastRelationships:
             "reference_tags": dict(sorted(Counter(record.tag for record in self.records).items())),
             "alpha_decoded": False,
         }
+
+
+def internal_cast_orders(archive: DirectorArchive) -> list[tuple[int, int]]:
+    """(library ID, CAS* resource) of each cast stored in the file, the movie's own cast first.
+
+    Most files hold one; a movie may also embed further internal libraries (Ravenhearst's
+    room10), each CAS* owned in KEY* by its MCsL library ID.
+    """
+    ids = sorted(rid for rid, entry in archive.entries.items() if entry.tag == "CAS*")
+    if len(ids) <= 1:
+        return [(0, rid) for rid in ids]
+    relations = CastRelationships(archive)
+    owned = []
+    for rid in ids:
+        owners = relations.owners_of(rid)
+        if len(owners) != 1:
+            raise InspectionError("internal cast order without a single owning library")
+        owned.append((owners[0], rid))
+    return sorted(owned)

@@ -349,6 +349,17 @@ class DirectorRuntimeUnitTest {
         assertEquals(LInt(2), rt.vm.callGlobal("castCount", emptyList()))
     }
 
+    @Test fun further_internal_cast_libraries_resolve_to_the_movie_members() {
+        val base = movie()
+        val room = CastFile("internal2", mapOf(4 to MemberData(4, "door", "bitmap", width = 8, height = 8)))
+        val withInternal = DirectorMovie(base.stageWidth, base.stageHeight, base.tempo, base.labels,
+            listOf(CastLibData(1, "Internal", ""), CastLibData(2, "room10", "")), base.internalCast, base.externalCasts,
+            base.frameCount, base.channelCount, emptyList(), emptyList(), internalCasts = mapOf(2 to room))
+        val rt = DirectorRuntime(withInternal, bundle())
+        assertSame(room, rt.castLib(2)!!.file)
+        assertEquals("door", rt.member(LString("door"), rt.castLib(2)).name)
+    }
+
     @Test fun keys_actor_list_stage_and_environment() {
         val rt = runtime()
         rt.start()
@@ -359,8 +370,11 @@ class DirectorRuntimeUnitTest {
         assertEquals(LInt(1), rt.g("gFrameBegins"))
         assertEquals(LString("a"), rt.theBuiltin("key"))
         assertEquals(LingoValue.TRUE, rt.callBuiltin(rt.vm, "keyPressed", listOf(LString("A"))))
+        assertEquals(LingoValue.TRUE, rt.callBuiltin(rt.vm, "baKeyIsDown", listOf(LInt(0x41))))
+        assertEquals(LingoValue.FALSE, rt.callBuiltin(rt.vm, "baKeyIsDown", listOf(LInt(18))))
         rt.keyUp("a")
         assertEquals(LingoValue.FALSE, rt.callBuiltin(rt.vm, "keyPressed", listOf(LString("a"))))
+        assertEquals(LingoValue.FALSE, rt.callBuiltin(rt.vm, "baKeyIsDown", listOf(LInt(0x41))))
         assertThrows(LingoError::class.java) { rt.runStatement("put 1") }
         val ticker = rt.vm.newInstance(rt.vm.bundle.scriptNamed("ticker")!!, emptyList())
         rt.actorList.items += ticker

@@ -92,20 +92,26 @@ internal data class DirectorPresentationProfile(
 internal object DirectorPresentationProfiles {
     const val HUNTSVILLE_ID = "huntsville"
     const val PRIME_ID = "prime_suspects"
+    const val RAVENHEARST_ID = "ravenhearst"
     const val GENERIC_ID = "director_generic"
     private const val PRIME_SOURCE = "210a54856729bf4db9a28ed85d1b41a9c08967fce50b4acca20b95f1ddff869b"
+    private const val RAVENHEARST_SOURCE = "2ca01a3489399d7647c27f7ea312f33b83951f428f5c31b0f6a73ce213440174"
     private const val HUNTSVILLE_SOURCE = "0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d"
 
-    fun supportsTitle(id: String) = id == HUNTSVILLE_ID || id == PRIME_ID
+    /** Titles whose saves follow the original source, so a re-imported package keeps them. */
+    private val stableSources = mapOf(PRIME_ID to PRIME_SOURCE, RAVENHEARST_ID to RAVENHEARST_SOURCE)
+
+    fun supportsTitle(id: String) = id == HUNTSVILLE_ID || id in stableSources
 
     fun sessionStoreId(title: String, packageHash: String): String =
-        storeId(title, if (title == PRIME_ID) PRIME_SOURCE else "", packageHash)
+        storeId(title, stableSources[title] ?: "", packageHash)
 
     /** Content identity selects a library slot, never a visual calibration or game code. */
     fun titleId(movie: ByteArray, lingo: ByteArray): String {
         val source = (MiniJson.parse(String(movie, Charsets.UTF_8)) as? Map<*, *>)?.get("source_sha256")
         return when {
             source == PRIME_SOURCE -> PRIME_ID
+            source == RAVENHEARST_SOURCE -> RAVENHEARST_ID
             source == HUNTSVILLE_SOURCE || select(BundleFingerprint.of(movie, lingo)) == HUNTSVILLE_ES -> HUNTSVILLE_ID
             else -> GENERIC_ID
         }
@@ -116,11 +122,11 @@ internal object DirectorPresentationProfiles {
         content.read("lingo.json") ?: error("Lingo bundle missing"),
     )
 
-    /** Keep existing Huntsville save keys. Prime updates share saves for the same original source. */
+    /** Keep existing Huntsville save keys. Prime and Ravenhearst updates share saves for the same original source. */
     fun storeId(title: String, source: String, packageHash: String): String {
         require(packageHash.matches(Regex("[a-f0-9]{64}")))
-        if (title != PRIME_ID) return packageHash
-        require(source == PRIME_SOURCE)
+        val expected = stableSources[title] ?: return packageHash
+        require(source == expected)
         return MessageDigest.getInstance("SHA-256").digest("$title/$source".toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
     }
@@ -198,9 +204,16 @@ internal object DirectorPresentationProfiles {
     val PRIME = DirectorPresentationProfile("prime-suspects-presentation", 1, 1, HUNTSVILLE_ES.text,
         matteWhiteTolerance = 12)
 
+    // Same Director interface family as Huntsville: its general text calibration, none of its offsets.
+    val RAVENHEARST = DirectorPresentationProfile("ravenhearst-presentation", 1, 1, HUNTSVILLE_ES.text)
+
     fun resolve(content: DirectorContent): DirectorPresentationProfile {
         val movie = content.read("movie.json") ?: error("movie bundle missing")
         val lingo = content.read("lingo.json") ?: error("Lingo bundle missing")
-        return if (titleId(movie, lingo) == PRIME_ID) PRIME else select(BundleFingerprint.of(movie, lingo))
+        return when (titleId(movie, lingo)) {
+            PRIME_ID -> PRIME
+            RAVENHEARST_ID -> RAVENHEARST
+            else -> select(BundleFingerprint.of(movie, lingo))
+        }
     }
 }

@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .director import DirectorArchive, open_archive, read_local
 from .inspector import InspectionError
-from .relationships import CastRelationships
+from .relationships import CastRelationships, internal_cast_orders
 from .score import (_score_entries, cast_first_member, parse_cast_order, parse_frame_label_names, parse_movie_config,
                     parse_score)
 
@@ -75,8 +75,8 @@ def _pascal(raw: bytes) -> str:
     return raw[1:1 + raw[0]].decode("latin-1")
 
 
-def parse_cast_list(data: bytes) -> list[dict]:
-    """MCsL: cast library number, name and recorded file path."""
+def parse_cast_list(data: bytes, with_ids: bool = False) -> list[dict]:
+    """MCsL: cast library number, name and recorded file path (and KEY* library ID on request)."""
     if len(data) < 12:
         raise InspectionError("truncated MCsL cast list")
     data_offset, _unk, cast_count, items_per_cast = struct.unpack_from(">IHHH", data, 0)
@@ -100,6 +100,8 @@ def parse_cast_list(data: bytes) -> list[dict]:
                  "file_path": _pascal(group[1]) if len(group) > 1 else ""}
         if len(group) > 3 and len(group[3]) >= 4:
             entry["min_member"], entry["max_member"] = struct.unpack_from(">HH", group[3], 0)
+            if with_ids and len(group[3]) >= 8:
+                entry["id"] = _u32(group[3], 4)
         out.append(entry)
     return out
 
@@ -327,13 +329,31 @@ def _member_record(archive: DirectorArchive, relations: CastRelationships, rid: 
     return record
 
 
-def cast_members(archive: DirectorArchive) -> list[dict]:
-    cast_order = _single(archive, "CAS*")
-    if cast_order is None:
-        return []
+def cast_members(archive: DirectorArchive, order_id: int | None = None, first: int | None = None) -> list[dict]:
+    """Members of the file's own cast, or of the internal library whose CAS* is [order_id]."""
+    if order_id is None:
+        orders = internal_cast_orders(archive)
+        if not orders:
+            return []
+        order_id = orders[0][1]
     relations = CastRelationships(archive)
+    start = cast_first_member(archive) if first is None else first
     return [_member_record(archive, relations, rid, number)
-            for number, rid in enumerate(parse_cast_order(cast_order), start=cast_first_member(archive)) if rid]
+            for number, rid in enumerate(parse_cast_order(archive.get_resource(order_id)), start=start) if rid]
+
+
+def extra_internal_casts(archive: DirectorArchive, libs: list[dict]) -> list[dict]:
+    """Internal libraries beyond the first (empty file path), keyed by library number."""
+    orders = dict(internal_cast_orders(archive)[1:])
+    out = []
+    for lib in libs:
+        if lib.get("id") in orders and lib["number"] != 1:
+            if lib["file_path"]:
+                raise InspectionError("internal cast library records a file path")
+            out.append({"number": lib["number"], "members": cast_members(archive, orders.pop(lib["id"]), lib.get("min_member", 1))})
+    if orders:
+        raise InspectionError("internal cast order without a cast library")
+    return out
 
 
 def _score_record(archive: DirectorArchive) -> dict:
@@ -358,7 +378,7 @@ def _score_record(archive: DirectorArchive) -> dict:
         if ref.cast_member is None:
             continue
         parameters = None
-        if ref.parameter_entry is not None:
+        if ref.parameter_entry is not None and ref.parameter_entry < len(entries):
             parameters = entries[ref.parameter_entry].rstrip(b"\0").decode("latin-1")
         behaviors.append({"cast_lib": ref.cast_lib, "member": ref.cast_member, "parameters": parameters})
     return {"frame_count": score.frame_count, "channel_count": score.channel_count,
@@ -384,7 +404,10 @@ def build_movie_bundle(movie: Path, casts: list[Path] | None = None) -> dict:
     if config_raw is None:
         raise InspectionError("movie has no DRCF config")
     config = parse_movie_config(config_raw)
-    libs = parse_cast_list(cast_list_raw) if cast_list_raw else [{"number": 1, "name": "Internal", "file_path": ""}]
+    libs = parse_cast_list(cast_list_raw, with_ids=True) if cast_list_raw else [{"number": 1, "name": "Internal", "file_path": ""}]
+    extra = extra_internal_casts(archive, libs)
+    for lib in libs:
+        lib.pop("id", None)
     external = []
     for path in sorted(casts or [], key=lambda item: item.name.lower()):
         cast_archive, _ = open_archive(path)
@@ -400,6 +423,7 @@ def build_movie_bundle(movie: Path, casts: list[Path] | None = None) -> dict:
                    (parse_frame_label_names(labels_raw) if labels_raw else ())],
         "cast_libs": libs,
         "internal_members": cast_members(archive),
+        **({"internal_casts": extra} if extra else {}),
         "external_casts": external,
         "score": _score_record(archive),
         "notice": "private names, text and layout of the user's own movie; no media; do not redistribute",

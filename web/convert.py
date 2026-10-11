@@ -23,6 +23,8 @@ TITLES = [
      "casts": {"dat1.cct", "dat22.cct", "01.cct", "29.cct"}, "cover": None},
     {"id": "huntsville", "name": "Mystery Case Files: Huntsville", "ready": True,
      "casts": {"dat1.cct", "dat16.cct", "01.cct", "21.cct"}, "cover": "newLogo"},
+    {"id": "ravenhearst", "name": "Mystery Case Files: Ravenhearst", "ready": True,
+     "casts": {"interface_us.cct", "room1.cct", "room32.cct", "puzz.cct", "sfx.cct"}, "cover": "title"},
 ]
 
 # SDA titles are recognised by RAWDATA entries inside Resources.dll.
