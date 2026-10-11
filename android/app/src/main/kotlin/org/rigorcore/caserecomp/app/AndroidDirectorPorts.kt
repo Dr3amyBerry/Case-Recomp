@@ -196,9 +196,10 @@ internal class AndroidDirectorText(
 }
 
 /** Registry and FileIO logical values are kept in Android private SharedPreferences. */
-internal class AndroidDirectorStore(context: Context, packageId: String) : DirectorStore {
+internal class AndroidDirectorStore(private val prefs: android.content.SharedPreferences, packageId: String) : DirectorStore {
+    constructor(context: Context, packageId: String) : this(
+        context.getSharedPreferences("case-recomp-director-user-data", Context.MODE_PRIVATE), packageId)
     init { require(Regex("[a-f0-9]{64}").matches(packageId)) }
-    private val prefs = context.getSharedPreferences("case-recomp-director-user-data", Context.MODE_PRIVATE)
     private var transaction: MutableMap<String, String?>? = null
     // Even when two bundles use the same BuddyAPI/registry key, their saves never cross.
     private val prefix = packageId + "/"

@@ -35,6 +35,7 @@ class DirectorLauncherActivity : Activity() {
     private var playbackClock: DirectorSessionClock? = null
     private var checkpoint: HuntsvilleSessionCheckpoint? = null
     private var workerToken = 0
+    private var selectedTitle = DirectorPresentationProfiles.HUNTSVILLE_ID
     /** Debug-only adb automation bridge (see [DirectorDebugBridge]). */
     private var bridge: DirectorDebugBridge? = null
 
@@ -46,6 +47,8 @@ class DirectorLauncherActivity : Activity() {
             ) { exitWithSave() }
         }
         repository = PrivateDirectorRepository(this)
+        selectedTitle = savedInstanceState?.getString(EXTRA_TITLE_ID)
+            ?: intent.getStringExtra(EXTRA_TITLE_ID) ?: DirectorPresentationProfiles.HUNTSVILLE_ID
         if (!debuggable) {
             // Release: only the home screen's Play opens this, on the package the user imported.
             openActive()
@@ -135,7 +138,10 @@ class DirectorLauncherActivity : Activity() {
         val token = ++workerToken
         showStartScreen("Importing and hashing private Director content…")
         Thread {
-            val result = runCatching { createSession(file.inputStream().use(repository::import).path) }
+            val result = runCatching {
+                val installed = file.inputStream().use { repository.import(it, intent.getStringExtra(EXTRA_TITLE_ID)) }
+                createSession(installed.path, installed.titleId)
+            }
             runOnUiThread {
                 if (isFinishing || isDestroyed || token != workerToken) {
                     result.getOrNull()?.close()
@@ -152,8 +158,8 @@ class DirectorLauncherActivity : Activity() {
         if (playing) showLoading() else showStartScreen("Validating private Director content…")
         Thread {
             val result = runCatching {
-                val install = repository.loadActive() ?: error("No verified Director package is imported yet")
-                createSession(install.path)
+                val install = repository.loadActive(selectedTitle) ?: error("No verified Director package is imported yet")
+                createSession(install.path, install.titleId)
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed || token != workerToken) {
@@ -192,11 +198,11 @@ class DirectorLauncherActivity : Activity() {
         Log.i(TAG, "imported ${json.length()} save entries from $name")
     }
 
-    private fun createSession(file: File): Session {
+    private fun createSession(file: File, titleId: String): Session {
         val loaded = DirectorContent.open(file, AndroidDirectorImageDecoder)
         try {
             // The repository checked this ZIP during user import and verified its entire file digest on load.
-            val store = AndroidDirectorStore(this, file.nameWithoutExtension)
+            val store = AndroidDirectorStore(this, DirectorPresentationProfiles.storeId(loaded, file.nameWithoutExtension))
             pendingSave?.let { name -> importSave(store, name); store.remove(HuntsvilleSessionCheckpoint.KEY); pendingSave = null }
             val profile = DirectorPresentationProfiles.resolve(loaded)
             val text = AndroidDirectorText(profile.text)
@@ -229,13 +235,14 @@ class DirectorLauncherActivity : Activity() {
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges)
                 val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES)
                     HuntsvilleSessionCheckpoint(runtime, store, store::atomically) { Log.w(TAG, "checkpoint failed", it) } else null
-                return Session(loaded, runtime, renderer, output, profile, clock, checkpoint)
+                return Session(loaded, runtime, renderer, output, profile, clock, checkpoint, titleId)
             } catch (e: Throwable) { output.close(); throw e }
         } catch (e: Throwable) { loaded.close(); throw e }
     }
 
     private fun displaySession(session: Session) {
         disposeSession()
+        selectedTitle = session.titleId
         if (session.profile == DirectorPresentationProfiles.GENERIC) {
             Toast.makeText(this, "Edicion sin ajustes visuales verificados. Se usara la presentacion estandar.", Toast.LENGTH_LONG).show()
         }
@@ -294,9 +301,9 @@ class DirectorLauncherActivity : Activity() {
         showStartScreen("Importing and hashing private Director content…")
         Thread {
             val result = runCatching {
-                val installed = contentResolver.openInputStream(uri)?.use(repository::import)
+                val installed = contentResolver.openInputStream(uri)?.use { repository.import(it, intent.getStringExtra(EXTRA_TITLE_ID)) }
                     ?: error("cannot open selected file")
-                createSession(installed.path)
+                createSession(installed.path, installed.titleId)
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed || token != workerToken) {
@@ -345,6 +352,11 @@ class DirectorLauncherActivity : Activity() {
         super.onDestroy()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(EXTRA_TITLE_ID, selectedTitle)
+        super.onSaveInstanceState(outState)
+    }
+
     private fun disposeSession() {
         stage?.release(); stage = null
         runtime?.let { runCatching { it.stop() } }; runtime = null
@@ -359,6 +371,7 @@ class DirectorLauncherActivity : Activity() {
         val renderer: StageRenderer, val audio: AndroidDirectorSound,
         val profile: DirectorPresentationProfile,
         val clock: DirectorSessionClock, val checkpoint: HuntsvilleSessionCheckpoint?,
+        val titleId: String,
     ) : AutoCloseable {
         override fun close() { runCatching { runtime.stop() }; audio.close(); content.close() }
     }
@@ -366,6 +379,7 @@ class DirectorLauncherActivity : Activity() {
     companion object {
         /** Open the imported package straight away (the home screen's Play). */
         const val EXTRA_PLAY = "play"
+        const val EXTRA_TITLE_ID = "title_id"
         private const val REQUEST_DIRECTOR_CONTENT = 6042
         private const val EXTRA_IMPORT_EXTERNAL = "import_external"
         private const val EXTRA_IMPORT_SAVE = "import_save"

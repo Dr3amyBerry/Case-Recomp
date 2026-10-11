@@ -37,9 +37,12 @@ class HomeActivity : Activity() {
     private var importing = false
     private var importingSda = false
     private var workerToken = 0
+    private var selectedDirectorTitle = DirectorPresentationProfiles.HUNTSVILLE_ID
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        selectedDirectorTitle = savedInstanceState?.getString("director-import-title")
+            ?.takeIf(DirectorPresentationProfiles::supportsTitle) ?: DirectorPresentationProfiles.HUNTSVILLE_ID
         repository = PrivateDirectorRepository(this)
         sdaRepository = PrivateSdaRepository(this)
 
@@ -176,7 +179,7 @@ class HomeActivity : Activity() {
         val width = dp(cardWidth())
         for (game in HomeCatalog.GAMES) {
             val view = when {
-                game.engine == EngineFamily.DIRECTOR && game.status == CompatibilityStatus.VERIFIED ->
+                game.engine == EngineFamily.DIRECTOR && DirectorPresentationProfiles.supportsTitle(game.id) ->
                     directorCard(game)
                 game.engine == EngineFamily.SDA ->
                     sdaCard(game)
@@ -320,14 +323,14 @@ class HomeActivity : Activity() {
     }
 
     private fun directorCard(game: GameEntry): View {
-        val imported = repository.hasActive()
+        val imported = repository.hasActive(game.id)
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = rounded(CARD, dp(14).toFloat(), CARD_EDGE)
         }
-        val cover = repository.activeCover().takeIf { imported }
+        val cover = repository.activeCover(game.id).takeIf { imported }
             ?.let { file -> runCatching { BitmapFactory.decodeFile(file.path) }.getOrNull() }
         card.addView(FrameLayout(this).apply {
             background = rounded(COVER_BACK, dp(10).toFloat(), 0)
@@ -358,7 +361,8 @@ class HomeActivity : Activity() {
             setPadding(0, dp(10), 0, dp(2))
         })
         card.addView(TextView(this).apply {
-            text = "${game.subtitle} · ${game.engine.displayName}"
+            text = "${game.subtitle} · ${game.engine.displayName}" +
+                if (game.status == CompatibilityStatus.VERIFIED) "" else " · ${game.status.label}"
             setTextColor(MUTED)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
@@ -374,7 +378,7 @@ class HomeActivity : Activity() {
             return card
         }
         card.addView(actionButton(if (imported) "Jugar" else "Importar", primary = true) {
-            if (imported) play() else selectZip()
+            if (imported) play(game.id) else selectZip(game.id)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         if (imported) {
             card.addView(TextView(this).apply {
@@ -383,7 +387,7 @@ class HomeActivity : Activity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
                 gravity = Gravity.CENTER
                 setPadding(0, dp(8), 0, 0)
-                setOnClickListener { selectZip() }
+                setOnClickListener { selectZip(game.id) }
             })
         }
         return card
@@ -406,15 +410,19 @@ class HomeActivity : Activity() {
         if (stroke != 0) setStroke(dp(1), stroke)
     }
 
-    private fun play() {
-        startActivity(Intent(this, DirectorLauncherActivity::class.java).putExtra(DirectorLauncherActivity.EXTRA_PLAY, true))
+    private fun play(title: String) {
+        startActivity(Intent(this, DirectorLauncherActivity::class.java)
+            .putExtra(DirectorLauncherActivity.EXTRA_PLAY, true)
+            .putExtra(DirectorLauncherActivity.EXTRA_TITLE_ID, title))
     }
 
     private fun playSda() {
         startActivity(Intent(this, SdaLauncherActivity::class.java).putExtra(SdaLauncherActivity.EXTRA_PLAY, true))
     }
 
-    private fun selectZip() {
+    private fun selectZip(title: String) {
+        if (importing) return
+        selectedDirectorTitle = title
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/zip"
@@ -439,11 +447,12 @@ class HomeActivity : Activity() {
         val token = ++workerToken
 
         if (requestCode == REQUEST_ZIP) {
+            val title = selectedDirectorTitle
             importing = true
             refresh()
             Thread {
                 val result = runCatching {
-                    contentResolver.openInputStream(uri)?.use(repository::import) ?: error("no se pudo abrir el archivo")
+                    contentResolver.openInputStream(uri)?.use { repository.import(it, title) } ?: error("no se pudo abrir el archivo")
                 }
                 runOnUiThread {
                     if (isDestroyed || token != workerToken) return@runOnUiThread
@@ -478,6 +487,11 @@ class HomeActivity : Activity() {
     override fun onDestroy() {
         workerToken++
         super.onDestroy()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("director-import-title", selectedDirectorTitle)
+        super.onSaveInstanceState(outState)
     }
 
     /** Card width (dp): decoupled from catalog size to support a smooth horizontal carousel. */

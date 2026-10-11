@@ -89,6 +89,45 @@ internal data class DirectorPresentationProfile(
 
 /** App-side registry. The Director engine has no commercial-title conditionals. */
 internal object DirectorPresentationProfiles {
+    const val HUNTSVILLE_ID = "huntsville"
+    const val PRIME_ID = "prime_suspects"
+    const val GENERIC_ID = "director_generic"
+    private const val PRIME_SOURCE = "210a54856729bf4db9a28ed85d1b41a9c08967fce50b4acca20b95f1ddff869b"
+    private const val HUNTSVILLE_SOURCE = "0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d"
+
+    fun supportsTitle(id: String) = id == HUNTSVILLE_ID || id == PRIME_ID
+
+    /** Content identity selects a library slot, never a visual calibration or game code. */
+    fun titleId(movie: ByteArray, lingo: ByteArray): String {
+        val source = (MiniJson.parse(String(movie, Charsets.UTF_8)) as? Map<*, *>)?.get("source_sha256")
+        return when {
+            source == PRIME_SOURCE -> PRIME_ID
+            source == HUNTSVILLE_SOURCE || select(BundleFingerprint.of(movie, lingo)) == HUNTSVILLE_ES -> HUNTSVILLE_ID
+            else -> GENERIC_ID
+        }
+    }
+
+    fun titleId(content: DirectorContent) = titleId(
+        content.read("movie.json") ?: error("movie bundle missing"),
+        content.read("lingo.json") ?: error("Lingo bundle missing"),
+    )
+
+    /** Keep existing Huntsville save keys. Prime updates share saves for the same original source. */
+    fun storeId(title: String, source: String, packageHash: String): String {
+        require(packageHash.matches(Regex("[a-f0-9]{64}")))
+        if (title != PRIME_ID) return packageHash
+        require(source == PRIME_SOURCE)
+        return MessageDigest.getInstance("SHA-256").digest("$title/$source".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
+    fun storeId(content: DirectorContent, packageHash: String): String {
+        val movie = content.read("movie.json") ?: error("movie bundle missing")
+        val lingo = content.read("lingo.json") ?: error("Lingo bundle missing")
+        val source = (MiniJson.parse(String(movie, Charsets.UTF_8)) as? Map<*, *>)?.get("source_sha256") as? String ?: ""
+        return storeId(titleId(movie, lingo), source, packageHash)
+    }
+
     val GENERIC = DirectorPresentationProfile("director-generic", 1, 1, DirectorTextPresentation())
 
     // Calibrations from 6c03811, 252ba53, cfeadd2 and 747d659. Values unchanged.

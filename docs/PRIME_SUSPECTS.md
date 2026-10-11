@@ -79,10 +79,16 @@ Se renderizaron e inspeccionaron capturas privadas de menú, caso, mapa y locali
 
 PARCIAL: el recorrido usa el mismo runtime que Android; todavía no se ha probado
 la interacción en un dispositivo ni la fidelidad comparada con Windows.
-NO VERIFICADO: importación y activación aisladas por título en la app, portada,
-restauración de una partida de Prime, todos los casos, puzles y desenlace.
-La app conserva todavía una única selección activa Director; su separación
-por título es el siguiente trabajo necesario antes de habilitar Prime en Home.
+IMPLEMENTADO y PROBADO con paquetes sintéticos: importación y activación por
+título. Huntsville conserva su clave activa y su almacén anterior. Prime tiene
+selección propia y un almacén estable ligado a la película original, separado
+del de Huntsville. Home permite importar y abrir Prime con estado En desarrollo;
+el Launcher recibe el título seleccionado y lo conserva al recrearse.
+La suite de la app y la compilación del APK pasaron; la revisión no encontró
+defectos bloqueantes. Falta verificar este flujo en un dispositivo.
+El recorrido JVM también recoge las ocho pistas de loc18 sin penalizaciones.
+NO VERIFICADO: portada en dispositivo, restauración de una partida de Prime,
+todos los casos, puzles y desenlace.
 
 ## Verificación y siguientes bloques
 
@@ -94,8 +100,8 @@ Los recursos comerciales no entran en Git.
 
 Prioridad pendiente:
 
-1. Separar activación, recursos y persistencia de cada título en la app sin
-   perder el paquete y las partidas actuales de Huntsville.
+1. Verificar en dispositivo la activación por título y sus portadas, conservando
+   el paquete y las partidas actuales de Huntsville.
 2. Ampliar el recorrido original: más objetos, regreso al mapa, puzles,
    progresión, guardados y restauración; no traducir manualmente el Lingo.
 3. Contrastar scripts e instrucciones con una ejecución de LibreShockwave.

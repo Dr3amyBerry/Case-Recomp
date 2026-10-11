@@ -1,6 +1,7 @@
 package org.rigorcore.caserecomp.app
 
 import android.content.Context
+import android.content.SharedPreferences
 import org.rigorcore.caserecomp.director.DirectorContent
 import org.rigorcore.caserecomp.director.ImageDecoder
 import java.io.File
@@ -14,14 +15,16 @@ import java.security.MessageDigest
  * The compressed ZIP is copied with a global cap, validated entry-by-entry (including
  * the source SHA binding), then committed to app-private storage under its own digest.
  */
-internal class PrivateDirectorRepository(context: Context) {
-    private val base = File(context.filesDir, "private-director")
+internal class PrivateDirectorRepository(filesDir: File, private val preferences: SharedPreferences) {
+    constructor(context: Context) : this(context.filesDir,
+        context.getSharedPreferences("case-recomp-director", Context.MODE_PRIVATE))
+    private val base = File(filesDir, "private-director")
     private val packages = File(base, "packages")
-    private val preferences = context.getSharedPreferences("case-recomp-director", Context.MODE_PRIVATE)
 
-    data class Install(val path: File, val sha256: String)
+    data class Install(val path: File, val sha256: String, val titleId: String = DirectorPresentationProfiles.HUNTSVILLE_ID)
 
-    @Synchronized fun import(input: InputStream): Install {
+    @Synchronized fun import(input: InputStream, expectedTitle: String? = null): Install {
+        expectedTitle?.let(::activeKey)
         require(packages.isDirectory || packages.mkdirs()) { "cannot create private Director storage" }
         val stage = File(base, ".staging-" + System.nanoTime() + ".zip")
         try {
@@ -42,9 +45,11 @@ internal class PrivateDirectorRepository(context: Context) {
             require(size > 0) { "private Director archive is empty" }
             val sha = hash.digest().toHex()
             // This also catches tampering in *unused* media members, not just movie/lingo.json.
-            val cover = DirectorContent.open(stage, ImageDecoder { null }).use {
+            val (title, cover) = DirectorContent.open(stage, ImageDecoder { null }).use {
                 it.verifyAll(requireSourceBinding = true)
-                it.coverPng()
+                val title = DirectorPresentationProfiles.titleId(it)
+                require(expectedTitle == null || expectedTitle == title) { "el paquete no corresponde al juego seleccionado" }
+                title to it.coverPng()
             }
             val destination = File(packages, "$sha.zip")
             if (destination.exists()) {
@@ -53,18 +58,19 @@ internal class PrivateDirectorRepository(context: Context) {
                 require(stage.renameTo(destination)) { "cannot commit private Director archive" }
             }
             saveCover(sha, cover)
-            require(preferences.edit().putString(ACTIVE, sha).commit()) { "cannot activate Director archive" }
-            return Install(destination, sha)
+            require(preferences.edit().putString(activeKey(title), sha).commit()) { "cannot activate Director archive" }
+            return Install(destination, sha, title)
         } finally {
             stage.delete()
         }
     }
 
     /** Cheap check for the home screen: an imported package is active (verified again on load). */
-    fun hasActive(): Boolean = preferences.getString(ACTIVE, null)?.let { SHA.matches(it) && File(packages, "$it.zip").isFile } == true
+    fun hasActive(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): Boolean =
+        preferences.getString(activeKey(title), null)?.let { SHA.matches(it) && File(packages, "$it.zip").isFile } == true
 
     /** The active package's cover PNG, saved at import from the package's own media. */
-    fun activeCover(): File? = preferences.getString(ACTIVE, null)?.takeIf(SHA::matches)
+    fun activeCover(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): File? = preferences.getString(activeKey(title), null)?.takeIf(SHA::matches)
         ?.let { File(packages, "$it.cover.png") }?.takeIf { it.isFile && it.length() in 1..MAX_COVER_BYTES }
 
     private fun saveCover(sha: String, png: ByteArray?) {
@@ -76,12 +82,21 @@ internal class PrivateDirectorRepository(context: Context) {
     }
 
     /** Verify the stored container bytes again at every load before constructing the VM. */
-    fun loadActive(): Install? {
-        val sha = preferences.getString(ACTIVE, null) ?: return null
+    fun loadActive(title: String = DirectorPresentationProfiles.HUNTSVILLE_ID): Install? {
+        val sha = preferences.getString(activeKey(title), null) ?: return null
         if (!SHA.matches(sha)) return null
         val file = File(packages, "$sha.zip")
         if (!file.isFile || file.length() !in 1..MAX_ZIP_BYTES || digest(file) != sha) return null
-        return Install(file, sha)
+        val detected = runCatching { DirectorContent.open(file, ImageDecoder { null }).use(DirectorPresentationProfiles::titleId) }.getOrNull() ?: return null
+        // Unknown editions in the old slot retain their previous generic playback route.
+        if (detected != title && !(title == DirectorPresentationProfiles.HUNTSVILLE_ID && detected == DirectorPresentationProfiles.GENERIC_ID)) return null
+        return Install(file, sha, title)
+    }
+
+    private fun activeKey(title: String): String = when (title) {
+        DirectorPresentationProfiles.HUNTSVILLE_ID -> ACTIVE // Preserve existing installs exactly.
+        DirectorPresentationProfiles.PRIME_ID, DirectorPresentationProfiles.GENERIC_ID -> "$ACTIVE/$title"
+        else -> error("unsupported Director title")
     }
 
     private fun digest(file: File): String {

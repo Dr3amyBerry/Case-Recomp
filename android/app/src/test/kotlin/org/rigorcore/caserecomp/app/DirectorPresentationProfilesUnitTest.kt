@@ -8,6 +8,27 @@ import org.rigorcore.caserecomp.director.ImageDecoder
 import java.io.File
 
 class DirectorPresentationProfilesUnitTest {
+    @Test fun title_selection_is_independent_of_huntsville_visual_calibration() {
+        fun movie(source: String) = """{"source_sha256":"$source"}""".toByteArray()
+        val primeSource = "210a54856729bf4db9a28ed85d1b41a9c08967fce50b4acca20b95f1ddff869b"
+        val huntsvilleSource = "0ef4a73bceae060970d2513f5f6132663843064d7106b724db46cac810a4b28d"
+        assertEquals("prime_suspects", DirectorPresentationProfiles.titleId(movie(primeSource), byteArrayOf()))
+        assertEquals("huntsville", DirectorPresentationProfiles.titleId(movie(huntsvilleSource), byteArrayOf()))
+        assertEquals("director_generic", DirectorPresentationProfiles.titleId(movie("a".repeat(64)), byteArrayOf()))
+        assertSame(DirectorPresentationProfiles.GENERIC,
+            DirectorPresentationProfiles.select(BundleFingerprint.of(movie(primeSource), byteArrayOf())))
+    }
+
+    @Test fun title_storage_preserves_huntsville_and_survives_prime_package_updates() {
+        val source = "210a54856729bf4db9a28ed85d1b41a9c08967fce50b4acca20b95f1ddff869b"
+        val old = "a".repeat(64)
+        val updated = "b".repeat(64)
+        assertEquals(old, DirectorPresentationProfiles.storeId("huntsville", source, old))
+        val prime = DirectorPresentationProfiles.storeId("prime_suspects", source, old)
+        assertEquals(prime, DirectorPresentationProfiles.storeId("prime_suspects", source, updated))
+        assertNotEquals(old, prime)
+        assertTrue(prime.matches(Regex("[a-f0-9]{64}")))
+    }
     private val profile = DirectorPresentationProfiles.HUNTSVILLE_ES
     private val known = BundleFingerprint(
         "59eaebfb1dc6b258872eccfc1532ae85895c51f9c7f3bf4c74d66bb49a212d6c",
