@@ -38,6 +38,9 @@ sealed interface LingoValue {
     /** Host-provided object (sprite, member, sound channel, xtra instance, image...). */
     interface LHost : LingoValue {
         val ilk: String
+        val ilkValue: LingoValue get() = LSymbol(ilk)
+        /** Numeric identity of reference types such as sprite channels; other hosts have none. */
+        val numericIdentity: Int? get() = null
         fun getProp(name: String): LingoValue
         fun setProp(name: String, value: LingoValue)
         /** Returns null when the host object has no such method. */
@@ -59,6 +62,7 @@ fun LingoValue.toInt(): Int = when (this) {
     is LingoValue.LFloat -> Math.round(value).toInt()
     is LingoValue.LString -> value.trim().toIntOrNull() ?: value.trim().toDoubleOrNull()?.let { Math.round(it).toInt() } ?: 0
     LingoValue.Void -> 0
+    is LingoValue.LHost -> numericIdentity ?: throw LingoError("expected a number, got ${ilkOf()}")
     else -> throw LingoError("expected a number, got ${ilkOf()}")
 }
 
@@ -67,6 +71,7 @@ fun LingoValue.toDouble(): Double = when (this) {
     is LingoValue.LFloat -> value
     is LingoValue.LString -> value.trim().toDoubleOrNull() ?: 0.0
     LingoValue.Void -> 0.0
+    is LingoValue.LHost -> numericIdentity?.toDouble() ?: throw LingoError("expected a number, got ${ilkOf()}")
     else -> throw LingoError("expected a number, got ${ilkOf()}")
 }
 
@@ -150,6 +155,8 @@ fun lingoCompare(a: LingoValue, b: LingoValue): Int = when {
 
 /** Binary arithmetic with int/float promotion and element-wise point/rect/list support. */
 fun arithmetic(a: LingoValue, b: LingoValue, op: Char): LingoValue {
+    (a as? LingoValue.LHost)?.numericIdentity?.let { return arithmetic(LingoValue.LInt(it), b, op) }
+    (b as? LingoValue.LHost)?.numericIdentity?.let { return arithmetic(a, LingoValue.LInt(it), op) }
     fun elementwise(x: List<LingoValue>, y: (Int) -> LingoValue) = x.mapIndexed { i, item -> arithmetic(item, y(i), op) }
     return when {
         a is LingoValue.LPoint -> {

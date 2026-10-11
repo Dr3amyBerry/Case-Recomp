@@ -73,6 +73,21 @@ class StageRendererUnitTest {
         assertEquals(blue, px(12, 15))
     }
 
+    @Test fun background_transparent_shape_drops_white_but_retains_its_colored_fill() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        rt.start()
+        val shape = rt.sprite(3)
+        shape.setProp("color", LInt(0))
+        shape.setProp("ink", LInt(36))
+        val renderer = StageRenderer(rt)
+        assertEquals(blue, renderer.render().pixels[31])
+        shape.setProp("color", LInt(255))
+        assertEquals(0xFF000000.toInt(), renderer.render().pixels[31])
+        shape.setProp("color", LInt(0))
+        shape.setProp("ink", LInt(0))
+        assertEquals(0xFFFFFFFF.toInt(), renderer.render().pixels[31])
+    }
+
     @Test fun scoped_offsets_move_only_the_matching_sprite_drawing_at_every_scale() {
         val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
         rt.start()

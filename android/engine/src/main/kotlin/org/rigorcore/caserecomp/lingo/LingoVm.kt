@@ -282,6 +282,7 @@ class LingoVm(
     /** Name of a `the` property read or written through the legacy get/set opcodes. */
     private fun legacyProperty(type: Int, id: Int): String = when (type) {
         0x00 -> MOVIE_PROPERTIES.getOrNull(id)
+        0x07 -> if (id == 0x08) "exitLock" else null
         0x08 -> ANIMATION2_PROPERTIES.getOrNull(id)
         else -> null
     } ?: throw LingoError("unsupported legacy property $type/$id")
@@ -294,7 +295,8 @@ class LingoVm(
     private fun theBuiltin(name: String, frame: Frame): LingoValue =
         if (name.equals("paramCount", true)) LInt(frame.passedCount) else host.theBuiltin(name) ?: Void
 
-    fun getObjectProp(target: LingoValue, name: String): LingoValue = when (target) {
+    fun getObjectProp(target: LingoValue, name: String): LingoValue = if (name.equals("ilk", true))
+        (target as? LingoValue.LHost)?.ilkValue ?: LSymbol(target.ilkOf()) else when (target) {
         is LInstance -> target.properties.entries.firstOrNull { it.key.equals(name, true) }?.value
             ?: throw LingoError("property $name not found on ${target.script.name}")
         is LingoValue.LHost -> target.getProp(name)

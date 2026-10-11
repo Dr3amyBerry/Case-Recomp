@@ -16,12 +16,14 @@ from caserecomp.movie_bundle import CAST_SUFFIXES
 
 MOVIE_SUFFIXES = {".exe", ".dir", ".dxr", ".dcr"}
 
-# Titles the app knows: the external casts that identify them and the bitmap used as cover.
+# Specific signatures first: Prime Suspects includes Huntsville's cast subset.
+# Detection identifies a candidate; it does not certify runtime compatibility.
 TITLES = [
+    {"id": "prime_suspects", "name": "Mystery Case Files: Prime Suspects", "ready": False,
+     "casts": {"dat1.cct", "dat22.cct", "01.cct", "29.cct"}, "cover": None},
     {"id": "huntsville", "name": "Mystery Case Files: Huntsville", "ready": True,
      "casts": {"dat1.cct", "dat16.cct", "01.cct", "21.cct"}, "cover": "newLogo"},
 ]
-
 
 def _movie_candidates(files: list[Path]) -> list[Path]:
     found = []

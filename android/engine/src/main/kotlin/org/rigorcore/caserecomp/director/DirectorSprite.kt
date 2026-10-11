@@ -96,6 +96,7 @@ class FlashState(private val runtime: DirectorRuntime, private val sprite: Sprit
  */
 class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue.LHost {
     override val ilk = "sprite"
+    override val numericIdentity get() = number
 
     var span: SpanData? = null
         internal set

@@ -5,6 +5,7 @@ import struct
 import tempfile
 import unittest
 import zipfile
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -79,14 +80,38 @@ def cast_archive():
 
 
 class DirectorContentTests(unittest.TestCase):
+    def test_auxiliary_file_limits_apply_before_building_media(self):
+        cases = [
+            ({str(n): Path("config.dat") for n in range(257)}, b"source"),
+            ({str(n): Path("config.dat") for n in range(17)}, b"x" * (1024 * 1024)),
+            ({"config.dat": Path("config.dat")}, b"x" * (1024 * 1024 + 1)),
+        ]
+        for files, source_bytes in cases:
+            with tempfile.TemporaryDirectory() as tmp, self.assertRaises(InspectionError):
+                self.build(Path(tmp), files=files, source_bytes=source_bytes)
+
+    def test_auxiliary_files_are_hashed_and_paths_are_confined(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest = self.build(root, files={"Data/config.dat": Path("config.dat")})
+            record = next(e for e in manifest["entries"] if e["path"] == "files/data/config.dat")
+            self.assertEqual(record["kind"], "file")
+            self.assertEqual(record["sha256"], sha256(b"source").hexdigest())
+            with zipfile.ZipFile(root / "out.zip") as zf:
+                self.assertEqual(zf.read(record["path"]), b"source")
+        for name in ("../config.dat", "C:/config.dat", "/config.dat", "data//config.dat"):
+            with tempfile.TemporaryDirectory() as tmp, self.assertRaises(InspectionError):
+                self.build(Path(tmp), files={name: Path("config.dat")})
+
     def build(self, root: Path, **kwargs):
+        source_bytes = kwargs.pop("source_bytes", b"source")
         archives = {"movie.dir": movie_archive(), "01.cct": cast_archive()}
         with patch("caserecomp.director_content.open_archive", side_effect=lambda p: (archives[p.name], 0)), \
                 patch("caserecomp.director_content.CastRelationships", FakeRelations), \
                 patch("caserecomp.movie_bundle.CastRelationships", FakeRelations), \
                 patch("caserecomp.director_content.build_movie_bundle", return_value={"format": "case-recomp-movie-bundle"}), \
                 patch("caserecomp.director_content.build_lingo_bundle", return_value={"format": "case-recomp-lingo-bundle"}), \
-                patch("caserecomp.director_content.read_local", return_value=b"source"), \
+                patch("caserecomp.director_content.read_local", return_value=source_bytes), \
                 patch("caserecomp.audio.swa_encoded_resource", return_value=b"not mpeg audio at all"):
             return build_director_content(Path("movie.dir"), [Path("01.cct")], root / "out.zip", **kwargs)
 

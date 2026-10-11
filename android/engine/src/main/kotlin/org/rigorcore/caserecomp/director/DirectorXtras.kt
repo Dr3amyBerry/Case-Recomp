@@ -48,6 +48,8 @@ class StandardXtras(
     private val screenHeight: Int = 768,
     private val screenDepth: Int = 32,
     private val windowsPaths: Boolean = true,
+    private val bundledFile: (String) -> ByteArray? = { null },
+    private val moviePath: String = "C:\\Game\\",
 ) : LingoHost {
     private var nextNetId = 1
     private val netUrls = HashMap<Int, String>()
@@ -71,8 +73,8 @@ class StandardXtras(
                 store.put(registryKey(arg(3), arg(0), arg(1)), items.joinToString(MULTI_SEPARATOR)); LInt(1)
             }
             "badeletereg" -> { store.remove(registryKey(arg(2), arg(0), arg(1))); LInt(1) }
-            "bafilesize" -> LInt(castFileSize(arg(0).asText()).takeIf { it >= 0 } ?: store.get(fileKey(arg(0).asText()))?.length ?: -1)
-            "bafileexists" -> LingoValue.bool(castFileSize(arg(0).asText()) >= 0 || store.get(fileKey(arg(0).asText())) != null)
+            "bafilesize" -> LInt(castFileSize(arg(0).asText()).takeIf { it >= 0 } ?: fileContent(arg(0).asText())?.length ?: -1)
+            "bafileexists" -> LingoValue.bool(castFileSize(arg(0).asText()) >= 0 || fileContent(arg(0).asText()) != null)
             "bacreatefolder", "basetdisplay", "bawindowtofront", "basetwindowstate" -> LInt(1)
             "bascreeninfo" -> when (arg(0).asText().lowercase()) {
                 "width" -> LInt(screenWidth); "height" -> LInt(screenHeight); "depth" -> LInt(screenDepth)
@@ -100,6 +102,18 @@ class StandardXtras(
     }
 
     fun fileKey(path: String) = "file/" + path.replace('/', '\\').lowercase()
+    private fun deletionKey(path: String) = "deleted/" + fileKey(path)
+    private fun fileContent(path: String): String? = store.get(fileKey(path)) ?:
+        if (store.get(deletionKey(path)) != null) null else packagedText(path)
+
+    private fun packagedText(path: String): String? {
+        val normalized = path.replace('\\', '/').lowercase()
+        val root = moviePath.replace('\\', '/').lowercase().trimEnd('/') + "/"
+        if (!normalized.startsWith(root)) return null
+        val relative = normalized.removePrefix(root)
+        if (relative.split('/').any { it.isEmpty() || it == "." || it == ".." } || ':' in relative) return null
+        return bundledFile(relative)?.let { String(it, Charsets.ISO_8859_1) }
+    }
 
     private companion object {
         const val MULTI_SEPARATOR = "\u0000"
@@ -130,7 +144,7 @@ class StandardXtras(
         override fun getProp(name: String): LingoValue = Void
         override fun setProp(name: String, value: LingoValue) {}
 
-        private fun content(): String? = path?.let { store.get(fileKey(it)) }
+        private fun content(): String? = path?.let(::fileContent)
 
         override fun call(method: String, args: List<LingoValue>): LingoValue? {
             fun arg(i: Int) = args.getOrElse(i) { Void }
@@ -139,7 +153,7 @@ class StandardXtras(
                     val p = arg(0).asText()
                     status = when {
                         badPath(p) -> -37
-                        store.get(fileKey(p)) == null -> -43
+                        fileContent(p) == null -> -43
                         else -> 0
                     }
                     path = if (status == 0) p else null
@@ -148,7 +162,10 @@ class StandardXtras(
                 }
                 "createfile" -> {
                     val p = arg(0).asText()
-                    status = if (badPath(p)) -37 else 0.also { if (store.get(fileKey(p)) == null) store.put(fileKey(p), "") }
+                    status = if (badPath(p)) -37 else 0.also {
+                        if (fileContent(p) == null) store.put(fileKey(p), "")
+                        store.remove(deletionKey(p))
+                    }
                     Void
                 }
                 "closefile" -> { path = null; Void }
@@ -162,7 +179,7 @@ class StandardXtras(
                 } ?: Void
                 "writestring" -> {
                     val p = path ?: run { status = -43; return Void }
-                    val old = store.get(fileKey(p)) ?: ""
+                    val old = content() ?: ""
                     val text = arg(0).asText()
                     store.put(fileKey(p), old.substring(0, minOf(position, old.length)) + text)
                     position += text.length
@@ -171,7 +188,13 @@ class StandardXtras(
                 "getlength" -> LInt(content()?.length ?: 0)
                 "getposition" -> LInt(position)
                 "setposition" -> { position = arg(0).toInt(); Void }
-                "delete" -> { path?.let { store.remove(fileKey(it)) }; path = null; Void }
+                "delete" -> {
+                    path?.let {
+                        store.remove(fileKey(it))
+                        if (packagedText(it) != null) store.put(deletionKey(it), "1")
+                    }
+                    path = null; Void
+                }
                 "filename" -> LString(path ?: "")
                 "setfiltermask", "setfinderinfo" -> Void
                 else -> null

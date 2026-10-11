@@ -101,6 +101,7 @@ class CastLib(private val runtime: DirectorRuntime, val number: Int, val name: S
  */
 class CastMember(private val runtime: DirectorRuntime, val lib: CastLib, val number: Int) : LingoValue.LHost {
     override val ilk = "member"
+    override val ilkValue: LingoValue get() = if (type == "empty") Void else LSymbol(ilk)
     val data: MemberData? get() = lib.data(number)
     private val overrides: MutableMap<String, LingoValue> get() = lib.overrides.getOrPut(number) { HashMap() }
 

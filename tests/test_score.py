@@ -53,6 +53,18 @@ def score_fixture() -> bytes:
 
 
 class ScoreTests(unittest.TestCase):
+    def test_zero_score_dimensions_preserve_a_nonstretched_member_reference(self):
+        from caserecomp.score import _channel_state
+        raw = bytearray(48)
+        raw[0] = 16
+        struct.pack_into(">HHhh", raw, 4, 2, 7, 0, 0)
+        struct.pack_into(">hh", raw, 12, 30, 40)
+        state = _channel_state(raw, 0, 48, 1, 25)
+        self.assertIsNotNone(state)
+        self.assertEqual((state.cast_lib, state.cast_member, state.width, state.height), (2, 7, 0, 0))
+        self.assertIsNone(_channel_state(bytes(48), 0, 48, 1, 25))
+        raw[1] = 0x80
+        self.assertIsNone(_channel_state(raw, 0, 48, 1, 25))
     def test_config_cast_and_script_tables(self):
         cfg = parse_movie_config(movie_config())
         self.assertEqual((cfg.width, cfg.height, cfg.tempo, cfg.platform), (800, 600, 30, 2))

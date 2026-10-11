@@ -55,6 +55,15 @@ class DirectorContent private constructor(
     /** Verified PNG bytes of the title's cover, or null when the package names none. */
     fun coverPng(): ByteArray? = coverPath?.let(::read)
 
+    /** Relative FileIO resource; never resolves a path on the host filesystem. */
+    fun file(path: String): ByteArray? {
+        val key = path.replace('\\', '/').lowercase()
+        if (':' in key || '\u0000' in key || key.split('/').any { it.isEmpty() || it == "." || it == ".." }) return null
+        val entry = entries["files/$key"] ?: return null
+        if (entry.first > 1024 * 1024) throw LingoError("FileIO resource exceeds safety cap")
+        return read("files/$key")
+    }
+
     /** Streaming verification of *every* entry, including rarely used casts, before importing private content. */
     fun verifyAll(requireSourceBinding: Boolean = false) {
         val buffer = ByteArray(64 * 1024)

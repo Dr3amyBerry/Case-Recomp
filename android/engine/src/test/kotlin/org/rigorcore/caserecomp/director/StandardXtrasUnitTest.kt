@@ -34,6 +34,36 @@ class StandardXtrasUnitTest {
         assertEquals(LString("error"), call("baReadRegString", key, LString("Prefs"), LString("error"), root))
     }
 
+    @Test fun fileio_reads_packaged_files_and_keeps_writes_in_the_user_store() {
+        val saved = MemoryStore()
+        val host = StandardXtras(saved, bundledFile = { path ->
+            if (path == "data/config.dat") "setting 0\r".toByteArray() else null
+        })
+        val machine = LingoVm(LingoBundle(emptyList(), emptyList()), host)
+        val path = LString("C:\\Game\\DATA\\config.dat")
+        assertEquals(LingoValue.TRUE, machine.callFunction("baFileExists", listOf(path)))
+        assertEquals(LInt(10), machine.callFunction("baFileSize", listOf(path)))
+        val file = machine.callFunction("new", listOf(XtraRef("fileio")))
+        fun io(name: String, vararg args: LingoValue) = machine.callMethod(file, name, listOf(file) + args)
+        io("openFile", LString("C:\\Game\\DATA\\config.dat"), LInt(0))
+        assertEquals(LInt(0), io("status"))
+        assertEquals(LString("setting 0\r"), io("readFile"))
+        io("setPosition", LInt(0))
+        io("writeString", LString("setting 1\r"))
+        assertEquals("setting 1\r", saved.values.values.single())
+        io("delete")
+        assertEquals(LingoValue.FALSE, machine.callFunction("baFileExists", listOf(path)))
+        io("openFile", path, LInt(0))
+        assertEquals(LInt(-43), io("status"))
+        io("createFile", path)
+        io("openFile", path, LInt(0))
+        assertEquals(LString(""), io("readFile"))
+        io("openFile", LString("C:\\Other\\data\\config.dat"), LInt(0))
+        assertEquals(LInt(-43), io("status"))
+        io("openFile", LString("C:\\Game\\data\\..\\config.dat"), LInt(0))
+        assertEquals(LInt(-43), io("status"))
+    }
+
     @Test fun buddy_files_screen_and_windows() {
         assertEquals(LInt(50_000), call("baFileSize", LString("C:\\Game\\data\\01.cct")))
         assertEquals(LInt(-1), call("baFileSize", LString("C:\\Game\\data\\02.cct")))

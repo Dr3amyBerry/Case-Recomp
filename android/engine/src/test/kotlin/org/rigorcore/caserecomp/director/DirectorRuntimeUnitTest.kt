@@ -21,6 +21,8 @@ import org.rigorcore.caserecomp.lingo.LingoValue.LRect
 import org.rigorcore.caserecomp.lingo.LingoValue.LString
 import org.rigorcore.caserecomp.lingo.LingoValue.LSymbol
 import org.rigorcore.caserecomp.lingo.ScriptType
+import org.rigorcore.caserecomp.lingo.toInt
+import org.rigorcore.caserecomp.lingo.toDouble
 import kotlin.random.Random
 
 /**
@@ -96,6 +98,51 @@ class DirectorRuntimeUnitTest {
     }
 
     private var now = 1_000L
+    @Test fun ilk_property_is_available_on_host_references() {
+        val rt = runtime()
+        assertEquals(LSymbol("sprite"), rt.vm.getObjectProp(rt.sprite(2), "ilk"))
+        assertEquals(LSymbol("member"), rt.vm.getObjectProp(rt.member(LInt(3), null), "ilk"))
+        assertEquals(LSymbol("void"), rt.vm.getObjectProp(LingoValue.Void, "ilk"))
+        assertEquals(LingoValue.Void, rt.vm.getObjectProp(rt.emptyMember(), "ilk"))
+    }
+    @Test fun sprite_references_coerce_to_the_channel_in_arithmetic_and_indexes() {
+        val rt = runtime()
+        val sprite = rt.sprite(2)
+        assertEquals(2, sprite.toInt())
+        assertEquals(2.0, sprite.toDouble(), 0.0)
+        assertEquals(LInt(3), org.rigorcore.caserecomp.lingo.arithmetic(sprite, LInt(1), '+'))
+        assertEquals(LInt(3), org.rigorcore.caserecomp.lingo.arithmetic(LInt(1), sprite, '+'))
+        assertEquals(LingoValue.LFloat(3.5), org.rigorcore.caserecomp.lingo.arithmetic(sprite, LingoValue.LFloat(1.5), '+'))
+        assertSame(rt.sprite(3), rt.vm.callFunction("sprite", listOf(
+            org.rigorcore.caserecomp.lingo.arithmetic(sprite, LInt(1), '+'),
+        )))
+    }
+    @Test fun window_close_notifies_only_an_installed_quit_message_handler() {
+        fun hookedRuntime(): DirectorRuntime {
+            val script = LingoScript("close", 10, ScriptType.MOVIE, emptyList(), emptyList(), emptyList(), listOf(
+                handler("quitMsg", asm().bump("gCloseMessages").end(), emptyList()),
+            ))
+            return DirectorRuntime(movie(), LingoBundle(names, listOf(script)))
+        }
+        val active = hookedRuntime()
+        active.vm.callFunction("startQuitMsg", emptyList())
+        active.requestWindowClose()
+        assertEquals(LInt(1), active.vm.global("gCloseMessages"))
+        assertTrue(active.quitRequested)
+
+        val removed = hookedRuntime()
+        removed.vm.callFunction("startQuitMsg", emptyList())
+        removed.vm.callFunction("closeQuitMsg", emptyList())
+        removed.requestWindowClose()
+        assertEquals(LingoValue.Void, removed.vm.global("gCloseMessages"))
+        assertTrue(removed.quitRequested)
+
+        val plain = hookedRuntime()
+        plain.requestWindowClose()
+        assertEquals(LingoValue.Void, plain.vm.global("gCloseMessages"))
+        assertTrue(plain.quitRequested)
+    }
+
     private fun runtime(media: DirectorMedia = DirectorMedia.None, sound: SoundOutput = SoundOutput.Silent) =
         DirectorRuntime(movie(), bundle(), media, sound, clock = { now }, random = Random(1))
 

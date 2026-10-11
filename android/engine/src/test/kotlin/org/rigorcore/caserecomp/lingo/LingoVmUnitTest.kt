@@ -24,6 +24,23 @@ class LingoVmUnitTest {
     private fun movie(vararg handlers: LingoHandler, literals: List<LingoValue> = emptyList()) =
         LingoScript("movie", 1, ScriptType.MOVIE, emptyList(), emptyList(), literals, handlers.toList())
 
+    @Test fun legacy_exit_lock_uses_the_movie_property_host_for_reads_and_writes() {
+        var lock = LInt(0)
+        val host = object : LingoHost {
+            override fun getMovieProp(name: String): LingoValue? =
+                if (name == "exitLock") lock else null
+            override fun setMovieProp(name: String, value: LingoValue): Boolean {
+                if (name != "exitLock") return false
+                lock = value as LInt
+                return true
+            }
+        }
+        val change = handler("change", emptyList(), code = asm()
+            .int(1).int(8).op(0x5D, 7).int(8).op(0x5C, 7).ret())
+        assertEquals(LInt(1), vm(movie(change), host = host).callGlobal("change", emptyList()))
+        assertEquals(LInt(1), lock)
+    }
+
     @Test fun property_names_accept_string_and_symbol_without_duplicate_entries() {
         val vm = vm()
         val list = LPropList(mutableListOf(LSymbol("setting") to LInt(7), LString("Other") to LInt(2)))

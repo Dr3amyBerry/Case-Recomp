@@ -40,6 +40,11 @@ class DirectorLauncherActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            ) { exitWithSave() }
+        }
         repository = PrivateDirectorRepository(this)
         if (!debuggable) {
             // Release: only the home screen's Play opens this, on the package the user imported.
@@ -199,7 +204,8 @@ class DirectorLauncherActivity : Activity() {
             try {
                 val movie = loaded.movie
                 // Original-game FileIO/Buddy API probes must find bundled casts with a realistic size.
-                val xtras = StandardXtras(store, castFileSize = loaded::castFileSize)
+                val xtras = StandardXtras(store, castFileSize = loaded::castFileSize,
+                    bundledFile = loaded::file, moviePath = "C:\\CaseRecomp\\")
                 require(movie.stageWidth in 1..2048 && movie.stageHeight in 1..2048 &&
                     movie.stageWidth.toLong() * movie.stageHeight <= 4L * 1024 * 1024 &&
                     movie.frameCount in 1..100_000 && movie.channelCount in 6..8_192) {
@@ -303,11 +309,16 @@ class DirectorLauncherActivity : Activity() {
     }
 
     private fun exitWithSave() {
-        try { checkpoint?.save(); finish() }
+        try { runtime?.requestWindowClose(); checkpoint?.save(); finish() }
         catch (e: Exception) {
             Log.e(TAG, "cannot save before exit", e)
             Toast.makeText(this, "No se pudo guardar. Intenta salir de nuevo.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    @Deprecated("Uses Activity's legacy back callback")
+    override fun onBackPressed() {
+        if (runtime != null) exitWithSave() else super.onBackPressed()
     }
 
     override fun onResume() {

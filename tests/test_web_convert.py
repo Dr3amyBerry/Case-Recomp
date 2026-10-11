@@ -32,6 +32,15 @@ class WebConvertScanTests(unittest.TestCase):
             with self.assertRaises(web_convert.InspectionError):
                 web_convert.convert(tmp, str(Path(tmp) / "out.zip"))
 
+    def test_prime_suspects_casts_do_not_identify_as_huntsville(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("dat1.cct", "dat16.cct", "01.cct", "21.cct", "29.cct", "dat22.cct"):
+                (root / name).write_bytes(b"synthetic")
+            report = json.loads(web_convert.scan(tmp))
+            self.assertEqual(report["title"]["id"], "prime_suspects")
+            self.assertFalse(report["title"]["ready"])
+
 
 if __name__ == "__main__":
     unittest.main()

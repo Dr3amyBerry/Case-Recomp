@@ -140,13 +140,32 @@ def cover_path(cover: str, movie_bundle: dict | None = None) -> str:
 
 
 def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmpeg: Path | None = None,
-                           cover: str | None = None) -> dict:
+                           cover: str | None = None, files: dict[str, Path] | None = None) -> dict:
     """Write a private, deterministic content zip (create-only) and return its manifest.
 
     [cover] names the bitmap member a launcher shows for this title (see [cover_path]).
     """
     if output.exists():
         raise InspectionError("output already exists")
+    auxiliary = {}
+    auxiliary_bytes = 0
+    if len(files or {}) > 256:
+        raise InspectionError("auxiliary file count exceeds safety cap")
+    for name, path in (files or {}).items():
+        name = name.replace("\\", "/").lower()
+        if len(name) > 500 or any(not part.strip() or part in (".", "..") for part in name.split("/")) or ":" in name or "\x00" in name:
+            raise InspectionError("auxiliary file path must be relative and confined")
+        if name in auxiliary:
+            raise InspectionError("duplicate auxiliary file path")
+        if path.is_symlink():
+            raise InspectionError("auxiliary file must not be a symlink")
+        data = read_local(path)
+        if len(data) > 1024 * 1024:
+            raise InspectionError("auxiliary file exceeds safety cap")
+        auxiliary_bytes += len(data)
+        if auxiliary_bytes > 16 * 1024 * 1024:
+            raise InspectionError("auxiliary bytes exceed safety cap")
+        auxiliary[name] = data
     movie_bundle = build_movie_bundle(movie, casts)
     lingo_bundle = build_lingo_bundle(movie)
     entries: list[dict] = []
@@ -168,6 +187,8 @@ def build_director_content(movie: Path, casts: list[Path], output: Path, *, ffmp
 
             add("movie.json", json.dumps(movie_bundle, ensure_ascii=False, sort_keys=True).encode("utf-8"))
             add("lingo.json", json.dumps(lingo_bundle, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+            for name, data in sorted(auxiliary.items()):
+                add("files/" + name, data, kind="file")
             sources = [(movie, "")] + [(path, path.name) for path in sorted(casts, key=lambda p: p.name.lower())]
             for path, name in sources:
                 archive, _ = open_archive(path)

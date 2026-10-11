@@ -105,7 +105,8 @@ class StageRenderer(
             "bitmap" -> item.member.pixels?.let { blit(it, item, alpha) }
             "shape" -> {
                 val color = LColor.of(runtime.sprite(item.sprite).getProp("color"))
-                if (item.member.data?.filled != false) fillRect(item.left, item.top, item.right, item.bottom, color.argb, alpha)
+                if (item.member.data?.filled != false && !(item.ink == 36 && color.argb == WHITE))
+                    fillRect(item.left, item.top, item.right, item.bottom, color.argb, alpha)
             }
             "text", "field" -> textImage(item.member, w, h)?.let { image ->
                 // A box grown to its content comes back taller: it extends the sprite downwards.

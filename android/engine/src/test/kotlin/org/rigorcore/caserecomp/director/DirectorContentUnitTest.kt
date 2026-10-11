@@ -83,6 +83,20 @@ class DirectorContentUnitTest {
         }
     }
 
+    @Test fun packaged_files_are_confined_and_hash_verified() {
+        val data = "setting 0\r".toByteArray()
+        DirectorContent.open(pack(files + ("files/data/config.dat" to data)), decoder).use { content ->
+            assertArrayEquals(data, content.file("DATA\\config.dat"))
+            for (path in listOf("../data/config.dat", "C:/data/config.dat", "/data/config.dat", "data//config.dat")) {
+                assertNull(content.file(path))
+            }
+        }
+        val listed = files + ("files/data/config.dat" to data)
+        DirectorContent.open(pack(files + ("files/data/config.dat" to "setting 1\r".toByteArray()), listed), decoder).use { content ->
+            assertThrows(LingoError::class.java) { content.file("data/config.dat") }
+        }
+    }
+
     @Test fun a_package_may_name_a_packaged_bitmap_as_its_cover() {
         DirectorContent.open(pack(files), decoder).use { assertNull(it.coverPng()) }
         DirectorContent.open(pack(files, top = ""","cover":"media/art/1.png""""), decoder).use { content ->

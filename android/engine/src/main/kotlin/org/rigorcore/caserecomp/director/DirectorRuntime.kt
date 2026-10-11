@@ -95,6 +95,7 @@ class DirectorRuntime(
         private set
     var quitRequested = false
         private set
+    private var quitMessageInstalled = false
     var stageUpdates = 0
         private set
 
@@ -179,6 +180,14 @@ class DirectorRuntime(
         val target = pendingFrame ?: (frame + 1).let { if (it > movie.frameCount) 1 else it }
         pendingFrame = null
         enterFrame(target, startMovie = false)
+    }
+
+    /** quitMsg Xtra observes a native window-close event before the host closes. */
+    fun requestWindowClose() {
+        if (quitRequested) return
+        vm.resetBudget()
+        if (quitMessageInstalled) vm.callGlobal("quitMsg", emptyList())
+        quitRequested = true
     }
 
     fun stop() {
@@ -562,6 +571,8 @@ class DirectorRuntime(
                 if (k is LInt) pressedKeys.contains("#${k.value}") else pressedKeys.contains(k.asText().lowercase())
             })
             "quit", "halt" -> { quitRequested = true; Void }
+            "startquitmsg" -> { quitMessageInstalled = true; Void }
+            "closequitmsg" -> { quitMessageInstalled = false; Void }
             "alert" -> { warnings += "alert: ${arg(0).asText()}"; Void }
             "put" -> { log += args.joinToString(" ") { it.asText() }; Void }
             "new" -> if (arg(0) is LSymbol) {

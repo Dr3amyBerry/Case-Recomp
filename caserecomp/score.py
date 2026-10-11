@@ -295,7 +295,9 @@ def _channel_state(raw: bytes, pos: int, record_size: int, frame: int, channel: 
     cast_lib, cast_member = struct.unpack_from(">HH", raw, pos + 4)
     y, x = struct.unpack_from(">hh", raw, pos + 12)
     height, width = struct.unpack_from(">HH", raw, pos + 16)
-    if width == 0 or height == 0:
+    # Non-stretched members can use their natural dimensions even when the score
+    # stores zero. Keep their cast/position so the runtime can resolve that size.
+    if (width == 0 or height == 0) and not (sprite_type and cast_member and not ink_byte & 0x80):
         return None
     blend = raw[pos + 21] if record_size >= 24 else 0
     flags = raw[pos + 22] if record_size >= 24 else 0

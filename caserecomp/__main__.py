@@ -36,6 +36,10 @@ def main(argv: list[str] | None = None) -> int:
 
     verify = cmd.add_parser("verify-local", help="Validate local Director archives; no extracted output")
     verify.add_argument("source", type=Path, help="Local directory containing owned game data")
+    verify.add_argument("--output", type=Path, help="Create-only detailed private report outside the repository")
+    verify.add_argument("--max-files", type=int, default=256, help="Detailed report input archive cap")
+    verify.add_argument("--show-names", action="store_true", help="Expose Lingo names only in the private report")
+    verify.add_argument("--decode-media", action="store_true", help="Check existing package media decoders in the private report")
 
     convert = cmd.add_parser("convert-local", help="Local verified JPEG/PNG/PCM extraction; proprietary files stay private")
     convert.add_argument("source", type=Path)
@@ -139,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     director_content.add_argument("--cast-dir", type=Path, help="Directory holding the movie's external casts")
     director_content.add_argument("--ffmpeg", type=Path, help="Local FFmpeg for SWA-compressed sounds (optional)")
     director_content.add_argument("--cover", help="Bitmap member shown as the title's cover: NUMBER, NAME, CAST:NUMBER or CAST:NAME")
+    director_content.add_argument("--file", action="append", default=[], help="Private FileIO resource: RELATIVE_PATH=LOCAL_FILE (repeatable)")
     director_content.add_argument("--output", required=True, type=Path)
 
     scene_proof = cmd.add_parser("scene-proof", help="Emit .crscene only from a consensus native scene observation")
@@ -189,7 +194,18 @@ def main(argv: list[str] | None = None) -> int:
                 print(output, end="")
             return 0
         if args.command == "verify-local":
-            from .verification import verify_directory
+            from .verification import audit_directory, verify_directory
+            if args.output:
+                from .director import exclusive_write
+                from .pipeline import guard_destination
+                guard_destination(args.source, args.output)
+                record = audit_directory(args.source, max_files=args.max_files, show_names=args.show_names,
+                                         decode_media=args.decode_media)
+                exclusive_write(args.output, (json.dumps(record, sort_keys=True, indent=2) + "\n").encode())
+                print(json.dumps(record["summary"], sort_keys=True))
+                return 0
+            if args.show_names or args.decode_media:
+                raise InspectionError("--show-names and --decode-media require a private --output")
             record = verify_directory(args.source)
         elif args.command == "director-map":
             archive, offset = open_archive(args.source)
@@ -342,7 +358,15 @@ def main(argv: list[str] | None = None) -> int:
                 from .audio import resolve_ffmpeg
                 ffmpeg = resolve_ffmpeg(args.ffmpeg)
             casts = external_cast_files(args.cast_dir) if args.cast_dir else []
-            manifest = build_director_content(args.source, casts, args.output, ffmpeg=ffmpeg, cover=args.cover)
+            files = {}
+            for item in args.file:
+                name, separator, local = item.partition("=")
+                if not separator or not local or name in files:
+                    raise InspectionError("--file requires unique RELATIVE_PATH=LOCAL_FILE mappings")
+                path = Path(local)
+                guard_destination(path, args.output)
+                files[name] = path
+            manifest = build_director_content(args.source, casts, args.output, ffmpeg=ffmpeg, cover=args.cover, **({"files": files} if files else {}))
             record = {"format": manifest["format"], "entries": len(manifest["entries"]),
                       "counts": manifest["counts"], "skipped": manifest["skipped"]}
         elif args.command == "scene-proof":
