@@ -5,7 +5,7 @@ name: converter page
 on:
   push:
     branches: [main]
-    paths: ["web/**", "caserecomp/**", ".github/workflows/pages.yml"]
+    paths: ["web/**", "caserecomp/**", "tools/sda-prototype/runtime.py", "tools/sda-prototype/package_vegas.py", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -37,6 +37,9 @@ jobs:
               z.write("LICENSE", "LICENSE")
               for p in sorted(pathlib.Path("caserecomp").glob("*.py")):
                   z.write(p, "caserecomp/" + p.name)
+              # The Vegas Heist (SDA) packager and its Resources.dll reader.
+              for name in ("runtime.py", "package_vegas.py"):
+                  z.write("tools/sda-prototype/" + name, name)
           EOF
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

@@ -21,31 +21,79 @@ def parse_xui(raw):
     return ET.fromstring(text)
 
 
+def rawdata_entries(data):
+    """RAWDATA resources of a PE image as {NAME: (file offset, size)}, English (1033) only.
+
+    A small reader of the PE resource tree, so the browser converter needs no pefile.
+    """
+    import struct
+
+    def u16(at):
+        return struct.unpack_from("<H", data, at)[0]
+
+    def u32(at):
+        return struct.unpack_from("<I", data, at)[0]
+
+    if data[:2] != b"MZ":
+        raise ValueError("not a PE image")
+    pe = u32(0x3C)
+    if data[pe:pe + 4] != b"PE\0\0":
+        raise ValueError("not a PE image")
+    sections, optional_size = u16(pe + 6), u16(pe + 20)
+    optional = pe + 24
+    directories = optional + (96 if u16(optional) == 0x10B else 112)
+    root_rva = u32(directories + 2 * 8)
+    table = optional + optional_size
+    spans = [(u32(s + 12), max(u32(s + 8), u32(s + 16)), u32(s + 20))
+             for s in (table + 40 * i for i in range(sections))]
+
+    def offset(rva):
+        for start, size, raw in spans:
+            if start <= rva < start + size:
+                return raw + rva - start
+        raise ValueError("resource outside sections")
+
+    root = offset(root_rva)
+
+    def children(at):
+        count = u16(at + 12) + u16(at + 14)
+        for entry in range(at + 16, at + 16 + 8 * count, 8):
+            name, target = u32(entry), u32(entry + 4)
+            if name & 0x80000000:
+                text = root + (name & 0x7FFFFFFF)
+                key = data[text + 2:text + 2 + 2 * u16(text)].decode("utf-16-le")
+            else:
+                key = name
+            yield key, target
+
+    entries = {}
+    for kind, kind_dir in children(root):
+        if str(kind).upper() != "RAWDATA":
+            continue
+        for name, name_dir in children(root + (kind_dir & 0x7FFFFFFF)):
+            name = str(name).upper()
+            english = [t for lang, t in children(root + (name_dir & 0x7FFFFFFF)) if lang == 1033]
+            if len(english) != 1:
+                raise ValueError(f"ambiguous resource language: {name}")
+            leaf = root + english[0]
+            size = u32(leaf + 4)
+            if name in entries or size > 64_000_000:
+                raise ValueError(f"invalid resource: {name}")
+            entries[name] = (offset(u32(leaf)), size)
+    return entries
+
+
 class Resources:
     """Read RAWDATA bytes from a local PE; never LoadLibrary or launch a process."""
     def __init__(self, path):
-        import pefile
         self.path = Path(path)
-        self.pe = pefile.PE(str(self.path))
-        self.entries = {}
-        for kind in self.pe.DIRECTORY_ENTRY_RESOURCE.entries:
-            if str(kind.name).upper() != "RAWDATA":
-                continue
-            for item in kind.directory.entries:
-                name = str(item.name).upper()
-                langs = item.directory.entries
-                english = [lang for lang in langs if lang.id == 1033]
-                if len(english) != 1:
-                    raise ValueError(f"ambiguous resource language: {name}")
-                entry = english[0].data.struct
-                if name in self.entries or entry.Size > 64_000_000:
-                    raise ValueError(f"invalid resource: {name}")
-                self.entries[name] = (entry.OffsetToData, entry.Size)
+        self.data = self.path.read_bytes()
+        self.entries = rawdata_entries(self.data)
         self.images = {}
 
     def read(self, name):
-        rva, size = self.entries[name.upper()]
-        data = self.pe.get_data(rva, size)
+        start, size = self.entries[name.upper()]
+        data = self.data[start:start + size]
         if len(data) != size:
             raise ValueError(f"truncated resource: {name}")
         return data

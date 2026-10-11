@@ -1,4 +1,4 @@
-// Runs the Python converter (web/convert.py + the caserecomp package) in Pyodide,
+// Runs the Python converter (web/convert.py, the caserecomp package and the SDA packager) in Pyodide,
 // off the page's main thread. Game files stay in this tab's memory.
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
 
@@ -41,8 +41,8 @@ onmessage = async (event) => {
       postMessage({ type: "scanned", report: JSON.parse(py.runPython("convert.scan('/game')")) });
     } else if (type === "convert") {
       postMessage({ type: "status", key: "converting" });
-      const summary = JSON.parse(py.runPython("convert.convert('/game', '/out/game.director.zip')"));
-      const bytes = py.FS.readFile("/out/game.director.zip");
+      const summary = JSON.parse(py.runPython("convert.convert('/game', '/out/game.zip')"));
+      const bytes = py.FS.readFile("/out/game.zip");
       resetGame(py);
       postMessage({ type: "converted", summary, bytes }, [bytes.buffer]);
     }

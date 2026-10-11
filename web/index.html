@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Case Recomp — Convertidor</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Convierte la carpeta de tu juego original en el archivo .zip para la app Case Recomp. Todo ocurre en tu navegador.">
+<meta name="description" content="Convierte la carpeta de tu juego original (Huntsville, Prime Suspects o The Vegas Heist) en el archivo .zip para la app Case Recomp. Todo ocurre en tu navegador.">
 <style>
   :root {
     --bg: #0d1117; --panel: #161d29; --edge: #2d3748; --text: #e8edf4; --muted: #9aa7b8;
@@ -109,13 +109,16 @@
 const REPO = "https://github.com/Dr3amyBerry/Case-Recomp";
 const TEXT = {
   es: {
-    lead: "Convierte la carpeta de tu juego original en el archivo .zip que importa la app Case Recomp.",
+    lead: "Convierte la carpeta de tu juego original en el archivo .zip que importa la app Case Recomp. Compatible con Mystery Case Files: Huntsville y Prime Suspects, y con Mystery P.I.: The Vegas Heist.",
     beta: "<strong>Beta.</strong> Puede tener errores. Si algo no funciona, avísanos en <a href=\"" + REPO + "/issues\">GitHub</a>. Se entrega tal cual, sin garantías de ningún tipo. No incluye ningún juego: necesitas tu propia copia original.",
     dropTitle: "Elige o arrastra aquí la carpeta del juego",
-    dropHint: "La carpeta donde está instalado, por ejemplo la que contiene MysteryCaseFiles.exe y la carpeta data",
+    dropHint: "La carpeta donde está instalado: la que contiene el .exe del juego y su carpeta de datos (en The Vegas Heist, la que contiene Resources.dll)",
     detected: "Juego detectado",
     unknown: "Juego Director no reconocido",
-    noGame: "No se encontró ningún juego Director en esta carpeta.",
+    noGame: "No se encontró ningún juego compatible en esta carpeta.",
+    protectedExe: "Esta edición guarda la película dentro de un ejecutable protegido que la página no puede leer. Si tienes la película del juego (.dxr o .dir), añádela a la carpeta.",
+    noMovie: "Sin película legible",
+    sdaFiles: (n) => `Resources.dll · ${n} recursos`,
     supported: "Compatible", inDevelopment: "En desarrollo", unsupported: "No compatible todavía",
     files: (movie, casts) => `Ejecutable: ${movie} · ${casts} archivos de datos (.cct)`,
     convert: "Crear archivo para la app",
@@ -129,21 +132,24 @@ const TEXT = {
     how1: "Instala la app Case Recomp en tu Android (descárgala desde <a href=\"" + REPO + "/releases\">Releases</a>).",
     how2: "En tu PC, elige aquí la carpeta donde está instalado tu juego original.",
     how3: "Pulsa «Crear archivo para la app» y descarga el .zip.",
-    how4: "Copia el .zip al móvil (por ejemplo a Descargas), abre la app y pulsa Importar.",
+    how4: "Copia el .zip al móvil (por ejemplo a Descargas), abre la app y pulsa Importar en la tarjeta de ese juego.",
     privacy: "Los archivos del juego se procesan localmente en tu navegador, sin enviarlos a un servidor de conversión del proyecto. El sitio obtiene el motor Python desde una CDN y se aloja en GitHub Pages; consulta Privacidad. No compartas tu ZIP.",
     legalTitle: "Avisos legales",
-    legalSummary: "Case Recomp: descarga y juego personal gratuitos; código modificable y compartible para fines no comerciales (PolyForm 1.0.0). La explotación comercial por terceros requiere autorización escrita. Proyecto independiente, no afiliado a Big Fish; el juego original no está incluido.",
+    legalSummary: "Case Recomp: descarga y juego personal gratuitos; código modificable y compartible para fines no comerciales (PolyForm 1.0.0). La explotación comercial por terceros requiere autorización escrita. Proyecto independiente, no afiliado a Big Fish ni a SpinTop Games; el juego original no está incluido.",
     licenseLink: "Licencia no comercial", legalLink: "Aviso legal", privacyLink: "Privacidad", termsLink: "Términos", thirdPartyLink: "Terceros", contactLink: "Contacto legal: contact@rigorcore.com",
     footer: "Case Recomp es un proyecto de aficionados, sin relación con los autores ni editores de los juegos. <a href=\"" + REPO + "\">Código fuente</a>.",
   },
   en: {
-    lead: "Turn the folder of your original game into the .zip file the Case Recomp app imports.",
+    lead: "Turn the folder of your original game into the .zip file the Case Recomp app imports. Works with Mystery Case Files: Huntsville and Prime Suspects, and Mystery P.I.: The Vegas Heist.",
     beta: "<strong>Beta.</strong> It may have bugs. If something does not work, tell us on <a href=\"" + REPO + "/issues\">GitHub</a>. Provided as is, without warranty of any kind. No game is included: you need your own original copy.",
     dropTitle: "Choose or drop the game folder here",
-    dropHint: "The folder where it is installed, e.g. the one holding MysteryCaseFiles.exe and the data folder",
+    dropHint: "The folder where it is installed: the one holding the game .exe and its data folder (for The Vegas Heist, the one holding Resources.dll)",
     detected: "Game detected",
     unknown: "Unrecognised Director game",
-    noGame: "No Director game was found in this folder.",
+    noGame: "No supported game was found in this folder.",
+    protectedExe: "This edition keeps the movie inside a protected executable the page cannot read. If you have the game movie (.dxr or .dir), add it to the folder.",
+    noMovie: "No readable movie",
+    sdaFiles: (n) => `Resources.dll · ${n} resources`,
     supported: "Supported", inDevelopment: "In development", unsupported: "Not supported yet",
     files: (movie, casts) => `Executable: ${movie} · ${casts} data files (.cct)`,
     convert: "Create file for the app",
@@ -157,16 +163,16 @@ const TEXT = {
     how1: "Install the Case Recomp app on your Android (download it from <a href=\"" + REPO + "/releases\">Releases</a>).",
     how2: "On your PC, choose here the folder where your original game is installed.",
     how3: "Press “Create file for the app” and download the .zip.",
-    how4: "Copy the .zip to your phone (e.g. Downloads), open the app and tap Import.",
+    how4: "Copy the .zip to your phone (e.g. Downloads), open the app and tap Import on that game's card.",
     privacy: "Game files are processed in your browser, without sending them to a project-operated conversion server. This site loads Python from a CDN and is hosted on GitHub Pages; see Privacy. Do not share your ZIP.",
     legalTitle: "Legal notices",
-    legalSummary: "Free personal download and play; source may be modified and shared for noncommercial purposes (PolyForm 1.0.0). Commercial exploitation by third parties requires written authorization. Independent project, not endorsed by Big Fish; no original game is provided.",
+    legalSummary: "Free personal download and play; source may be modified and shared for noncommercial purposes (PolyForm 1.0.0). Commercial exploitation by third parties requires written authorization. Independent project, not endorsed by Big Fish or SpinTop Games; no original game is provided.",
     licenseLink: "Noncommercial license", legalLink: "Legal notice", privacyLink: "Privacy", termsLink: "Terms", thirdPartyLink: "Third parties", contactLink: "Legal contact: contact@rigorcore.com",
     footer: "Case Recomp is a fan project, not affiliated with the games' authors or publishers. <a href=\"" + REPO + "\">Source code</a>.",
   },
 };
-// Only Director files are read into memory.
-const WANTED = /\.(exe|dir|dxr|dcr|cct|cst|cxt)$/i;
+// Only Director files and the SDA Resources.dll are read into memory.
+const WANTED = /\.(exe|dir|dxr|dcr|cct|cst|cxt)$|^resources\.dll$/i;
 
 let lang = navigator.language && navigator.language.toLowerCase().startsWith("es") ? "es" : "en";
 try { lang = localStorage.getItem("lang") || lang; } catch (e) {}
@@ -194,15 +200,18 @@ function status(key, kind, ...args) {
 function showReport() {
   $("result").hidden = false;
   const tag = $("gameTag");
-  if (!report.movie) {
-    $("gameName").textContent = t("noGame"); tag.hidden = true; $("files").textContent = "";
-    $("convert").disabled = true; return;
+  if (report.engine === "director" && !report.movie) {
+    $("convert").disabled = true;
+    if (!report.title) { $("gameName").textContent = t("noGame"); tag.hidden = true; $("files").textContent = ""; return; }
+    // A recognised title whose projector hides the movie.
+    $("gameName").textContent = report.title.name; tag.hidden = false;
+    tag.textContent = t("noMovie"); tag.className = "tag bad"; $("files").textContent = t("protectedExe"); return;
   }
   tag.hidden = false;
   $("gameName").textContent = report.title ? report.title.name : t("unknown");
   tag.textContent = report.title ? (report.title.ready ? t("supported") : t("inDevelopment")) : t("unsupported");
   tag.className = "tag " + (report.title && report.title.ready ? "ok" : "bad");
-  $("files").textContent = t("files", report.movie_name, report.casts.length);
+  $("files").textContent = report.engine === "sda" ? t("sdaFiles", report.resources) : t("files", report.movie_name, report.casts.length);
   $("convert").disabled = !(report.title && report.title.ready);
 }
 
@@ -215,7 +224,7 @@ worker.onmessage = ({ data }) => {
     if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     downloadUrl = URL.createObjectURL(new Blob([data.bytes], { type: "application/zip" }));
     const a = $("download");
-    a.href = downloadUrl; a.download = (summary.title ? summary.title.id : "game") + ".director.zip";
+    a.href = downloadUrl; a.download = (summary.title ? summary.title.id : "game") + summary.extension;
     a.textContent = t("download", a.download); a.hidden = false;
     $("convert").hidden = true;
     status("done", "ok", summary);
