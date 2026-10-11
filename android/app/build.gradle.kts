@@ -29,6 +29,14 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Personal builds only: -PbundledContentDir=<folder holding a "bundled" folder of the
+    // player's own converted ZIPs> packs them as assets, imported on first launch.
+    // Never pass it for a published build.
+    providers.gradleProperty("bundledContentDir").orNull?.let { dir ->
+        sourceSets["main"].assets.srcDir(dir)
+        defaultConfig.versionNameSuffix = "-personal"
+    }
+
     signingConfigs {
         releaseSigning?.let { props ->
             create("release") {

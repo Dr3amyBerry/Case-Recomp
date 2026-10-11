@@ -59,6 +59,16 @@ class HomeActivity : Activity() {
             }
         }
 
+        if (BundledContent.pending(this).isNotEmpty()) {
+            // A personal build's own games are imported once, like a manual Importar.
+            importing = true
+            importingSda = true
+            Thread {
+                BundledContent.importPending(this, repository, sdaRepository)
+                runOnUiThread { if (!isDestroyed) { importing = false; importingSda = false; refresh() } }
+            }.start()
+        }
+
         games = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
