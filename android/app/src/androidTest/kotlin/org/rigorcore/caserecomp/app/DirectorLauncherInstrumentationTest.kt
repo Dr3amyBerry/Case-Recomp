@@ -25,6 +25,40 @@ import java.util.zip.ZipOutputStream
  */
 @RunWith(AndroidJUnit4::class)
 class DirectorLauncherInstrumentationTest {
+    @Test fun prime_inventory_survives_android_activity_recreation() {
+        val args = androidx.test.platform.app.InstrumentationRegistry.getArguments()
+        val path = args.getString("privateSoundPackage")
+        org.junit.Assume.assumeTrue(path != null && java.io.File(path).isFile)
+        java.io.File(path!!).inputStream().use { PrivateDirectorRepository(context).import(it, "prime_suspects") }
+        val intent = android.content.Intent(context, DirectorLauncherActivity::class.java)
+            .putExtra("title_id", "prime_suspects").putExtra("play", true).putExtra("import_save", "prime-check.json")
+        ActivityScenario.launch<DirectorLauncherActivity>(intent).use { scenario ->
+            fun checkInventory() {
+                var checked = false
+                val deadline = android.os.SystemClock.uptimeMillis() + 15000
+                while (!checked && android.os.SystemClock.uptimeMillis() < deadline) {
+                    scenario.onActivity { activity ->
+                        val rt = DirectorLauncherActivity::class.java.getDeclaredField("runtime").apply { isAccessible = true }.get(activity)
+                            as? org.rigorcore.caserecomp.director.DirectorRuntime ?: return@onActivity
+                        val user = rt.vm.global("gUserData")
+                        val rows = rt.vm.getObjectProp(user, "m_userDataArray") as? org.rigorcore.caserecomp.lingo.LingoValue.LList ?: return@onActivity
+                        val row = rows.items.filterIsInstance<org.rigorcore.caserecomp.lingo.LingoValue.LList>()
+                            .single { it.items.first() == org.rigorcore.caserecomp.lingo.LingoValue.LInt(18) }
+                        val found = row.items.drop(1).filterIsInstance<org.rigorcore.caserecomp.lingo.LingoValue.LList>()
+                            .count { it.items[1] == org.rigorcore.caserecomp.lingo.LingoValue.LInt(1) }
+                        assertEquals("original inventory restored", 3, found)
+                        checked = true
+                    }
+                    if (!checked) android.os.SystemClock.sleep(50)
+                }
+                assertTrue("Prime runtime loaded", checked)
+            }
+            checkInventory()
+            scenario.recreate()
+            checkInventory()
+        }
+    }
+
     @Test fun director_audio_prepared_after_pause_waits_for_resume() {
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         val path = androidx.test.platform.app.InstrumentationRegistry.getArguments().getString("privateSoundPackage")

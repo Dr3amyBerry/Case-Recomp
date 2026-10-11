@@ -235,3 +235,10 @@ presentar una sesión con la Activity activa, cubriendo la pausa durante la carg
 Se añadió una prueba al archivo de instrumentación existente, con el argumento
 `privateSoundPackage` apuntando al paquete privado Prime. La app y el APK de
 pruebas compilan; la prueba MediaPlayer sigue NO EJECUTADA por falta de dispositivo.
+
+Pruebas puntuales WSA ejecutadas posteriormente: el test MediaPlayer de preparación
+durante pausa y arranque al reanudar pasó sin omisiones. La app cargó Prime con
+su almacén original de prueba; las tres pistas de loc18 se conservaron después
+de `ActivityScenario.recreate()` (prueba pasada, 4,599 s). La transición explícita
+a CREATED se atascó en la Activity auxiliar de WSA y se retiró del conductor;
+no se cuenta como prueba de pausa completa. No se borraron datos de Huntsville.
