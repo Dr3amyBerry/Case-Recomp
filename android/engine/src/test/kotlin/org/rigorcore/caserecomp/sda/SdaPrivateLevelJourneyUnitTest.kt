@@ -10,9 +10,38 @@ import javax.imageio.ImageIO
 
 /** Optional private-resource JVM journey. Never replaces missing media with synthetic data. */
 class SdaPrivateLevelJourneyUnitTest {
+    /** Scenes per collectible kind that the journey visited, for the final key/chip check. */
+    private val visitedCollectibleScenes=mutableMapOf<String,MutableSet<String>>()
+
+    /** Picks every available key/chip in the scene through its exposed alpha pixels. */
+    private fun collectAll(camp: SdaCampaign, scene: SdaScene, name: String) {
+        for (item in scene.collectibles) {
+            visitedCollectibleScenes.getOrPut(item.definition.kind) { mutableSetOf() }.add(name)
+            if (!camp.collectibleAvailable(item)) continue
+            val sprite = item.sprite
+            var point: Pair<Int, Int>? = null
+            search@ for (y in 0 until sprite.image.height) {
+                for (x in 0 until sprite.image.width) {
+                    val px = sprite.x + x; val py = sprite.y + y
+                    // ui_side02 (x=142, w=20) ends the PDA art; edge keys/chips peek out from x=162.
+                    if (px !in 162 until 800 || py !in 0 until 600) continue
+                    if (scene.collectibles.asReversed().firstOrNull { camp.collectibleAvailable(it) && it.sprite.hit(px, py) } === item) {
+                        point = px to py; break@search
+                    }
+                }
+            }
+            assertNotNull("no exposed alpha input for collectible ${item.definition.id} in $name", point)
+            val result = camp.clickScene(point!!.first, point.second)
+            assertTrue("collectible ${item.definition.id} in $name", result is SdaClickResult.Collected)
+            assertEquals(item.definition.kind, (result as SdaClickResult.Collected).kind)
+        }
+        assertTrue(scene.collectibles.none { camp.collectibleAvailable(it) })
+    }
+
     private fun finishObjectives(camp: SdaCampaign, content: SdaContent) {
             for (name in camp.currentLevel.scenes) {
                 val scene = camp.enterScene(name, content)
+                collectAll(camp, scene, name)
                 for (group in scene.activeSets.take(camp.remainingObjects)) {
                     for (id in group) {
                         val sprite = scene.objects.getValue(id)
@@ -59,7 +88,8 @@ class SdaPrivateLevelJourneyUnitTest {
             } }
         }).use { content ->
             val levels=SdaLevels.parse(content.read("LEVELS_1.XUI")!!)
-            val camp=SdaCampaign(levels,seed=8,firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"))
+            val camp=SdaCampaign(levels,seed=8,firstRiddle=SdaRiddleBinding("ENVS.MSE","firstriddle"),
+                collectibleLimit={ if(it=="key"||it=="chip") 25 else 0 })
             for(level in levels) {
                 assertEquals(level.clue,camp.currentLevel.clue)
                 finishObjectives(camp,content)
@@ -108,6 +138,11 @@ class SdaPrivateLevelJourneyUnitTest {
             }
             assertEquals(SdaCampaignPhase.FINALE_1,camp.phase)
             assertEquals(25,camp.currentLevel.clue)
+            for(kind in listOf("key","chip")) {
+                val visited=visitedCollectibleScenes[kind].orEmpty().size
+                println("PRIVATE COLLECTIBLES $kind: ${camp.collectedCount(kind)}/25 (scenes with $kind: $visited)")
+                assertEquals("all $kind collectibles picked",minOf(25,visited),camp.collectedCount(kind))
+            }
             // Private Android handoff earned through the 25-level input journey above, never fabricated.
             File(packageFile.parentFile,"sda-earned-first-riddle.json").writeText(camp.snapshot().toJson(),Charsets.UTF_8)
             var riddle=camp.bonusGame as SdaFirstRiddleGame

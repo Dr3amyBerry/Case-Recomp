@@ -392,7 +392,6 @@ class SdaLauncherActivity : Activity() {
         view.onObjectFoundListener = { id, gain ->
             view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${campaign?.points ?: scene?.score?.points}")
-            Toast.makeText(this, "Â¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
             autoSave()
         }
 
@@ -422,7 +421,6 @@ class SdaLauncherActivity : Activity() {
         view.onObjectFoundListener = { id, gain ->
             view.visuals?.sceneFeedback(true)?.let { audioSession?.playEffect(it) }
             Log.i(TAG, "Object found: $id, +$gain pts, total: ${scene?.score?.points}")
-            Toast.makeText(this, "Â¡Objeto encontrado! +$gain pts", Toast.LENGTH_SHORT).show()
         }
         view.onMissListener = { penalty ->
             view.visuals?.sceneFeedback(false)?.let { audioSession?.playEffect(it) }
@@ -434,11 +432,9 @@ class SdaLauncherActivity : Activity() {
             if (sc != null && deck != null && deck.cursor < sc.candidateSets.size) {
                 val nextBatch = sc.nextBatch(System.currentTimeMillis() and 0xFFFFFFFFL)
                 Log.i(TAG, "Next batch unlocked: ${nextBatch.size} sets")
-                Toast.makeText(this, "Siguiente lote de objetivos (${nextBatch.size})", Toast.LENGTH_SHORT).show()
             } else {
                 repository.clearCheckpoint()
                 Log.i(TAG, "Scene completed! Final score: ${sc?.score?.points}")
-                Toast.makeText(this, "Â¡Escena completada! PuntuaciÃ³n final: ${sc?.score?.points}", Toast.LENGTH_LONG).show()
             }
         }
     }

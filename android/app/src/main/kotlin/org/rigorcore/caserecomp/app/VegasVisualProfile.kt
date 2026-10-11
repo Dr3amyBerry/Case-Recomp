@@ -349,6 +349,11 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    }
   }
   doc.component("eyespytext").children.filter { it.type=="label" }.forEach { ui.label(canvas,it) }
+  // Scene indicators: lit while this scene still holds an uncollected key/chip, dimmed otherwise.
+  if(campaign!=null) for((kind,id) in listOf("key" to "smallkey","chip" to "smallchip")) {
+   val pending=scene.collectibles.any { it.definition.kind==kind && campaign.collectibleAvailable(it) }
+   ui.image(canvas,doc.component(if(pending) id else id+"disabled"))
+  }
   val definitions=sceneRows.getOrPut(scene.name) {
    SdaXui.parse(requireNotNull(content.read(scene.name))).targetSets.associateBy { it.objects }
   }
