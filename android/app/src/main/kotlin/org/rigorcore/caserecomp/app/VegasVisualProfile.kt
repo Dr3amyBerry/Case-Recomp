@@ -60,6 +60,7 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   val playerRepository=PrivateSdaRepository(context).apply { configureCampaignSlots(content.gameId) }
   val activePlayer=playerRepository.getActiveProfile()
   playerName=activePlayer.name
+  scorePrefs=context.getSharedPreferences("case-recomp-vegas-scores",android.content.Context.MODE_PRIVATE)
   val portrait="img_mm_id"+activePlayer.avatar.takeIf { it in setOf("generic","male","female") }.orEmpty().ifEmpty { "generic" }
   // Native main menu choices: continue/start fader by progress, locked/unlocked fader by the 25 keys and 25 chips.
   val played=campaign!=null && (campaign.levelIndex>0 || campaign.points>0 || campaign.completedObjects>0)
@@ -118,6 +119,18 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
    view.show(node,backdrop)
    for(check in view.checkboxes) view.setCheckboxValue(check,check.attributes["id"]==when(chosenAvatar) { "male" -> "malecheck";"female" -> "femalecheck";else -> "gencheck" })
   }
+  fun showScores() {
+   val rows=highScores()
+   scoreFirst=scoreFirst.coerceIn(0,maxOf(0,rows.size-10))
+   val node=doc.component("highscoredialog")
+   view.show(node.copy(children=node.children.map { child ->
+    when(child.attributes["id"]) {
+     "downarrowbutton" -> child.copy(attributes=child.attributes+mapOf("disabled" to (scoreFirst==0).toString()))
+     "uparrowbutton" -> child.copy(attributes=child.attributes+mapOf("disabled" to (scoreFirst+10>=rows.size).toString()))
+     else -> child
+    }
+   }))
+  }
   fun selectPlayer(id:String) { view.requestedProfileId=id;onAction(SdaMenuAction.SWITCH_PROFILE) }
   fun cancelOptions() {
    optionsBefore?.let { (music,effects) -> audio?.setMusicVolume(music);audio?.setEffectsVolume(effects) };optionsBefore=null
@@ -150,7 +163,13 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
      -1 -> onAction(SdaMenuAction.RETURN_TO_CATALOGUE)
      200 -> { helpReturn=screen;show("mainoverlaydlg") }
      30 -> openOptions(screen)
+     312 -> { scoreFirst=0;showScores() }
      else -> onAction(SdaMenuAction.UNAVAILABLE)
+    }
+    screen=="highscoredialog" -> when(value) {
+     315 -> show("mainmenuunderlay")
+     313 -> { scoreFirst-=1;showScores() }
+     314 -> { scoreFirst+=1;showScores() }
     }
     screen=="deletedlg" -> when(value) {
      8 -> showPlayers()
@@ -232,13 +251,57 @@ class VegasVisualProfile(private val content:SdaContent):SdaVisualProfile {
   }
   view.onSoundEffect={ audio?.playEffect(it) }
   view.openDialogSound=::dialogSound
-  view.onDrawOverlay={ canvas,dt -> if(view.screenId=="mainmenuunderlay") logoHighlight.draw(canvas,dt) else false }
+  view.onDrawOverlay={ canvas,dt ->
+   when(view.screenId) {
+    "mainmenuunderlay" -> logoHighlight.draw(canvas,dt)
+    "highscoredialog" -> { drawHighScores(canvas,scoreFirst);false }
+    else -> false
+   }
+  }
   logoHighlight.shown()
   if(entry==SdaMenuEntry.PLAYER_SELECTION) { show("mainmenuunderlay");showPlayers() } else show(if(entry==SdaMenuEntry.MAIN) "mainmenuunderlay" else "menudlg2")
   return view
  }
  private val sceneRows=mutableMapOf<String,Map<List<String>,SdaXuiSet>>()
  private var playerName=""
+ private var scoreFirst=0
+ private var scorePrefs:android.content.SharedPreferences?=null
+ /** HIGHSCORE.MSE default rows plus this device's finished campaigns, best score first. */
+ private fun highScores():List<SdaUiNode> {
+  val defaults=content.read("HIGHSCORE.MSE")?.let { SdaUiDocument(it,emptyMap()).nodes("hscorerow") }.orEmpty()
+  val played=scorePrefs?.getStringSet("rows",emptySet()).orEmpty().mapNotNull { row ->
+   runCatching { org.json.JSONObject(row).let { o -> SdaUiNode("hscorerow",o.keys().asSequence().associateWith { o.getString(it) },emptyList()) } }.getOrNull()
+  }
+  return (defaults+played).sortedByDescending { it.attributes["score"]?.toLongOrNull() ?: 0L }
+ }
+ override fun campaignCompleted(context:android.content.Context,campaign:SdaCampaign) {
+  val prefs=context.getSharedPreferences("case-recomp-vegas-scores",android.content.Context.MODE_PRIVATE)
+  val player=PrivateSdaRepository(context).apply { configureCampaignSlots(content.gameId) }.getActiveProfile()
+  val keys=campaign.collectedCount("key");val chips=campaign.collectedCount("chip")
+  bestRank=VegasRankRules.displayed(bestRank,campaign.points,keys,chips)
+  val row=org.json.JSONObject(mapOf("name" to player.name,"score" to campaign.points.toString(),"rank" to bestRank.toString(),
+   "time" to campaign.totalElapsed.toLong().toString(),"keys" to keys.toString(),"chips" to chips.toString(),"fingerprints" to "0",
+   "gender" to player.avatar,"id" to player.id+":"+System.currentTimeMillis())).toString()
+  prefs.edit().putStringSet("rows",prefs.getStringSet("rows",emptySet()).orEmpty()+row).apply()
+ }
+ /** mpi:hscoretable (0042fd00 rows of 31 px, ten visible; 0042f050 column widths 129/119/70/94/67/68/81). */
+ private fun drawHighScores(canvas:Canvas,first:Int) {
+  val table=doc.nodes("hscoretable").single();val x0=table.number("x");val y0=table.number("y")
+  val font=table.attributes.getValue("font")
+  val widths=listOf(129,119,70,94,67,68,81);val gaps=listOf(130,120,71,95,68,69,82)
+  for((row,entry) in highScores().drop(first).take(10).withIndex()) {
+   val a=entry.attributes
+   // Score and time exceed SdaUiNode.number's coordinate range.
+   val seconds=a["time"]?.toLongOrNull() ?: 0L
+   val cells=listOf(a["name"].orEmpty(),String.format(java.util.Locale.US,"%,d",a["score"]?.toLongOrNull() ?: 0L),entry.number("rank").toString(),
+    String.format(java.util.Locale.US,"%02d:%02d:%02d",seconds/3600,seconds/60%60,seconds%60),entry.number("keys").toString(),entry.number("chips").toString(),entry.number("fingerprints").toString())
+   var x=x0
+   for((column,text) in cells.withIndex()) {
+    ui.label(canvas,SdaUiNode("label",mapOf("font" to font,"halign" to "center","valign" to "middle"),emptyList()),text,x=x,y=y0+row*31,width=widths[column],height=31)
+    x+=gaps[column]
+   }
+  }
+ }
  private var bestRank=1
  /** Map footer (mpi:playermapdisplay): player, total score, clues found and rank (004189c0 ranks). */
  private fun playerMapDisplay(canvas:Canvas,campaign:SdaCampaign) {

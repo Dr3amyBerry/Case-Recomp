@@ -402,6 +402,7 @@ class SdaLauncherActivity : Activity() {
         }
 
         view.onCampaignCompletedListener = {
+            campaign?.let { view.visuals?.campaignCompleted(this,it) }
             autoSave();showResourceMenu(view,SdaMenuEntry.MAIN)
         }
 

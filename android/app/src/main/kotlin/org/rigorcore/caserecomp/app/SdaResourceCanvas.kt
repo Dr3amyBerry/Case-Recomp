@@ -148,6 +148,7 @@ interface SdaVisualProfile {
  fun meterFillSound():String? = null
  fun advanceEffects(seconds:Float):List<String> = emptyList()
  fun drawEffects(canvas:Canvas) {}
+ fun campaignCompleted(context:android.content.Context,campaign:SdaCampaign) {}
  fun sceneFound(sprite:SdaSprite,gain:Int) {}
  fun sceneMiss(x:Int,y:Int) {}
  fun hintPolicy():SdaHintPolicy? = null
