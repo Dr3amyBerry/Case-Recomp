@@ -186,10 +186,25 @@ class HomeActivity : Activity() {
                 else ->
                     statusCard(game)
             }
-            games.addView(view, LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            alignCard(view)
+            games.addView(view, LinearLayout.LayoutParams(width, dp(coverHeight() + 198)).apply {
                 marginStart = dp(CARD_GAP / 2)
                 marginEnd = dp(CARD_GAP / 2)
             })
+        }
+    }
+
+    /** Fixed text/action slots keep all catalogue cards aligned, including absent footers. */
+    private fun alignCard(view: View) {
+        val card = view as LinearLayout
+        for ((index, height) in listOf(1 to 56, 2 to 40, 3 to 48, 4 to 30)) {
+            val child = card.getChildAt(index) ?: android.widget.Space(this).also { card.addView(it) }
+            child.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(height))
+            if (child is TextView && child !is Button) {
+                child.gravity = Gravity.CENTER
+                child.maxLines = 2
+                child.ellipsize = android.text.TextUtils.TruncateAt.END
+            }
         }
     }
 
@@ -231,7 +246,7 @@ class HomeActivity : Activity() {
             setPadding(0, dp(10), 0, dp(2))
         })
         card.addView(TextView(this).apply {
-            text = "${game.subtitle} · ${game.engine.displayName}"
+            text = game.subtitle
             setTextColor(MUTED)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
@@ -246,7 +261,7 @@ class HomeActivity : Activity() {
             })
             return card
         }
-        card.addView(actionButton(if (imported) "Jugar (SDA)" else "Importar paquete SDA", primary = imported) {
+        card.addView(actionButton(if (imported) "Jugar" else "Importar", primary = imported) {
             if (imported) playSda() else selectSdaZip()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         if (imported) {
@@ -289,7 +304,7 @@ class HomeActivity : Activity() {
             setPadding(0, dp(10), 0, dp(2))
         })
         addView(TextView(this@HomeActivity).apply {
-            text = "${game.subtitle} · ${game.engine.displayName}"
+            text = game.subtitle
             setTextColor(MUTED)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
@@ -361,8 +376,7 @@ class HomeActivity : Activity() {
             setPadding(0, dp(10), 0, dp(2))
         })
         card.addView(TextView(this).apply {
-            text = "${game.subtitle} · ${game.engine.displayName}" +
-                if (game.status == CompatibilityStatus.VERIFIED) "" else " · ${game.status.label}"
+            text = game.subtitle
             setTextColor(MUTED)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             gravity = Gravity.CENTER
