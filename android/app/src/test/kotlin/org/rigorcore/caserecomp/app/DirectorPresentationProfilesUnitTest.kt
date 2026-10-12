@@ -45,7 +45,7 @@ class DirectorPresentationProfilesUnitTest {
         // Huntsville's name-entry offsets, shared by Prime; the clue caption moves, not its count.
         for (profile in listOf(raven, DirectorPresentationProfiles.PRIME)) assertEquals(0 to 6, profile.scopedNudges[33 to "enterNameField1"])
         assertEquals(12 to 0, DirectorPresentationProfiles.PRIME.scopedNudges[31 to "cursor"])
-        assertEquals(12 to 6, raven.scopedNudges[31 to "cursor"])
+        assertEquals(12 to -2, raven.scopedNudges[31 to "cursor"])
         assertEquals(0 to 6, raven.scopedNudges[776 to "enterNameField5"])
         assertEquals(0 to 6, DirectorPresentationProfiles.PRIME.scopedNudges[587 to "enterNameField1"])
         assertEquals(-5 to 4, raven.scopedNudges[699 to "cluesPromptLabel"])

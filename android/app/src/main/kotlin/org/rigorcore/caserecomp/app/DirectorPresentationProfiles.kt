@@ -220,7 +220,7 @@ internal object DirectorPresentationProfiles {
         HUNTSVILLE_ES.text.copy(fontRules = listOf(FontPresentationRule(listOf("americantypewriter"), sizeScale = 1.15f)) + HUNTSVILLE_ES.text.fontRules),
         scopedNudges = nameEntryNudges(772..776) + mapOf(
             // The caret sits on the name's baseline, lowered like the field.
-            (31 to "cursor") to (12 to 6),
+            (31 to "cursor") to (12 to -2),
             // Side panel caption centred over its count and lowered; the count itself stays.
             (699 to "cluesPromptLabel") to (-5 to 4),
             // Leader board text below the panel's title strip.

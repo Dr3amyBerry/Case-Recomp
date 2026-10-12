@@ -213,6 +213,7 @@ class Bot:
             if point is None:
                 return False
             self.touch(*point)
+        self.event("dialog", label=self.label(), buttons=sorted(buttons))
         self.play_wait(3)
         return True
 
@@ -234,12 +235,15 @@ class Bot:
             if value.isdigit():
                 rooms[int(n)] = int(value)
         visible = self.sprites()
-        for n, loc in rooms.items():
-            if n in visible and loc in pending and self.call(f"sprite:{n}", "getSelectable") == 1:
-                self.event("room", level=self.level(), location=loc, locked=self.inst(n, "m_boolLocked"))
-                if self.click(n):
-                    self.play_wait(4)
-                    return
+        choices = [(n, loc, self.inst(n, "m_boolLocked")) for n, loc in rooms.items()
+                   if n in visible and loc in pending and self.call(f"sprite:{n}", "getSelectable") == 1]
+        # Open rooms first, as a player would; a locked room's puzzle only when nothing else is left.
+        for n, loc, locked in sorted(choices, key=lambda c: bool(c[2])):
+            self.event("room", level=self.level(), location=loc, locked=locked, sprite=n)
+            if self.click(n):
+                self.play_wait(4)
+                return
+        self.event("map_no_room", pending=pending, rooms=rooms, visible_rooms=[n for n in rooms if n in visible])
         tabs = [n for n in sorted(visible) if 260 <= n <= 300 and n not in tried_tabs and
                 self.bridge(f"callsprites|{n}|{n}|gettablabelsprite").split("=", 1)[-1] not in ("<void>", "")]
         if not tabs:
@@ -274,6 +278,7 @@ class Bot:
                     self.event("item_unreachable", location=loc, sprite=sprite)
         if not clicked and not self.dialog():
             # Nothing left to click here: back to the map.
+            self.event("room_leave", location=loc)
             self.named("mapButtonA")
             self.play_wait(3)
 
@@ -413,7 +418,8 @@ def main():
     parser.add_argument("--agent", default="Bot", help="agent name typed on a fresh start")
     parser.add_argument("--keep-save", dest="fresh", action="store_false",
                         help="continue the device's current Ravenhearst agents instead of starting fresh")
-    parser.add_argument("--no-lifecycle", dest="lifecycle", action="store_false", help="skip the kill/restore checks")
+    parser.add_argument("--lifecycle", action="store_true",
+                        help="also kill and relaunch the app in a room, a lock and the jigsaw to check the checkpoint")
     parser.add_argument("--until", type=int, default=20, help="stop after completing this level")
     args = parser.parse_args()
     if not 1 <= args.speed <= 4:
