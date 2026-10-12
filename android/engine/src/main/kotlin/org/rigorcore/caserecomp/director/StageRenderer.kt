@@ -160,10 +160,13 @@ class StageRenderer(
         val useAlpha = src.useAlpha
         // Background transparent (36) drops every white pixel; matte (8) only the white
         // connected to the image edge, so white inside the outline stays.
-        val keyWhite = !useAlpha && item.ink == 36
+        // Ghost (3), QuickDraw's srcBic: white source pixels are clear, darker ones lighten what
+        // is underneath (black turns it white). Ravenhearst flashes snapped jigsaw pieces with it.
+        val ghost = !useAlpha && item.ink == 3
+        val keyWhite = !useAlpha && (item.ink == 36 || ghost)
         val matte = if (!useAlpha && item.ink == 8) matteMask(src) else null
         if (item.rotation != 0.0) {
-            blitRotated(src, item, alpha, keyWhite, matte); return
+            blitRotated(src, item, alpha, keyWhite, matte, ghost); return
         }
         val y0 = maxOf(0, item.top); val y1 = minOf(fh, item.bottom)
         val x0 = maxOf(0, item.left); val x1 = minOf(fw, item.right)
@@ -177,7 +180,7 @@ class StageRenderer(
             columns[i] = sx
         }
         val sp = src.pixels; val fp = frame.pixels
-        val opaque = !useAlpha && !keyWhite && matte == null && alpha == 255
+        val opaque = !useAlpha && !keyWhite && matte == null && alpha == 255 && !ghost
         var previous = -1
         for (y in y0 until y1) {
             var sy = (y - item.top) * src.height / h
@@ -195,6 +198,7 @@ class StageRenderer(
                 val p = sp[row + columns[i]]
                 if (keyWhite && (p and 0xFFFFFF) == 0xFFFFFF) continue
                 if (matte != null && matte[row + columns[i]]) continue
+                if (ghost) { fp[out + i] = ghostPixel(fp[out + i], p, alpha); continue }
                 val sa = if (useAlpha) p ushr 24 else 255
                 if (sa == 0) continue
                 val a = if (alpha == 255) sa else sa * alpha / 255
@@ -235,7 +239,12 @@ class StageRenderer(
         clear
     }
 
-    private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean, matte: BooleanArray?) {
+    private fun ghostPixel(under: Int, p: Int, alpha: Int): Int {
+        val lit = under or (p.inv() and 0xFFFFFF) or OPAQUE
+        return if (alpha == 255) lit else LingoImage.blendPixel(under, lit, alpha)
+    }
+
+    private fun blitRotated(src: LingoImage, item: DisplayItem, alpha: Int, keyWhite: Boolean, matte: BooleanArray?, ghost: Boolean = false) {
         val w = (item.right - item.left).toDouble(); val h = (item.bottom - item.top).toDouble()
         val cx = item.left + w / 2; val cy = item.top + h / 2
         val rad = Math.toRadians(item.rotation)
@@ -251,7 +260,9 @@ class StageRenderer(
                 if (item.flipH) sx = src.width - 1 - sx
                 if (item.flipV) sy = src.height - 1 - sy
                 if (matte != null && matte[sy * src.width + sx]) continue
-                put(y * fw + x, src.pixels[sy * src.width + sx], src.useAlpha, keyWhite, alpha)
+                val p = src.pixels[sy * src.width + sx]
+                if (ghost) { if ((p and 0xFFFFFF) != 0xFFFFFF) frame.pixels[y * fw + x] = ghostPixel(frame.pixels[y * fw + x], p, alpha); continue }
+                put(y * fw + x, p, src.useAlpha, keyWhite, alpha)
             }
         }
     }
