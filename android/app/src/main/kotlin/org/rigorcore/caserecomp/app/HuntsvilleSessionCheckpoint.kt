@@ -43,6 +43,14 @@ internal data class HuntsvilleBookmark(
     }
 }
 
+/** Mid-scene save and restore of a title's session, driven by the Launcher each frame. */
+internal interface SessionCheckpoint {
+    fun afterFrame()
+    fun save()
+    /** A pointer position to restore once (Prime's X-ray lens). */
+    fun takeRestoredPointer(): Pair<Int, Int>? = null
+}
+
 /** Created only for a content-verified edition. No copied game code or arbitrary profile commands. */
 internal class HuntsvilleSessionCheckpoint(
     private val runtime: DirectorRuntime,
@@ -50,7 +58,7 @@ internal class HuntsvilleSessionCheckpoint(
     private val atomic: (() -> Unit) -> Unit,
     private val primeSuspects: Boolean = false,
     private val onError: (Exception) -> Unit,
-) {
+) : SessionCheckpoint {
     companion object {
         const val KEY = "__case_recomp/huntsville-bookmark-v1"
         const val PRIME_KEY = "__case_recomp/prime-bookmark-v2"
@@ -65,14 +73,14 @@ internal class HuntsvilleSessionCheckpoint(
     private var loadedCumulative = 0
     private var lastSavedAt = runtime.milliseconds()
     private var restoredPointer: Pair<Int, Int>? = null
-    fun takeRestoredPointer(): Pair<Int, Int>? = restoredPointer.also { restoredPointer = null }
+    override fun takeRestoredPointer(): Pair<Int, Int>? = restoredPointer.also { restoredPointer = null }
     private val label get() = runtime.getMovieProp("frameLabel")?.asText()?.lowercase().orEmpty()
     private fun global(name: String) = runtime.vm.global(name)
     private fun call(target: LingoValue, method: String, vararg args: LingoValue): LingoValue =
         runtime.vm.callMethod(target, method, listOf(target) + args) ?: error("checkpoint method unavailable: $method")
     private fun call(name: String, method: String, vararg args: LingoValue) = call(global(name), method, *args)
 
-    fun afterFrame() {
+    override fun afterFrame() {
         try {
             val current = label
             stableFrames = if (current == observedLabel) stableFrames + 1 else 0
@@ -93,7 +101,7 @@ internal class HuntsvilleSessionCheckpoint(
         }
     }
 
-    fun save() {
+    override fun save() {
         if (pending != null) return // Never replace the checkpoint with an intermediate boot frame.
         if (primeSuspects) { savePrimeProgress(); return }
         if (label !in listOf("map", "metagame", "mainmenu") && !label.matches(Regex("loc([1-9]|1[0-9]|20)"))) return

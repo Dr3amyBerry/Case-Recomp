@@ -37,7 +37,7 @@ class DirectorLauncherActivity : Activity() {
     private var activityResumed = false
     private var ready = false
     private var playbackClock: DirectorSessionClock? = null
-    private var checkpoint: HuntsvilleSessionCheckpoint? = null
+    private var checkpoint: SessionCheckpoint? = null
     private var workerToken = 0
     private var selectedTitle = DirectorPresentationProfiles.HUNTSVILLE_ID
     /** Debug-only adb automation bridge (see [DirectorDebugBridge]). */
@@ -213,6 +213,7 @@ class DirectorLauncherActivity : Activity() {
                 store.remove(HuntsvilleSessionCheckpoint.PRIME_KEY)
                 store.remove(PrimeGemCheckpoint.KEY)
                 store.remove(HuntsvilleSessionCheckpoint.PRIME_POINTER_KEY)
+                store.remove(RavenhearstCheckpoint.KEY)
                 pendingSave = null
             }
             val profile = DirectorPresentationProfiles.resolve(loaded)
@@ -259,7 +260,9 @@ class DirectorLauncherActivity : Activity() {
                 val scale = intent.getIntExtra(EXTRA_STAGE_SCALE, 0).takeIf { debuggable && it in 1..2 } ?: if (fit > 1.05f) 2 else 1
                 val renderer = StageRenderer(runtime, text, AndroidDirectorImageDecoder, scale = scale, nudges = presentationNudges(profile), scopedNudges = profile.scopedNudges,
                     matteWhiteTolerance = profile.matteWhiteTolerance)
-                val checkpoint = if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES || titleId == DirectorPresentationProfiles.PRIME_ID)
+                val checkpoint: SessionCheckpoint? = if (titleId == DirectorPresentationProfiles.RAVENHEARST_ID)
+                    RavenhearstCheckpoint(runtime, store, store::atomically) { Log.w(TAG, "checkpoint failed", it) }
+                else if (profile == DirectorPresentationProfiles.HUNTSVILLE_ES || titleId == DirectorPresentationProfiles.PRIME_ID)
                     HuntsvilleSessionCheckpoint(runtime, store, store::atomically,
                         primeSuspects = titleId == DirectorPresentationProfiles.PRIME_ID) { Log.w(TAG, "checkpoint failed", it) } else null
                 return Session(loaded, runtime, renderer, output, profile, clock, checkpoint, titleId)
@@ -466,7 +469,7 @@ class DirectorLauncherActivity : Activity() {
         val content: DirectorContent, val runtime: DirectorRuntime,
         val renderer: StageRenderer, val audio: AndroidDirectorSound,
         val profile: DirectorPresentationProfile,
-        val clock: DirectorSessionClock, val checkpoint: HuntsvilleSessionCheckpoint?,
+        val clock: DirectorSessionClock, val checkpoint: SessionCheckpoint?,
         val titleId: String,
     ) : AutoCloseable {
         override fun close() { runCatching { runtime.stop() }; audio.close(); content.close() }

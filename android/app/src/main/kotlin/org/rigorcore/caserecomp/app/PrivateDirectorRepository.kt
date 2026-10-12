@@ -72,10 +72,12 @@ internal class PrivateDirectorRepository(filesDir: File, private val preferences
     fun hasResume(context: Context, title: String): Boolean {
         val sha = preferences.getString(activeKey(title), null)?.takeIf(SHA::matches) ?: return false
         val prime = title == DirectorPresentationProfiles.PRIME_ID
-        val key = if (prime) HuntsvilleSessionCheckpoint.PRIME_KEY else HuntsvilleSessionCheckpoint.KEY
+        val raven = title == DirectorPresentationProfiles.RAVENHEARST_ID
+        val key = when { raven -> RavenhearstCheckpoint.KEY; prime -> HuntsvilleSessionCheckpoint.PRIME_KEY; else -> HuntsvilleSessionCheckpoint.KEY }
         val prefix = DirectorPresentationProfiles.sessionStoreId(title, sha)
         val value = context.getSharedPreferences("case-recomp-director-user-data", Context.MODE_PRIVATE)
             .getString("$prefix/$key", null) ?: return false
+        if (raven) return runCatching { RavenhearstBookmark.decode(value).label != "mainmenu" }.getOrDefault(false)
         return runCatching { HuntsvilleBookmark.decode(value, prime).label != "mainmenu" }.getOrDefault(false)
     }
 
