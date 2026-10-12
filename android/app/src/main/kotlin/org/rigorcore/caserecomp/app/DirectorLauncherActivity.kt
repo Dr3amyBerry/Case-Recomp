@@ -365,7 +365,8 @@ class DirectorLauncherActivity : Activity() {
             addView(Button(this@DirectorLauncherActivity).apply {
                 text = "Teclado"
                 alpha = 0.7f
-                setOnClickListener { newStage.showKeyboard() }
+                // A second press closes it again.
+                setOnClickListener { newStage.toggleKeyboard() }
             })
             focusButton?.let { addView(it) }
             rotateButton?.let { addView(it) }

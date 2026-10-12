@@ -28,11 +28,11 @@ internal class DirectorStageView(
     private val viewport = DirectorViewport(renderer.width, renderer.height)
     private val bitmap = Bitmap.createBitmap(renderer.frame.width, renderer.frame.height, Bitmap.Config.ARGB_8888)
     // Bilinear: a non-integer fit (e.g. 1.2x) otherwise doubles some pixel rows and columns but not others.
-    private val drawPaint = Paint().apply { isFilterBitmap = true }
+    private val drawPaint = Paint().apply { isFilterBitmap = !BuildConfig.SUPER_LITE }
     private val destination = RectF()
     private var active = false
     private var down = false
-    private val intervalMillis = (1000L / runtime.movie.tempo.coerceIn(1, 60)).coerceAtLeast(16L)
+    private val intervalMillis = (1000L / runtime.movie.tempo.coerceIn(1, 60)).coerceAtLeast(if (BuildConfig.SUPER_LITE) 33L else 16L) // Super Lite: at most 30 fps
     /** Fixed-rate schedule: the next frame is due one interval after the previous one was due. */
     private var nextFrameAt = 0L
     private var statsSince = 0L
@@ -306,6 +306,19 @@ internal class DirectorStageView(
         requestFocus()
         val manager = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         manager.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
+        keyboardShown = true
+    }
+
+    private var keyboardShown = false
+
+    /** Opens the on-screen keyboard, or closes it when it is showing. */
+    fun toggleKeyboard() {
+        val shown = if (android.os.Build.VERSION.SDK_INT >= 30) rootWindowInsets?.isVisible(android.view.WindowInsets.Type.ime()) ?: keyboardShown
+            else keyboardShown
+        if (!shown) { showKeyboard(); return }
+        val manager = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        manager.hideSoftInputFromWindow(windowToken, 0)
+        keyboardShown = false
     }
 
     override fun onCheckIsTextEditor(): Boolean = true

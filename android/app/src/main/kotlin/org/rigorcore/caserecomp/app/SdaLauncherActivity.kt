@@ -58,6 +58,10 @@ class SdaLauncherActivity : Activity() {
     private val frameCallback = object : android.view.Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!isFrameLoopRunning) return
+            // Super Lite builds step and redraw at most 30 times a second; the game clock still uses real time.
+            if (BuildConfig.SUPER_LITE && lastFrameNanos != 0L && frameTimeNanos - lastFrameNanos < SUPER_LITE_FRAME_NANOS) {
+                android.view.Choreographer.getInstance().postFrameCallback(this); return
+            }
             if (lastFrameNanos != 0L) {
                 val dt = ((frameTimeNanos - lastFrameNanos) / 1_000_000_000f).coerceIn(0.001f, 0.1f)
                 gameView?.step(dt)
@@ -614,3 +618,5 @@ private fun android.app.Dialog.hideSystemBars() {
         decor.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
     }
 }
+
+private const val SUPER_LITE_FRAME_NANOS = 30_000_000L

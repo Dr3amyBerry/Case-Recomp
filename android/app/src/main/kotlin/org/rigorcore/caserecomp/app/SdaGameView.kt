@@ -37,7 +37,8 @@ class SdaGameView(
     var visuals: SdaVisualProfile? = null,
 ) : View(context) {
 
-    private val photoPaint=Paint(Paint.FILTER_BITMAP_FLAG)
+    // Super Lite builds skip bilinear filtering of the many scene bitmaps drawn each frame.
+    private val photoPaint=Paint(if (BuildConfig.SUPER_LITE) 0 else Paint.FILTER_BITMAP_FLAG)
     private val bgPaint = Paint().apply { color = 0xFF0D1117.toInt() }
     private val sidebarPaint = Paint().apply { color = 0xFF161B22.toInt() }
     private val dividerPaint = Paint().apply { color = 0xFF30363D.toInt(); strokeWidth = 2f }

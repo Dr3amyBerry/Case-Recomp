@@ -14,7 +14,7 @@ val releaseSigning = rootProject.file("../private/signing/release.properties").t
     Properties().apply { file.inputStream().use(::load) }.also { it["dir"] = file.parentFile }
 }
 
-val phase8VersionCode = providers.gradleProperty("phase8VersionCode").orElse("11").get().toInt()
+val phase8VersionCode = providers.gradleProperty("phase8VersionCode").orElse("12").get().toInt()
 
 android {
     namespace = "org.rigorcore.caserecomp.app"
@@ -25,9 +25,10 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = phase8VersionCode
-        versionName = "0.8.0"
+        versionName = "0.8.1"
         manifestPlaceholders["appLabel"] = "Case Recomp"
         buildConfigField("boolean", "LITE", "false")
+        buildConfigField("boolean", "SUPER_LITE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -38,7 +39,15 @@ android {
 
     // Lite builds (-Plite) for modest devices: a separate app that composes Director titles at
     // the game's own resolution instead of twice it. Combine with bundledContentDir as needed.
-    if (providers.gradleProperty("lite").orNull != null) {
+    // Super Lite (-PsuperLite): Lite plus unfiltered bitmap scaling and at most 30 frames a second.
+    val superLite = providers.gradleProperty("superLite").orNull != null
+    if (superLite) {
+        defaultConfig.applicationIdSuffix = ".superlite"
+        defaultConfig.versionNameSuffix = "-superlite"
+        defaultConfig.manifestPlaceholders["appLabel"] = "Case Recomp Super Lite"
+        defaultConfig.buildConfigField("boolean", "LITE", "true")
+        defaultConfig.buildConfigField("boolean", "SUPER_LITE", "true")
+    } else if (providers.gradleProperty("lite").orNull != null) {
         defaultConfig.applicationIdSuffix = ".lite"
         defaultConfig.versionNameSuffix = "-lite"
         defaultConfig.manifestPlaceholders["appLabel"] = "Case Recomp Lite"

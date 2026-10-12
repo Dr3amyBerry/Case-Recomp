@@ -13,7 +13,7 @@
 | Mystery Case Files: **Huntsville** | Jugable |
 | Mystery Case Files: **Prime Suspects** | Jugable |
 | Mystery Case Files: **Ravenhearst** | Jugable, en revisión (candados y capítulos finales por confirmar) |
-| Mystery P.I.: **The Vegas Heist** | Jugable de principio a fin; **todavía faltan detalles por confirmar** frente al original |
+| Mystery P.I.: **The Vegas Heist** | **Alpha**: jugable de principio a fin, pero con errores conocidos y detalles por confirmar frente al original |
 
 > ⚠️ **Si encuentras un error** (algo que no funciona, se ve o suena distinto al juego original), **escríbenos** abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues): di qué juego, qué hacías y qué pasó, sin adjuntar archivos originales del juego ni información privada. **Se entrega tal cual, sin garantías de ningún tipo.**
 
@@ -61,7 +61,10 @@ El archivo de salida no puede estar dentro de la carpeta del repositorio.
 
 ### Cómo pasarlo a la app
 
-1. Descarga la APK de la app desde [Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases) e instálala en tu Android.
+1. Descarga la APK de la app desde [Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases) e instálala en tu Android. Hay tres versiones, que se pueden instalar a la vez (cada una guarda sus propias partidas):
+   - **Case Recomp**: la normal, con la mejor imagen.
+   - **Case Recomp Lite**: para dispositivos modestos; dibuja los juegos a su resolución original.
+   - **Case Recomp Super Lite**: para los más lentos; además no suaviza la imagen y va a 30 fotogramas por segundo.
 2. Copia `huntsville.director.zip` al móvil, por ejemplo a la carpeta **Descargas**, con un cable USB, Google Drive o como prefieras.
 3. Abre **Case Recomp**, pulsa **Importar** en la tarjeta de Huntsville y elige el `.zip`.
 4. Cuando aparezca la carátula, pulsa **Jugar**.
@@ -81,7 +84,7 @@ Los demás juegos se importan igual, cada uno en su propia tarjeta. En Ravenhear
 | Mystery Case Files: **Huntsville** | Playable |
 | Mystery Case Files: **Prime Suspects** | Playable |
 | Mystery Case Files: **Ravenhearst** | Playable, under review (locks and later chapters still being checked) |
-| Mystery P.I.: **The Vegas Heist** | Playable start to finish; **some details are still to be confirmed** against the original |
+| Mystery P.I.: **The Vegas Heist** | **Alpha**: playable start to finish, with known bugs and details still to be confirmed against the original |
 
 > ⚠️ **If you find a bug** (something that does not work, or looks or sounds different from the original game), **write to us** by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues): say which game, what you were doing and what happened; do not attach original game assets, proprietary screenshots or private information. **Provided as is, without warranty of any kind.**
 
@@ -129,7 +132,10 @@ The output file cannot be inside the repository folder.
 
 ### How to load it into the app
 
-1. Download the app's APK from [Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases) and install it on your Android.
+1. Download the app's APK from [Releases](https://github.com/Dr3amyBerry/Case-Recomp/releases) and install it on your Android. There are three versions, which can be installed side by side (each keeps its own saves):
+   - **Case Recomp**: the standard one, best picture.
+   - **Case Recomp Lite**: for modest devices; draws the games at their original resolution.
+   - **Case Recomp Super Lite**: for the slowest; also unsmoothed scaling and 30 frames per second.
 2. Copy `huntsville.director.zip` to your phone, e.g. into **Downloads**, by USB cable, Google Drive or however you like.
 3. Open **Case Recomp**, tap **Importar** (Import) on the Huntsville card and choose the `.zip`.
 4. When the cover appears, tap **Jugar** (Play).

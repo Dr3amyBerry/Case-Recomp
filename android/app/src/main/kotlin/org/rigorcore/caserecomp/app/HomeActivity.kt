@@ -271,7 +271,8 @@ class HomeActivity : Activity() {
             })
             return card
         }
-        card.addView(actionButton(if (imported) "Jugar" else "Importar", primary = imported) {
+        // The Vegas Heist is still alpha: many details remain to be checked against the original.
+        card.addView(actionButton(if (imported) "Jugar · Alpha" else "Importar", primary = imported) {
             if (imported) playSda() else selectSdaZip()
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
         if (imported) {
