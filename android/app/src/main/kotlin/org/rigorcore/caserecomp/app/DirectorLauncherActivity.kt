@@ -19,6 +19,7 @@ import org.rigorcore.caserecomp.director.StageRenderer
 import org.rigorcore.caserecomp.director.StandardXtras
 import org.rigorcore.caserecomp.lingo.LingoValue.LInstance
 import org.rigorcore.caserecomp.lingo.LingoValue.LInt
+import org.rigorcore.caserecomp.lingo.LingoValue.LSymbol
 import org.rigorcore.caserecomp.lingo.isTruthy
 import java.io.File
 
@@ -237,6 +238,15 @@ class DirectorLauncherActivity : Activity() {
                     // Keep a scene's decoded cast in memory, within a third of this app's heap.
                     mediaCacheBytes = (Runtime.getRuntime().maxMemory() / 3).coerceIn(32L shl 20, 256L shl 20),
                 )
+                runtime.onNetPage = { url ->
+                    if (url.startsWith("http://") || url.startsWith("https://")) runOnUiThread {
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            Toast.makeText(this, "No hay un navegador disponible", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
                 runtime.start()
                 // Shown larger than the stage: compose at 2x so text and vectors are drawn at
                 // (about) screen resolution; the view then scales the frame down smoothly.
@@ -277,6 +287,19 @@ class DirectorLauncherActivity : Activity() {
             visibility = android.view.View.GONE
             setOnClickListener { adapter.press() }
         } }
+        // Ravenhearst's diary jigsaw turns the dragged piece with the right button or Space;
+        // on a touch screen a second finger taps this while the first drags the piece.
+        val rotateButton = if (session.titleId == DirectorPresentationProfiles.RAVENHEARST_ID) Button(this).apply {
+            text = "Girar pieza"
+            alpha = 0.7f
+            visibility = android.view.View.GONE
+            setOnClickListener {
+                val rt = session.runtime
+                val board = rt.vm.global("gJigGameBoard") as? LInstance ?: return@setOnClickListener
+                runCatching { rt.vm.callMethod(board, "spaceToRotate", listOf(board, LInt(1))) }
+                    .onFailure { Log.w(TAG, "rotate failed", it) }
+            }
+        } else null
         newStage.onPausePresentation = { flashlight?.pause() }
         if (flashlight != null) newStage.idlePointer = -session.runtime.movie.stageWidth to -session.runtime.movie.stageHeight
         newStage.onQuit = { exitWithSave() }
@@ -314,6 +337,11 @@ class DirectorLauncherActivity : Activity() {
                 }
             }
             focusButton?.visibility = if (flashlight?.visible == true) android.view.View.VISIBLE else android.view.View.GONE
+            rotateButton?.let { button ->
+                val game = session.runtime.vm.global("gGameManager") as? LInstance
+                val state = game?.let { runCatching { session.runtime.vm.callMethod(it, "getGameState", listOf(it)) }.getOrNull() }
+                button.visibility = if ((state as? LSymbol)?.name.equals("metaGame", true)) android.view.View.VISIBLE else android.view.View.GONE
+            }
             focusButton?.isEnabled = flashlight?.enabled() == true
         }
         newStage.onRuntimeError = { error ->
@@ -333,6 +361,7 @@ class DirectorLauncherActivity : Activity() {
                 setOnClickListener { newStage.showKeyboard() }
             })
             focusButton?.let { addView(it) }
+            rotateButton?.let { addView(it) }
             addView(Button(this@DirectorLauncherActivity).apply {
                 text = "Salir"
                 alpha = 0.7f

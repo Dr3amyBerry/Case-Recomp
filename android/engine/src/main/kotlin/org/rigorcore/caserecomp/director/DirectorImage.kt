@@ -37,6 +37,17 @@ class LColor(val red: Int, val green: Int, val blue: Int) : LingoValue.LHost {
     }
 }
 
+/** A matte or mask from createMatte()/createMask(): per-pixel opacity 0..255, used by copyPixels' #maskImage. */
+class LingoMatte(val width: Int, val height: Int, val levels: IntArray) : LingoValue.LHost {
+    override val ilk = "mask"
+    override fun getProp(name: String): LingoValue = when (name.lowercase()) {
+        "ilk" -> LSymbol("mask")
+        else -> throw LingoError("mask has no property $name")
+    }
+    override fun setProp(name: String, value: LingoValue) = throw LingoError("mask is immutable")
+    override fun call(method: String, args: List<LingoValue>): LingoValue? = null
+}
+
 /**
  * Lingo image object: ARGB pixels plus the `useAlpha` flag. Supports the subset of
  * imaging Lingo used by Director 8.5 titles: fill, copyPixels (scaled, with alpha and
@@ -98,6 +109,11 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
             val src = intRect(args.getOrElse(2) { source.rectValue() })
             copyPixels(source, dest, src, args.getOrNull(3) as? LPropList); Void
         }
+        "creatematte" -> createMatte(args.firstOrNull()?.toInt()?.coerceIn(0, 255) ?: 0)
+        // createMask: dark pixels are opaque (black opaque, white clear), greys partial.
+        "createmask" -> LingoMatte(width, height, IntArray(pixels.size) { i ->
+            val p = pixels[i]; 255 - (((p shr 16) and 255) * 30 + ((p shr 8) and 255) * 59 + (p and 255) * 11) / 100
+        })
         "duplicate" -> duplicate()
         "crop" -> crop(intRect(args.getOrElse(0) { rectValue() }))
         "getpixel" -> {
@@ -111,6 +127,25 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
             else LingoValue.FALSE
         }
         else -> null
+    }
+
+    /**
+     * createMatte: with an alpha channel, pixels whose alpha exceeds [threshold] are opaque; otherwise
+     * like the matte ink, white connected to the image border is clear and everything else opaque.
+     */
+    fun createMatte(threshold: Int): LingoMatte {
+        if (useAlpha && depth == 32) return LingoMatte(width, height, IntArray(pixels.size) { if ((pixels[it] ushr 24) > threshold) 255 else 0 })
+        val levels = IntArray(pixels.size) { 255 }
+        val queue = ArrayDeque<Int>()
+        fun seed(i: Int) { if (levels[i] == 255 && (pixels[i] and 0xFFFFFF) == 0xFFFFFF) { levels[i] = 0; queue += i } }
+        for (x in 0 until width) { if (height > 0) { seed(x); seed((height - 1) * width + x) } }
+        for (y in 0 until height) { if (width > 0) { seed(y * width); seed(y * width + width - 1) } }
+        while (queue.isNotEmpty()) {
+            val i = queue.removeFirst(); val x = i % width; val y = i / width
+            if (x > 0) seed(i - 1); if (x < width - 1) seed(i + 1)
+            if (y > 0) seed(i - width); if (y < height - 1) seed(i + width)
+        }
+        return LingoMatte(width, height, levels)
     }
 
     fun duplicate(): LingoImage = LingoImage(width, height, depth, pixels.copyOf()).also {
@@ -143,6 +178,10 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         val ink = prop("ink")?.let { if (it is LSymbol) INK_NAMES[it.name.lowercase()] ?: 0 else it.toInt() } ?: 0
         val sourceAlpha = source.useAlpha && source.depth == 32
         val white = 0xFFFFFF
+        // #maskImage limits the copy to the mask's opaque pixels; #maskOffset places it in this image.
+        val mask = prop("maskImage") as? LingoMatte
+        val maskOffset = prop("maskOffset") as? LingoValue.LPoint
+        val maskX = maskOffset?.h?.toInt() ?: 0; val maskY = maskOffset?.v?.toInt() ?: 0
         for (y in 0 until dh) {
             val ty = dest[1] + y
             if (ty !in 0 until height) continue
@@ -164,6 +203,10 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
                 if ((ink == 36 || ink == 8) && !sourceAlpha && (original and 0xFFFFFF) == white) continue
                 var alpha = if (sourceAlpha) (p ushr 24) else 255
                 alpha = alpha * blend / 255
+                if (mask != null) {
+                    val mx = tx - maskX; val my = ty - maskY
+                    alpha = if (mx in 0 until mask.width && my in 0 until mask.height) alpha * mask.levels[my * mask.width + mx] / 255 else 0
+                }
                 if (alpha == 0) continue
                 val i = ty * width + tx
                 pixels[i] = if (alpha == 255) p or (0xFF shl 24) else blendPixel(pixels[i], p, alpha)

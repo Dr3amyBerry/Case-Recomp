@@ -16,6 +16,8 @@ interface SoundOutput {
     fun setVolume(channel: Int, volume: Int) {}
     /** Whether the channel is still playing; null when the back end cannot tell (assume finished). */
     fun isPlaying(channel: Int): Boolean? = null
+    /** Plays encoded audio ([format] "mp3" or "wav") once on [channel], e.g. a Flash member's own sound. */
+    fun playData(channel: Int, bytes: ByteArray, format: String, volume: Int) {}
 
     object Silent : SoundOutput
 }

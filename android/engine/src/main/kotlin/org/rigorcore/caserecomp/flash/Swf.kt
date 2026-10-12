@@ -80,6 +80,18 @@ class SwfBitmap(
 
 class SwfSprite(override val id: Int, val timeline: SwfTimeline) : SwfCharacter
 
+/** One character of a button state: [states] bits 1 up, 2 over, 4 down, 8 hit area. */
+data class SwfButtonRecord(val states: Int, val characterId: Int, val depth: Int, val matrix: SwfMatrix, val colorTransform: SwfColorTransform?)
+
+/**
+ * Actions run on a state transition: [conditions] bits 0x01 idle to over (roll over), 0x02 over to idle,
+ * 0x04 press, 0x08 release, 0x10 drag out, 0x20 drag over, 0x40 release outside.
+ */
+class SwfButtonAction(val conditions: Int, val code: ByteArray)
+
+/** DefineButton2: state records and conditional actions. */
+class SwfButton(override val id: Int, val records: List<SwfButtonRecord>, val actions: List<SwfButtonAction>) : SwfCharacter
+
 sealed interface SwfTag {
     data class Place(val depth: Int, val characterId: Int?, val move: Boolean, val matrix: SwfMatrix?,
                      val colorTransform: SwfColorTransform?, val name: String?, val clipDepth: Int = 0) : SwfTag
@@ -103,6 +115,8 @@ class SwfMovie(
     val root: SwfTimeline,
     /** Export names (for attachSound and friends) to character ids. */
     val exports: Map<String, Int>,
+    /** DefineSound MP3 data by character id (other codecs are not kept). */
+    val sounds: Map<Int, ByteArray> = emptyMap(),
 )
 
 private class BitReader(private val data: ByteArray, start: Int) {
@@ -184,11 +198,18 @@ object SwfParser {
         val exports = HashMap<String, Int>()
         var background = 0xFFFFFFFF.toInt()
         var jpegTables: ByteArray? = null
+        val sounds = HashMap<Int, ByteArray>()
         val root = timeline(data, r.pos, data.size) { code, body ->
             when (code) {
                 9 -> background = (0xFF shl 24) or ((body[0].toInt() and 0xFF) shl 16) or ((body[1].toInt() and 0xFF) shl 8) or (body[2].toInt() and 0xFF)
                 8 -> jpegTables = body
-                2, 22, 32 -> shape(code, body).let { characters[it.id] = it }
+                2, 22, 32, 83 -> shape(code, body).let { characters[it.id] = it }
+                84 -> morphStart(body).let { characters[it.id] = it }
+                // DefineSound: id, format byte, sample count; MP3 data starts with a 2-byte seek count.
+                14 -> if (body.size > 9 && (body[2].toInt() and 0xFF) shr 4 == 2) {
+                    sounds[(body[0].toInt() and 0xFF) or ((body[1].toInt() and 0xFF) shl 8)] = body.copyOfRange(9, body.size)
+                }
+                34 -> button(body).let { characters[it.id] = it }
                 6, 21, 35 -> jpeg(code, body, jpegTables).let { characters[it.id] = it }
                 20, 36 -> lossless(code, body).let { characters[it.id] = it }
                 39 -> {
@@ -202,7 +223,7 @@ object SwfParser {
                 }
             }
         }
-        return SwfMovie(version, bounds, frameRate, background, characters, root, exports)
+        return SwfMovie(version, bounds, frameRate, background, characters, root, exports, sounds)
     }
 
     private fun inflate(data: ByteArray, offset: Int): ByteArray {
@@ -280,6 +301,7 @@ object SwfParser {
         val r = ByteReader(body)
         val id = r.u16()
         val bounds = r.rect()
+        if (code == 83) { r.rect(); r.u8() } // DefineShape4: edge bounds and stroke flags
         val fills = mutableListOf<SwfFill?>()
         var fillBase = 0
         var fillBits = 0
@@ -289,7 +311,7 @@ object SwfParser {
             fills += fillStyles(code, r)
             var lines = r.u8()
             if (lines == 0xFF && code != 2) lines = r.u16()
-            repeat(lines) { r.u16(); rgb(r, alpha = code == 32) }
+            repeat(lines) { if (code == 83) lineStyle2(r) else { r.u16(); rgb(r, alpha = code == 32) } }
             val bits = r.u8()
             fillBits = bits shr 4; lineBits = bits and 0x0F
         }
@@ -340,18 +362,155 @@ object SwfParser {
 
     private const val CURVE_STEPS = 8
 
-    private fun fillStyles(code: Int, r: ByteReader): List<SwfFill?> {
-        var count = r.u8()
-        if (count == 0xFF && code != 2) count = r.u16()
+    /** LINESTYLE2 (DefineShape4): width, cap/join flags, miter limit, then a fill style or a colour. */
+    private fun lineStyle2(r: ByteReader) {
+        r.u16()
+        val f1 = r.u8(); r.u8()
+        if ((f1 shr 4) and 3 == 2) r.u16()
+        if (f1 and 0x08 != 0) fillStyles(83, r, single = true) else rgb(r, alpha = true)
+    }
+
+    /**
+     * DefineMorphShape2 drawn as its start shape (ratio 0): start colours and start edges.
+     * The end shape and the PlaceObject ratio are not interpolated.
+     */
+    private fun morphStart(body: ByteArray): SwfShape {
+        val r = ByteReader(body)
+        val id = r.u16()
+        val bounds = r.rect(); r.rect(); r.rect(); r.rect(); r.u8(); r.u32()
+        var count = r.u8(); if (count == 0xFF) count = r.u16()
         val fills = mutableListOf<SwfFill?>()
         repeat(count) {
             fills += when (val type = r.u8()) {
-                0x00 -> SwfFill.Solid(rgb(r, alpha = code == 32))
+                0x00 -> SwfFill.Solid(rgb(r, alpha = true)).also { rgb(r, alpha = true) }
+                0x10, 0x12, 0x13 -> {
+                    r.matrix(); r.matrix()
+                    val n = r.u8() and 0x0F
+                    var first: Int? = null
+                    repeat(n) { r.u8(); val c = rgb(r, alpha = true); r.u8(); rgb(r, alpha = true); if (first == null) first = c }
+                    if (type == 0x13) { r.u16(); r.u16() }
+                    first?.let { SwfFill.Solid(it) }
+                }
+                in 0x40..0x43 -> {
+                    val bitmapId = r.u16(); val m = r.matrix(); r.matrix()
+                    if (bitmapId == 0xFFFF) null else SwfFill.Bitmap(bitmapId, SwfMatrix(m.a / 20, m.b / 20, m.c / 20, m.d / 20, m.tx, m.ty), clipped = type == 0x41 || type == 0x43)
+                }
+                else -> throw FlashError("unsupported morph fill style $type")
+            }
+        }
+        var lines = r.u8(); if (lines == 0xFF) lines = r.u16()
+        repeat(lines) {
+            r.u16(); r.u16()
+            val f1 = r.u8(); r.u8()
+            if ((f1 shr 4) and 3 == 2) r.u16()
+            if (f1 and 0x08 != 0) throw FlashError("unsupported morph line fill") else { rgb(r, alpha = true); rgb(r, alpha = true) }
+        }
+        val bits = r.u8()
+        return SwfShape(id, bounds, fills, edges(body, r.pos, bits shr 4, bits and 0x0F, fills.size))
+    }
+
+    /** Shape records without style changes (morph start edges), from byte [start]. */
+    private fun edges(body: ByteArray, start: Int, fillBits: Int, lineBits: Int, fillCount: Int): List<SwfEdge> {
+        val edges = mutableListOf<SwfEdge>()
+        val bits = BitReader(body, start)
+        var x = 0.0; var y = 0.0
+        var fill0 = 0; var fill1 = 0
+        while (true) {
+            if (bits.ub(1) == 0) {
+                val flags = bits.ub(5)
+                if (flags == 0) break
+                if (flags and 1 != 0) { val n = bits.ub(5); x = bits.sb(n) / 20.0; y = bits.sb(n) / 20.0 }
+                if (flags and 2 != 0) fill0 = bits.ub(fillBits).let { if (it > fillCount) 0 else it }
+                if (flags and 4 != 0) fill1 = bits.ub(fillBits).let { if (it > fillCount) 0 else it }
+                if (flags and 8 != 0) bits.ub(lineBits)
+                if (flags and 16 != 0) throw FlashError("unexpected new styles in morph shape")
+            } else if (bits.ub(1) == 1) {
+                val n = bits.ub(4) + 2
+                var dx = 0.0; var dy = 0.0
+                if (bits.ub(1) == 1) { dx = bits.sb(n) / 20.0; dy = bits.sb(n) / 20.0 }
+                else if (bits.ub(1) == 1) dy = bits.sb(n) / 20.0 else dx = bits.sb(n) / 20.0
+                if (fill0 != 0 || fill1 != 0) edges += SwfEdge(x, y, x + dx, y + dy, fill0, fill1)
+                x += dx; y += dy
+            } else {
+                val n = bits.ub(4) + 2
+                val cx = x + bits.sb(n) / 20.0; val cy = y + bits.sb(n) / 20.0
+                val ax = cx + bits.sb(n) / 20.0; val ay = cy + bits.sb(n) / 20.0
+                if (fill0 != 0 || fill1 != 0) {
+                    var px = x; var py = y
+                    for (i in 1..CURVE_STEPS) {
+                        val t = i.toDouble() / CURVE_STEPS; val u = 1 - t
+                        val qx = u * u * x + 2 * u * t * cx + t * t * ax; val qy = u * u * y + 2 * u * t * cy + t * t * ay
+                        edges += SwfEdge(px, py, qx, qy, fill0, fill1)
+                        px = qx; py = qy
+                    }
+                }
+                x = ax; y = ay
+            }
+        }
+        return edges
+    }
+
+    /** DefineButton2: records until a zero byte, then condition actions linked by their sizes. */
+    private fun button(body: ByteArray): SwfButton {
+        val r = ByteReader(body)
+        val id = r.u16()
+        r.u8()
+        val actionOffset = r.u16()
+        val records = mutableListOf<SwfButtonRecord>()
+        while (r.pos < body.size) {
+            val flags = r.u8()
+            if (flags == 0) break
+            val character = r.u16(); val depth = r.u16()
+            val m = r.matrix()
+            val cx = r.colorTransform(withAlpha = true)
+            if (flags and 0x10 != 0) skipFilters(r)
+            if (flags and 0x20 != 0) r.u8()
+            records += SwfButtonRecord(flags and 0x0F, character, depth, m, cx)
+        }
+        val actions = mutableListOf<SwfButtonAction>()
+        if (actionOffset != 0) {
+            // ActionOffset counts from its own field (byte 3).
+            var p = 3 + actionOffset
+            while (p + 4 <= body.size) {
+                val size = (body[p].toInt() and 0xFF) or ((body[p + 1].toInt() and 0xFF) shl 8)
+                val conditions = (body[p + 2].toInt() and 0xFF) or ((body[p + 3].toInt() and 0xFF) shl 8)
+                val end = if (size == 0) body.size else (p + size).coerceAtMost(body.size)
+                actions += SwfButtonAction(conditions, body.copyOfRange(p + 4, end))
+                if (size == 0) break
+                p += size
+            }
+        }
+        return SwfButton(id, records, actions)
+    }
+
+    /** Skips a FILTERLIST (Flash 8 filters are not rendered). */
+    private fun skipFilters(r: ByteReader) {
+        repeat(r.u8()) {
+            when (r.u8()) {
+                0 -> r.bytes(23)
+                1 -> r.bytes(9)
+                2 -> r.bytes(15)
+                3 -> r.bytes(27)
+                4, 7 -> { val n = r.u8(); r.bytes(n * 5 + 19) }
+                5 -> { val w = r.u8(); val h = r.u8(); r.bytes(8 + w * h * 4 + 5) }
+                6 -> r.bytes(80)
+                else -> throw FlashError("unknown button filter")
+            }
+        }
+    }
+
+    private fun fillStyles(code: Int, r: ByteReader, single: Boolean = false): List<SwfFill?> {
+        var count = if (single) 1 else r.u8()
+        if (!single && count == 0xFF && code != 2) count = r.u16()
+        val fills = mutableListOf<SwfFill?>()
+        repeat(count) {
+            fills += when (val type = r.u8()) {
+                0x00 -> SwfFill.Solid(rgb(r, alpha = code == 32 || code == 83))
                 0x10, 0x12, 0x13 -> {
                     r.matrix()
                     val n = r.u8() and 0x0F
                     var first: Int? = null
-                    repeat(n) { r.u8(); val c = rgb(r, alpha = code == 32); if (first == null) first = c }
+                    repeat(n) { r.u8(); val c = rgb(r, alpha = code == 32 || code == 83); if (first == null) first = c }
                     if (type == 0x13) r.u16()
                     first?.let { SwfFill.Solid(it) }
                 }

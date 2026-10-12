@@ -124,6 +124,26 @@ class DirectorRuntimeUnitTest {
     }
 
     private var now = 1_000L
+    @Test fun create_matte_masks_copy_pixels_and_points_change_in_place() {
+        // 4x1 image: white, black, white, white. The border-connected whites are clear; the black is opaque.
+        val shape = LingoImage(4, 1, 24, intArrayOf(-1, 0xFF000000.toInt(), -1, -1))
+        val matte = shape.call("createMatte", emptyList()) as LingoMatte
+        assertEquals(listOf(0, 255, 0, 0), matte.levels.toList())
+        val red = LingoImage(4, 1, 24, IntArray(4) { 0xFFFF0000.toInt() })
+        val target = LingoImage(4, 1, 24, IntArray(4) { -1 })
+        target.copyPixels(red, intArrayOf(0, 0, 4, 1), intArrayOf(0, 0, 4, 1), LPropList(mutableListOf(
+            LSymbol("maskImage") to matte, LSymbol("maskOffset") to LPoint(LInt(1), LInt(0)))))
+        assertEquals("mask moved one pixel right", listOf(-1, -1, 0xFFFF0000.toInt(), -1), target.pixels.toList())
+        val rt = runtime()
+        val white = rt.callBuiltin(rt.vm, "image", listOf(LInt(2), LInt(1), LInt(24))) as LingoImage
+        assertEquals(-1, white.pixels[0])
+        val p = LPoint(LInt(1), LInt(2))
+        rt.vm.callMethod(p, "setAt", listOf(p, LInt(1), LInt(9)))
+        assertEquals(LInt(9), p.h)
+        assertEquals(LingoValue.TRUE, rt.theBuiltin("rightMouseUp"))
+        assertEquals(LingoValue.FALSE, rt.theBuiltin("rightMouseDown"))
+    }
+
     @Test fun ilk_property_is_available_on_host_references() {
         val rt = runtime()
         assertEquals(LSymbol("sprite"), rt.vm.getObjectProp(rt.sprite(2), "ilk"))

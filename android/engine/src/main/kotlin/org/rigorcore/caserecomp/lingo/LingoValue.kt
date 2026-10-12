@@ -26,8 +26,9 @@ sealed interface LingoValue {
     }
     class LList(val items: MutableList<LingoValue> = mutableListOf()) : LingoValue
     class LPropList(val entries: MutableList<Pair<LingoValue, LingoValue>> = mutableListOf()) : LingoValue
-    data class LPoint(val h: LingoValue, val v: LingoValue) : LingoValue
-    data class LRect(val left: LingoValue, val top: LingoValue, val right: LingoValue, val bottom: LingoValue) : LingoValue
+    /** Points and rects change in place with `p[1] = x` (setAt), like Director's datums. */
+    data class LPoint(var h: LingoValue, var v: LingoValue) : LingoValue
+    data class LRect(var left: LingoValue, var top: LingoValue, var right: LingoValue, var bottom: LingoValue) : LingoValue
     /** Reference to a compiled script (what `script "name"` returns). */
     class LScriptRef(val script: LingoScript) : LingoValue
     /** Instance of a parent script or behaviour: its own property values. */

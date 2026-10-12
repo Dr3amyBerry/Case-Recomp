@@ -91,7 +91,8 @@ internal object LingoNatives {
             is LPoint -> when (m) {
                 "getat" -> listOf(target.h, target.v)[index(2, arg(args, 0))]
                 "count" -> LInt(2)
-                "duplicate" -> target
+                "duplicate" -> target.copy()
+                "setat" -> { val i = index(2, arg(args, 0)); val value = arg(args, 1); if (i == 0) target.h = value else target.v = value; Void }
                 "inside" -> (arg(args, 0) as? LRect)?.let { r ->
                     val x = target.h.toDouble(); val y = target.v.toDouble()
                     LingoValue.bool(x >= r.left.toDouble() && x < r.right.toDouble() && y >= r.top.toDouble() && y < r.bottom.toDouble())
@@ -101,7 +102,9 @@ internal object LingoNatives {
             is LRect -> when (m) {
                 "getat" -> listOf(target.left, target.top, target.right, target.bottom)[index(4, arg(args, 0))]
                 "count" -> LInt(4)
-                "duplicate" -> target
+                "duplicate" -> target.copy()
+                "setat" -> { val value = arg(args, 1)
+                    when (index(4, arg(args, 0))) { 0 -> target.left = value; 1 -> target.top = value; 2 -> target.right = value; else -> target.bottom = value }; Void }
                 "offset" -> { val dx = arg(args, 0); val dy = arg(args, 1)
                     LRect(arithmetic(target.left, dx, '+'), arithmetic(target.top, dy, '+'),
                         arithmetic(target.right, dx, '+'), arithmetic(target.bottom, dy, '+')) }

@@ -39,7 +39,16 @@ class DirectorPresentationProfilesUnitTest {
         assertNotEquals(store, DirectorPresentationProfiles.sessionStoreId("prime_suspects", "c".repeat(64)))
         val raven = DirectorPresentationProfiles.RAVENHEARST
         assertEquals(DirectorPresentationProfiles.HUNTSVILLE_ES.text, raven.text)
-        assertTrue(raven.scopedNudges.isEmpty() && raven.approvedLegacyNudges.isEmpty())
+        assertTrue(raven.approvedLegacyNudges.isEmpty())
+        // Huntsville's name-entry offsets, shared by Prime; the clue caption moves, not its count.
+        for (profile in listOf(raven, DirectorPresentationProfiles.PRIME)) {
+            assertEquals(0 to 6, profile.scopedNudges[33 to "enterNameField1"])
+            assertEquals(12 to 0, profile.scopedNudges[31 to "cursor"])
+        }
+        assertEquals(0 to 6, raven.scopedNudges[776 to "enterNameField5"])
+        assertEquals(0 to 6, DirectorPresentationProfiles.PRIME.scopedNudges[587 to "enterNameField1"])
+        assertEquals(-5 to 4, raven.scopedNudges[699 to "cluesPromptLabel"])
+        assertNull(raven.scopedNudges[698 to "cluesFoundLabel"])
         assertEquals(0, raven.matteWhiteTolerance)
     }
 

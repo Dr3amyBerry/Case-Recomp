@@ -52,9 +52,13 @@ class CastLib(private val runtime: DirectorRuntime, val number: Int, val name: S
         this.fileName = fileName
         this.file = file
         overrides.clear()
+        erased.clear()
     }
 
-    fun data(number: Int): MemberData? = file?.members?.get(number)
+    /** Slots replaced by `new(#type, member(n))`: their file member is gone. */
+    private val erased = HashSet<Int>()
+
+    fun data(number: Int): MemberData? = if (number in erased) null else file?.members?.get(number)
 
     fun member(number: Int): CastMember = members.getOrPut(number) { CastMember(runtime, this, number) }
 
@@ -65,6 +69,13 @@ class CastLib(private val runtime: DirectorRuntime, val number: Int, val name: S
     val memberCount: Int get() = maxOf(file?.members?.keys?.maxOrNull() ?: 0, overrides.keys.maxOrNull() ?: 0)
 
     /** `new(#type)`: a member of that type in the first free slot. */
+    fun newMemberAt(number: Int, type: String): CastMember {
+        if (number !in 1..65535) throw LingoError("member number $number out of range")
+        erased += number
+        overrides[number] = hashMapOf("type" to LSymbol(type))
+        return member(number)
+    }
+
     fun newMember(type: String): CastMember {
         var number = 1
         while (data(number) != null || overrides[number]?.isNotEmpty() == true) number++

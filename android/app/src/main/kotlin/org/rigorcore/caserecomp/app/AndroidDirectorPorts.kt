@@ -256,6 +256,12 @@ internal class AndroidDirectorSound(
     private val pending = mutableSetOf<Int>()
     private var activityPaused = false
 
+    override fun playData(channel: Int, bytes: ByteArray, format: String, volume: Int) {
+        if (format != "mp3" && format != "wav") return
+        setVolume(channel, volume)
+        start(channel, bytes, format, 1)
+    }
+
     override fun play(channel: Int, member: CastMember, loops: Int) {
         stop(channel)
         val data = member.data ?: return
@@ -267,6 +273,11 @@ internal class AndroidDirectorSound(
         if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) {
             android.util.Log.d(TAG, "sound ch$channel ${member.name} $format ${bytes.size} bytes loops=$loops")
         }
+        start(channel, bytes, format, loops)
+    }
+
+    private fun start(channel: Int, bytes: ByteArray, format: String, loops: Int) {
+        stop(channel)
         if (bytes.isEmpty() || bytes.size > 64 * 1024 * 1024) return
         val file = File(context.cacheDir, "director-audio-${System.nanoTime()}-$channel.$format")
         try {

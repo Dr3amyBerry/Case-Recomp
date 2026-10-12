@@ -201,11 +201,23 @@ internal object DirectorPresentationProfiles {
     fun select(fingerprint: BundleFingerprint): DirectorPresentationProfile =
         if (fingerprint in verifiedBundles) HUNTSVILLE_ES else GENERIC
 
-    val PRIME = DirectorPresentationProfile("prime-suspects-presentation", 1, 1, HUNTSVILLE_ES.text,
-        matteWhiteTolerance = 12)
+    /**
+     * Huntsville's name-entry offsets (field and caret, sprites 33/31) for titles sharing its
+     * interface, plus the same field in their own change-user lists.
+     */
+    private fun nameEntryNudges(userList: IntRange): Map<Pair<Int, String>, Pair<Int, Int>> = buildMap {
+        put(33 to "enterNameField1", 0 to 6)
+        put(31 to "cursor", 12 to 0)
+        for ((index, sprite) in userList.withIndex()) put(sprite to "enterNameField${index + 1}", 0 to 6)
+    }
+
+    val PRIME = DirectorPresentationProfile("prime-suspects-presentation", 1, 2, HUNTSVILLE_ES.text,
+        matteWhiteTolerance = 12, scopedNudges = nameEntryNudges(587..591))
 
     // Same Director interface family as Huntsville: its general text calibration, none of its offsets.
-    val RAVENHEARST = DirectorPresentationProfile("ravenhearst-presentation", 1, 1, HUNTSVILLE_ES.text)
+    val RAVENHEARST = DirectorPresentationProfile("ravenhearst-presentation", 1, 2, HUNTSVILLE_ES.text,
+        // Side panel caption centred over its count and lowered; the count itself stays.
+        scopedNudges = nameEntryNudges(772..776) + mapOf((699 to "cluesPromptLabel") to (-5 to 4)))
 
     fun resolve(content: DirectorContent): DirectorPresentationProfile {
         val movie = content.read("movie.json") ?: error("movie bundle missing")

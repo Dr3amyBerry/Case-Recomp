@@ -85,6 +85,8 @@ class LingoVm(
     /** Send a message to an object; null when it has no such handler/method. */
     fun callMethod(target: LingoValue, name: String, args: List<LingoValue>): LingoValue? = when (target) {
         is LInstance -> target.script.handler(name)?.let { callHandler(it, args, target) }
+            // `obj.handler(#name)`: whether the instance's script defines that handler.
+            ?: if (name.equals("handler", true)) LingoValue.bool(args.getOrNull(1)?.let { target.script.handler(it.asText()) } != null) else null
         is LScriptRef -> if (name.equals("new", true)) newInstance(target.script, args.drop(1))
             else target.script.handler(name)?.let { callHandler(it, args, null) }
         is LingoValue.LHost -> target.call(name, args.drop(1))

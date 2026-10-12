@@ -109,6 +109,16 @@ class DirectorRuntime(
     private var keyDownScript: LingoValue = Void
     private val movieProps = HashMap<String, LingoValue>()
     var cursor: LingoValue = Void; private set
+    private var flashSoundSlot = 0
+
+    /** Sounds of Flash members play on their own channels, above Director's, a few at once. */
+    fun playFlashSound(mp3: ByteArray, volume: Double) {
+        sound.playData(FLASH_SOUND_CHANNEL + flashSoundSlot, mp3, "mp3", (volume.coerceIn(0.0, 100.0) * 255 / 100).toInt())
+        flashSoundSlot = (flashSoundSlot + 1) % FLASH_SOUND_CHANNELS
+    }
+
+    /** Host hook for `gotoNetPage(url)`: a projector opens the URL in the browser. */
+    var onNetPage: ((String) -> Unit)? = null
 
     init {
         for (lib in castLibs) {
@@ -537,7 +547,11 @@ class DirectorRuntime(
     override fun theBuiltin(name: String): LingoValue? = when (name.lowercase()) {
         "key" -> LString(lastKey)
         "frame" -> LInt(frame)
-        "mousedown" -> LingoValue.bool(mouseIsDown)
+        "mousedown", "stilldown" -> LingoValue.bool(mouseIsDown)
+        "mouseup" -> LingoValue.bool(!mouseIsDown)
+        // No right button on a touch screen: it is always up.
+        "rightmousedown" -> LingoValue.FALSE
+        "rightmouseup" -> LingoValue.TRUE
         "mouseh" -> LInt(mouseX)
         "mousev" -> LInt(mouseY)
         "stageleft" -> LInt(stageLeft)
@@ -567,7 +581,10 @@ class DirectorRuntime(
             "soundbusy" -> LingoValue.bool(soundChannels.getOrNull(arg(0).toInt() - 1)?.busy ?: false)
             "cursor" -> { cursor = arg(0); Void }
             "rgb" -> if (arg(0) is LString) LColor.of(arg(0)) else LColor(arg(0).toInt(), arg(1).toInt(), arg(2).toInt())
-            "image" -> LingoImage(arg(0).toInt(), arg(1).toInt(), args.getOrNull(2)?.toInt() ?: 32)
+            // New images start white, as in Director; 32-bit ones keep their transparent start.
+            "image" -> LingoImage(arg(0).toInt(), arg(1).toInt(), args.getOrNull(2)?.toInt() ?: 32).also { img ->
+                if (img.depth < 32) img.pixels.fill(0xFFFFFFFF.toInt())
+            }
             "keypressed" -> LingoValue.bool(arg(0).let { k ->
                 if (k is LInt) pressedKeys.contains("#${k.value}") else pressedKeys.contains(k.asText().lowercase())
             })
@@ -581,14 +598,18 @@ class DirectorRuntime(
                 }
                 pressedKeys.contains(key)
             })
+            "gotonetpage" -> { onNetPage?.invoke(arg(0).asText()); Void }
             "quit", "halt" -> { quitRequested = true; Void }
             "startquitmsg" -> { quitMessageInstalled = true; Void }
             "closequitmsg" -> { quitMessageInstalled = false; Void }
             "alert" -> { warnings += "alert: ${arg(0).asText()}"; Void }
             "put" -> { log += args.joinToString(" ") { it.asText() }; Void }
             "new" -> if (arg(0) is LSymbol) {
-                val lib = args.getOrNull(1)?.let { castLib(it) ?: throw LingoError("castLib ${it.asText()} not found") } ?: castLibs.first()
-                lib.newMember((arg(0) as LSymbol).name)
+                // new(#type, member(n)) makes the member in that slot; new(#type, castLib) the next free one.
+                (args.getOrNull(1) as? CastMember)?.let { slot -> slot.lib.newMemberAt(slot.number, (arg(0) as LSymbol).name) } ?: run {
+                    val lib = args.getOrNull(1)?.let { castLib(it) ?: throw LingoError("castLib ${it.asText()} not found") } ?: castLibs.first()
+                    lib.newMember((arg(0) as LSymbol).name)
+                }
             } else extensions?.callBuiltin(vm, name, args)
             "loctocharpos", "charpostoloc" -> (arg(0) as? CastMember ?: member(arg(0), null)).call(name, args.drop(1))
             "framelabel" -> getMovieProp("frameLabel")
@@ -599,6 +620,9 @@ class DirectorRuntime(
     }
 
     companion object {
+        const val FLASH_SOUND_CHANNEL = 100
+        const val FLASH_SOUND_CHANNELS = 6
+
         private val MOUSE_EVENTS = listOf("mouseDown", "mouseUp", "mouseUpOutside", "mouseEnter", "mouseLeave",
             "mouseWithin", "rightMouseDown", "rightMouseUp")
 

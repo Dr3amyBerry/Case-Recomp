@@ -45,6 +45,32 @@ Presentación: la calibración general de texto de Huntsville, sin sus desplazam
 específicos ni la tolerancia de matte de Prime. Portada: miembro `title`.
 El conversor web reconoce la carpeta por sus casts.
 
+## Bloque 2: puertas Flash, puzle del diario y ajustes
+
+- Texto: Ravenhearst y Prime usan los desplazamientos del nombre de Huntsville
+  (campo y cursor, sprites 33/31, y su lista de usuarios). En Ravenhearst,
+  «Pistas ocultas restantes» se centra y baja (sprite 699); el número no se mueve.
+- `gotoNetPage` abre la URL en el navegador; `objeto.handler(#nombre)` existe.
+- ActionScript (SWF 8) de los 15 candados: DefineFunction2 con registros y
+  precargas, closures, `this` correcto en métodos, Array, Math, métodos de texto,
+  setInterval con el reloj del runtime, hitTest, attachMovie, depths, arrastre,
+  ratón local, módulo, igualdad estricta y bit a bit. `sprite(n).funcion()` llama
+  a funciones ActionScript; `getVariable` también ve `_global`.
+- SWF: DefineButton2 (estados, área hit, acciones por condición), DefineShape4,
+  DefineMorphShape2 (solo forma inicial) y sonidos MP3 propios de cada Flash.
+- Puzle del diario: `createMatte`/`createMask` y `#maskImage`/`#maskOffset`,
+  `new(#bitmap, member(n))` sustituye el miembro, imágenes nuevas en blanco,
+  `point`/`rect` modificables con `p[1] = x`, `the rightMouseUp`.
+  En Android, «Girar pieza» aparece solo en el puzle: se pulsa con otro dedo
+  mientras se arrastra (equivale a la barra espaciadora del original).
+
+PROBADO en JVM: los 15 candados con 300 clics/arrastres aleatorios sin avisos
+de ActionScript; capítulo 1 completo (22 pistas, puerta abierta forzando su
+variable de desbloqueo) y el puzle del diario resuelto pieza a pieza (30 piezas,
+giros incluidos) hasta «Encontraste una anotación del diario».
+NO VERIFICADO: resolver los candados jugando, sonido de los Flash en dispositivo,
+morph shapes animados y textos dinámicos dentro de los Flash.
+
 ## Estado
 
 PROBADO en JVM con el bytecode original: splash, carta inicial, entrada de nombre,

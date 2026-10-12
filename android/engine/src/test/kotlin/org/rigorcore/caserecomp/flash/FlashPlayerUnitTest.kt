@@ -184,6 +184,57 @@ class FlashPlayerUnitTest {
         assertNull(SwfMatrix(0.0, 0.0, 0.0, 0.0).inverse())
     }
 
+    @Test fun define_function2_registers_arrays_math_and_modulo() {
+        val body = op(0x96, byteArrayOf(4, 1)) + push(2) + op(0x0C) + op(0x3E)
+        val double = op(0x8E, SwfTestBuilder.cstr("double") + SwfTestBuilder.u16(1) + byteArrayOf(3, 0, 0, 1) +
+            SwfTestBuilder.cstr("a") + SwfTestBuilder.u16(body.size)) + body
+        val movie = SwfParser.parse(SwfTestBuilder.movie(10, 10, 1, action(
+            double,
+            push("res", 21, 1, "double"), op(0x3D), op(0x1D),
+            push("arr", 3, 2, 1, 3), op(0x42), op(0x1D),
+            push(4, 1, "arr"), op(0x1C), push("push"), op(0x52), op(0x17),
+            push("len", "arr"), op(0x1C), push("length"), op(0x4E), op(0x1D),
+            push("fl", "2.7", 1, "Math"), op(0x1C), push("floor"), op(0x52), op(0x1D),
+            push("md", 7, 3), op(0x3F), op(0x1D),
+            op(0x07)), showFrame()))
+        val player = FlashPlayer(movie, host)
+        assertTrue(warnings.toString(), warnings.isEmpty())
+        assertEquals(42.0, player.root.get("res"))
+        assertEquals(4.0, player.root.get("len"))
+        assertEquals(2.0, player.root.get("fl"))
+        assertEquals(1.0, player.root.get("md"))
+    }
+
+    @Test fun set_interval_follows_the_host_clock() {
+        var now = 0L
+        val clock = object : FlashHost { override fun millis() = now }
+        val movie = SwfParser.parse(SwfTestBuilder.movie(10, 10, 1, action(
+            push("count", 0), op(0x1D),
+            push("tick"), function(push("count", "count"), op(0x1C), op(0x50), op(0x1D)), op(0x1D),
+            push("id", 100, "tick"), op(0x1C), push(2, "setInterval"), op(0x3D), op(0x1D),
+            op(0x07)), showFrame()))
+        val player = FlashPlayer(movie, clock)
+        now = 50; player.advance()
+        assertEquals(0.0, player.root.get("count"))
+        now = 250; player.advance()
+        assertEquals("catches up on missed periods", 2.0, player.root.get("count"))
+    }
+
+    @Test fun button2_states_hit_area_and_release_actions() {
+        val record = byteArrayOf(0x0F) + SwfTestBuilder.u16(1) + SwfTestBuilder.u16(1) + translate(0, 0) + byteArrayOf(0)
+        val code = push("hit", true) + op(0x1D) + byteArrayOf(0)
+        val actions = SwfTestBuilder.u16(0) + SwfTestBuilder.u16(0x08) + code
+        val button = SwfTestBuilder.tag(34, SwfTestBuilder.u16(5) + byteArrayOf(0) + SwfTestBuilder.u16(2 + record.size + 1) + record + byteArrayOf(0) + actions)
+        val movie = SwfParser.parse(SwfTestBuilder.movie(40, 40, 1, solidShape(1, 20, 20, 0x00FF00), button,
+            place(1, 5, translate(10, 10)), action(op(0x07)), showFrame()))
+        val player = FlashPlayer(movie, host)
+        assertNotNull(player.buttonAt(15.0, 15.0))
+        assertNull(player.buttonAt(35.0, 35.0))
+        assertEquals(1, player.drawList().size)
+        player.mouseDown(15.0, 15.0); player.mouseUp(15.0, 15.0)
+        assertEquals(true, player.root.get("hit"))
+    }
+
     @Test fun unsupported_actions_stop_only_their_own_script() {
         val movie = SwfParser.parse(SwfTestBuilder.movie(10, 10, 2,
             action(op(0x2A)), showFrame(), action(push("v", 3), op(0x1D), op(0x07)), showFrame()))

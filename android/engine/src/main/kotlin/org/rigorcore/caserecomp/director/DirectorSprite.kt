@@ -43,6 +43,8 @@ class FlashState(private val runtime: DirectorRuntime, private val sprite: Sprit
                 FlashPlayer(movie, object : FlashHost {
                     override fun getURL(url: String, target: String) = runtime.flashURL(sprite, url)
                     override fun warn(message: String) { runtime.warnings += "flash ${m.name}: $message" }
+                    override fun millis(): Long = runtime.milliseconds()
+                    override fun playSound(mp3: ByteArray, volume: Double) = runtime.playFlashSound(mp3, volume)
                 })
             }
         }
@@ -78,7 +80,20 @@ class FlashState(private val runtime: DirectorRuntime, private val sprite: Sprit
     }
 
     fun getVariable(name: String): String =
-        current()?.root?.get(name)?.takeIf { it !== Undefined }?.let { Avm.string(it) } ?: variables[name] ?: ""
+        current()?.variable(name)?.takeIf { it !== Undefined }?.let { Avm.string(it) } ?: variables[name] ?: ""
+
+    /** `sprite(n).fn(args)` with no Lingo handler: an ActionScript function of the movie, if any. */
+    fun callFunction(name: String, args: List<LingoValue>): LingoValue? {
+        val result = current()?.callRoot(name, args.map { v ->
+            when (v) { is LInt -> v.value.toDouble(); is LingoValue.LFloat -> v.value; is LString -> v.value; else -> v.asText() }
+        }) ?: return null
+        return when (result) {
+            is Double -> if (result == Math.floor(result) && kotlin.math.abs(result) < Int.MAX_VALUE) LInt(result.toInt()) else LingoValue.LFloat(result)
+            is Boolean -> LingoValue.bool(result)
+            Undefined -> Void
+            else -> LString(Avm.string(result))
+        }
+    }
 
     /** Stage point to movie coordinates, through the sprite rectangle. */
     fun toMovie(x: Int, y: Int): Pair<Double, Double>? {
@@ -261,7 +276,9 @@ class Sprite(private val runtime: DirectorRuntime, val number: Int) : LingoValue
                 "getvariable" -> return LString(flash.getVariable(args.getOrElse(0) { Void }.asText()))
             }
         }
-        return runtime.sendSprite(this, method, args)
+        val handled = runtime.sendSprite(this, method, args)
+        if (handled == null && member?.type == "flash") flash.callFunction(method, args)?.let { return it }
+        return handled
     }
 
     override fun toString() = "(sprite $number)"
