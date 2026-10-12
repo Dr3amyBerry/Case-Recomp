@@ -248,6 +248,10 @@ class DirectorLauncherActivity : Activity() {
                     }
                 }
                 runtime.start()
+                if (titleId == DirectorPresentationProfiles.RAVENHEARST_ID) {
+                    runCatching { RavenhearstSupportSign.install(runtime, HuntsvilleOptions.SUPPORT_URL) }
+                        .onFailure { Log.w(TAG, "support sign not installed", it) }
+                }
                 // Shown larger than the stage: compose at 2x so text and vectors are drawn at
                 // (about) screen resolution; the view then scales the frame down smoothly.
                 val display = resources.displayMetrics
