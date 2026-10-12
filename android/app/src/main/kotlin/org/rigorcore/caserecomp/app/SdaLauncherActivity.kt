@@ -262,7 +262,7 @@ class SdaLauncherActivity : Activity() {
         dialog.setCancelable(false)
         dialog.setOnDismissListener { hostMenu=null;if(!isFinishing && !isDestroyed) showResourceMenu(view,SdaMenuEntry.MAIN) }
         hostMenu=dialog;dialog.show()
-        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+        dialog.hideSystemBars()
     }
 
     private fun showResourceMenu(view:SdaGameView,entry:SdaMenuEntry) {
@@ -310,7 +310,7 @@ class SdaLauncherActivity : Activity() {
             dialog.setOnDismissListener { hostMenu=null;if(!changingProfile) { view.visibility=View.VISIBLE;campaignMusicReady=true;view.resumeFromMenu();updateCampaignMusic(force=true);view.post { showRiddleDialog(view) } } }
             hostMenu=dialog;dialog.show()
             dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-            dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+            dialog.hideSystemBars()
         } else {
             val fallback=android.app.AlertDialog.Builder(this).setTitle("Case-Recomp")
                 .setItems(arrayOf("Continuar partida","Guardar y volver al cat\u00e1logo")) { _,item ->
@@ -350,7 +350,7 @@ class SdaLauncherActivity : Activity() {
         dialog.setCancelable(true)
         hostMenu=dialog;dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+        dialog.hideSystemBars()
     }
 
     private fun showCollectibleDialog(view:SdaGameView,kind:String) {
@@ -366,7 +366,7 @@ class SdaLauncherActivity : Activity() {
         dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave() }
         hostMenu=dialog;dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+        dialog.hideSystemBars()
     }
 
     private fun wireViewCallbacks(view: SdaGameView, sdaContent: SdaContent) {
@@ -493,7 +493,7 @@ class SdaLauncherActivity : Activity() {
         dialog.setOnDismissListener { hostMenu=null;view.resumeFromMenu();autoSave() }
         hostMenu=dialog;dialog.show()
         dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT)
-        dialog.window?.decorView?.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+        dialog.hideSystemBars()
     }
 
     private fun showUnlimitedMapDialogs(view:SdaGameView) {
@@ -602,5 +602,15 @@ class SdaLauncherActivity : Activity() {
         const val EXTRA_UNLIMITED = "sda-unlimited"
         const val EXTRA_SKIP_MENU = "sda-skip-menu"
         private const val TAG = "CaseRecompSda"
+    }
+}
+
+/** Full-screen dialogs on every supported Android: the insets controller exists only from Android 11. */
+private fun android.app.Dialog.hideSystemBars() {
+    val decor = window?.decorView ?: return
+    if (android.os.Build.VERSION.SDK_INT >= 30) decor.windowInsetsController?.hide(WindowInsets.Type.systemBars())
+    else {
+        @Suppress("DEPRECATION")
+        decor.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
     }
 }
