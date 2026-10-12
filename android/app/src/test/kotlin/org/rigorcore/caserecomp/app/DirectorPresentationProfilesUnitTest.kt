@@ -38,13 +38,14 @@ class DirectorPresentationProfilesUnitTest {
         assertEquals(store, DirectorPresentationProfiles.sessionStoreId("ravenhearst", "c".repeat(64)))
         assertNotEquals(store, DirectorPresentationProfiles.sessionStoreId("prime_suspects", "c".repeat(64)))
         val raven = DirectorPresentationProfiles.RAVENHEARST
-        assertEquals(DirectorPresentationProfiles.HUNTSVILLE_ES.text, raven.text)
+        assertEquals(DirectorPresentationProfiles.HUNTSVILLE_ES.text.boxes, raven.text.boxes)
+        assertEquals(1.15f, raven.text.font("AmericanTypewriter Medium *").sizeScale)
+        assertEquals(DirectorPresentationProfiles.HUNTSVILLE_ES.text.font("TektoMM_503 BD"), raven.text.font("TektoMM_503 BD"))
         assertTrue(raven.approvedLegacyNudges.isEmpty())
         // Huntsville's name-entry offsets, shared by Prime; the clue caption moves, not its count.
-        for (profile in listOf(raven, DirectorPresentationProfiles.PRIME)) {
-            assertEquals(0 to 6, profile.scopedNudges[33 to "enterNameField1"])
-            assertEquals(12 to 0, profile.scopedNudges[31 to "cursor"])
-        }
+        for (profile in listOf(raven, DirectorPresentationProfiles.PRIME)) assertEquals(0 to 6, profile.scopedNudges[33 to "enterNameField1"])
+        assertEquals(12 to 0, DirectorPresentationProfiles.PRIME.scopedNudges[31 to "cursor"])
+        assertEquals(12 to 6, raven.scopedNudges[31 to "cursor"])
         assertEquals(0 to 6, raven.scopedNudges[776 to "enterNameField5"])
         assertEquals(0 to 6, DirectorPresentationProfiles.PRIME.scopedNudges[587 to "enterNameField1"])
         assertEquals(-5 to 4, raven.scopedNudges[699 to "cluesPromptLabel"])

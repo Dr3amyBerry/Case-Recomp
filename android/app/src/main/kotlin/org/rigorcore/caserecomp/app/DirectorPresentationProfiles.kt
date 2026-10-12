@@ -215,9 +215,22 @@ internal object DirectorPresentationProfiles {
         matteWhiteTolerance = 12, scopedNudges = nameEntryNudges(587..591))
 
     // Same Director interface family as Huntsville: its general text calibration, none of its offsets.
-    val RAVENHEARST = DirectorPresentationProfile("ravenhearst-presentation", 1, 2, HUNTSVILLE_ES.text,
-        // Side panel caption centred over its count and lowered; the count itself stays.
-        scopedNudges = nameEntryNudges(772..776) + mapOf((699 to "cluesPromptLabel") to (-5 to 4)))
+    // Ravenhearst's own typewriter face (diary clocks, notes) is drawn a little larger.
+    val RAVENHEARST = DirectorPresentationProfile("ravenhearst-presentation", 1, 3,
+        HUNTSVILLE_ES.text.copy(fontRules = listOf(FontPresentationRule(listOf("americantypewriter"), sizeScale = 1.15f)) + HUNTSVILLE_ES.text.fontRules),
+        scopedNudges = nameEntryNudges(772..776) + mapOf(
+            // The caret sits on the name's baseline, lowered like the field.
+            (31 to "cursor") to (12 to 6),
+            // Side panel caption centred over its count and lowered; the count itself stays.
+            (699 to "cluesPromptLabel") to (-5 to 4),
+            // Leader board text below the panel's title strip.
+            (788 to "highScoreField") to (0 to 18),
+            // Diary clocks inside their paper strip; the limit value clear of its longer Spanish label.
+            (152 to "timeLimitLabel") to (0 to 6),
+            (153 to "timeLimitField") to (14 to 6),
+            (154 to "timeCumulativeLabel") to (0 to 4),
+            (155 to "timeCumulativeField") to (0 to 4),
+        ))
 
     fun resolve(content: DirectorContent): DirectorPresentationProfile {
         val movie = content.read("movie.json") ?: error("movie bundle missing")

@@ -128,18 +128,24 @@ class Bot:
         self.touch(*where)
         return True
 
-    def sprites(self):
+    def sprites(self, rects=False):
         rows = {}
         for row in self.bridge("sprites|1|800").splitlines():
             parts = row.split("|")
-            rows[int(parts[0])] = parts[1]
+            rows[int(parts[0])] = (parts[1], tuple(map(int, parts[3].split(",")))) if rects else parts[1]
         return rows
 
     def named(self, name):
-        for n, member in self.sprites().items():
-            if member in (name, name[:-1] + "B", name[:-1] + "b"):
-                if self.click(n):
-                    return
+        found = [(n, rect) for n, (member, rect) in self.sprites(rects=True).items()
+                 if member in (name, name[:-1] + "B", name[:-1] + "b")]
+        for n, _ in found:
+            if self.click(n):
+                return
+        if found:
+            # Covered by another sprite (Close Diary sits under its "close2" art): its centre takes the click.
+            left, top, right, bottom = found[0][1]
+            self.touch((left + right) // 2, (top + bottom) // 2)
+            return
         raise RuntimeError("no button " + name)
 
     def buttons(self, sprite):
@@ -162,7 +168,13 @@ class Bot:
             if self.args.fresh:
                 args += ["--es", "import_save", "qa-raven.json"]
         self.shell(*args)
-        self.wait(lambda: self.label() == "splash2", seconds=300)
+        # Tap through the logo and the intro movie, as a player may.
+        def past_intro():
+            label = self.label()
+            if label in ("bfgsplash", "splash1", "distsplash"):
+                self.touch(400, 300)
+            return label == "splash2"
+        self.wait(past_intro, seconds=300)
         self.sleep(2)
         self.touch(400, 300)
         self.wait(lambda: self.label() not in ("splash2", "splash1"), seconds=60)
