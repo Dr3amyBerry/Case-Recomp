@@ -180,13 +180,15 @@ class Bot:
         self.wait(lambda: self.label() not in ("splash2", "splash1"), seconds=60)
 
     def start_game(self):
-        self.wait(lambda: self.label() in ("entername", "mainmenu"), seconds=60)
+        self.wait(lambda: self.label() not in ("splash2", "splash1", "bfgsplash"), seconds=60)
         if self.label() == "entername":
             self.sleep(2)
-            self.bridge("key|" + self.args.agent + "\\r")
+            self.bridge("key|" + self.args.agent + "\r")
             self.wait(lambda: self.label() == "mainmenu")
-        self.sleep(2)
-        self.named("main_startA")
+        # With a saved scene the app's checkpoint presses the menu's Play itself.
+        self.sleep(4)
+        if self.label() == "mainmenu" and any(n in ("main_startA", "main_startB") for n in self.sprites().values()):
+            self.named("main_startA")
         self.play_wait(3)
 
     # ---- dialogs ------------------------------------------------------------------------
