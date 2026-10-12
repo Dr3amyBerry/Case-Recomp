@@ -130,7 +130,8 @@ internal class DirectorStageView(
             stageDirty = false
             val frame = renderer.render()
             composeWork += android.os.SystemClock.uptimeMillis() - drawStart
-            bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
+            // A still stage keeps the uploaded bitmap: no copy of the whole frame.
+            if (renderer.changed) bitmap.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
         }
         val area = viewport.fit(width, height)
         destination.set(area.left, area.top, area.left + area.width, area.top + area.height)

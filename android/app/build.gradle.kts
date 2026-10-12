@@ -26,16 +26,29 @@ android {
         targetSdk = 36
         versionCode = phase8VersionCode
         versionName = "0.8.0"
+        manifestPlaceholders["appLabel"] = "Case Recomp"
+        buildConfigField("boolean", "LITE", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Personal builds only: -PbundledContentDir=<folder holding a "bundled" folder of the
     // player's own converted ZIPs> packs them as assets, imported on first launch.
     // Never pass it for a published build.
+    buildFeatures { buildConfig = true }
+
+    // Lite builds (-Plite) for modest devices: a separate app that composes Director titles at
+    // the game's own resolution instead of twice it. Combine with bundledContentDir as needed.
+    if (providers.gradleProperty("lite").orNull != null) {
+        defaultConfig.applicationIdSuffix = ".lite"
+        defaultConfig.versionNameSuffix = "-lite"
+        defaultConfig.manifestPlaceholders["appLabel"] = "Case Recomp Lite"
+        defaultConfig.buildConfigField("boolean", "LITE", "true")
+    }
+
     val personal = providers.gradleProperty("bundledContentDir").orNull
     personal?.let { dir ->
         sourceSets["main"].assets.srcDir(dir)
-        defaultConfig.versionNameSuffix = "-personal"
+        defaultConfig.versionNameSuffix = (defaultConfig.versionNameSuffix ?: "") + "-personal"
     }
 
     signingConfigs {

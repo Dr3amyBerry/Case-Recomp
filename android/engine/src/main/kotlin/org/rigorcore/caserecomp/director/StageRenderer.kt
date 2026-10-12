@@ -75,9 +75,37 @@ class StageRenderer(
     /** Optional player accessibility filter; never changes Score or VM state. */
     var drawItem: ((DisplayItem) -> Boolean)? = null
 
+    /** Whether the last [render] composed a new picture; false when the stage looked the same. */
+    var changed = true
+        private set
+    private var lastSignature: List<Any?>? = null
+
+    /**
+     * Everything a frame's pixels depend on: each item's placement and inks, and its content
+     * (bitmap object and Lingo edit count, text, shape colour, Flash shapes and transforms).
+     * Hidden-object scenes are mostly still; an unchanged list means the last frame is reused.
+     */
+    private fun signature(items: List<DisplayItem>): List<Any?> {
+        val out = ArrayList<Any?>(items.size * 3)
+        for (item in items) {
+            out += item.copy(flash = null)
+            when (item.member.type) {
+                "bitmap" -> item.member.pixels.let { out += it; out += it?.version; out += it?.useAlpha }
+                "text", "field" -> out += item.member.text
+                "shape" -> out += runtime.sprite(item.sprite).getProp("color")
+                "flash" -> item.flash?.drawList()?.forEach { d -> out += d.shape; out += d.matrix; out += d.alpha; out += d.masks.size }
+            }
+        }
+        return out
+    }
+
     fun render(): LingoImage {
         masksInUse = 0
         val items = runtime.displayList().filter { drawItem?.invoke(it) != false }
+        val signature = signature(items)
+        if (signature == lastSignature) { changed = false; return frame }
+        lastSignature = signature
+        changed = true
         // An opaque full-stage backdrop overwrites every pixel: clearing first is wasted work.
         if (items.firstOrNull()?.let { coversStage(it) } != true) frame.pixels.fill(background)
         for (item in items) draw(item)

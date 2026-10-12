@@ -1,6 +1,8 @@
 package org.rigorcore.caserecomp.director
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.rigorcore.caserecomp.flash.DialogSwf
 import org.rigorcore.caserecomp.lingo.LingoBundle
@@ -90,6 +92,20 @@ class StageRendererUnitTest {
         // ok_mc's 20x10 red box sits at (30,40) in a 200x100 movie: stage (6..10, 8..10).
         assertEquals(red, px(7, 8))
         assertEquals(blue, px(12, 15))
+    }
+
+    @Test fun an_unchanged_stage_reuses_the_last_frame() {
+        val rt = DirectorRuntime(movie(), LingoBundle(emptyList(), emptyList()), media, clock = { 0L })
+        rt.start()
+        val renderer = StageRenderer(rt)
+        renderer.render(); assertTrue(renderer.changed)
+        renderer.render(); assertFalse("nothing moved", renderer.changed)
+        rt.sprite(3).setProp("color", LInt(128))
+        renderer.render(); assertTrue("a sprite colour changed", renderer.changed)
+        val image = LingoImage(2, 2, 32)
+        val before = image.version
+        image.call("fill", listOf(image.rectValue(), LInt(0)))
+        assertTrue("Lingo edits bump the image version", image.version > before)
     }
 
     @Test fun background_transparent_shape_drops_white_but_retains_its_colored_fill() {

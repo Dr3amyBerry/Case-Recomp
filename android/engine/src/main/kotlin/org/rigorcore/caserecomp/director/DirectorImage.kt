@@ -59,6 +59,10 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
 
     override val ilk = "image"
     var useAlpha: Boolean = depth == 32
+        set(value) { field = value; version++ }
+    /** Bumped by every in-place change made through Lingo, so a renderer can tell a stale frame. */
+    var version = 0
+        private set
     /** extractAlpha returns raw alpha indexes; ordinary 8-bit RGB images stay unchanged. */
     private var alphaPlane = false
 
@@ -79,7 +83,13 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
         }
     }
 
-    override fun call(method: String, args: List<LingoValue>): LingoValue? = when (method.lowercase()) {
+    override fun call(method: String, args: List<LingoValue>): LingoValue? {
+        val m = method.lowercase()
+        if (m == "setalpha" || m == "fill" || m == "copypixels" || m == "setpixel") version++
+        return callImage(m, args)
+    }
+
+    private fun callImage(method: String, args: List<LingoValue>): LingoValue? = when (method) {
         "setalpha" -> {
             val value = args.firstOrNull()
             if (depth != 32 || value == null || (value is LingoImage &&
@@ -163,6 +173,7 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
     }
 
     fun fill(r: IntArray, argb: Int) {
+        version++
         for (y in maxOf(0, r[1]) until minOf(height, r[3])) for (x in maxOf(0, r[0]) until minOf(width, r[2])) {
             pixels[y * width + x] = argb
         }
@@ -170,6 +181,7 @@ class LingoImage(val width: Int, val height: Int, val depth: Int = 32, val pixel
 
     /** Nearest-neighbour scaled copy with Director's #copy/#matte/#backgroundTransparent inks and blend. */
     fun copyPixels(source: LingoImage, dest: IntArray, src: IntArray, props: LPropList?) {
+        version++
         val dw = dest[2] - dest[0]; val dh = dest[3] - dest[1]
         val sw = src[2] - src[0]; val sh = src[3] - src[1]
         if (dw <= 0 || dh <= 0 || sw <= 0 || sh <= 0) return
