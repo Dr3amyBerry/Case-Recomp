@@ -14,7 +14,7 @@ val releaseSigning = rootProject.file("../private/signing/release.properties").t
     Properties().apply { file.inputStream().use(::load) }.also { it["dir"] = file.parentFile }
 }
 
-val phase8VersionCode = providers.gradleProperty("phase8VersionCode").orElse("10").get().toInt()
+val phase8VersionCode = providers.gradleProperty("phase8VersionCode").orElse("11").get().toInt()
 
 android {
     namespace = "org.rigorcore.caserecomp.app"
@@ -25,7 +25,7 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = phase8VersionCode
-        versionName = "0.7.0-beta"
+        versionName = "0.8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -6,9 +6,16 @@
 
 ## Español
 
-**Case Recomp** permite jugar en Android a **Mystery Case Files: Huntsville** usando **tu propia copia original del juego para PC**. La app no incluye ningún juego. Tienes que convertir los archivos de tu juego en un archivo `.zip` e importarlo en la app.
+**Case Recomp** permite jugar en Android a juegos de PC de Big Fish usando **tu propia copia original del juego**. La app no incluye ningún juego. Tienes que convertir los archivos de tu juego en un archivo `.zip` e importarlo en la app.
 
-> ⚠️ **Versión beta.** Puede tener errores, fallos gráficos o de sonido, y partes que todavía no funcionan como en el juego original. Si encuentras algún problema, avísanos abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues) (describe los pasos sin adjuntar archivos originales del juego ni información privada). **Se entrega tal cual, sin garantías de ningún tipo.**
+| Juego | Estado |
+|---|---|
+| Mystery Case Files: **Huntsville** | Jugable |
+| Mystery Case Files: **Prime Suspects** | Jugable |
+| Mystery Case Files: **Ravenhearst** | Jugable, en revisión (candados y capítulos finales por confirmar) |
+| Mystery P.I.: **The Vegas Heist** | Jugable de principio a fin; **todavía faltan detalles por confirmar** frente al original |
+
+> ⚠️ **Si encuentras un error** (algo que no funciona, se ve o suena distinto al juego original), **escríbenos** abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues): di qué juego, qué hacías y qué pasó, sin adjuntar archivos originales del juego ni información privada. **Se entrega tal cual, sin garantías de ningún tipo.**
 
 ### Avisos legales y protección del usuario
 
@@ -35,6 +42,8 @@ Si no la encuentras: haz clic derecho en el acceso directo del juego → **Abrir
 
 #### Opción A: con la página web (recomendada)
 
+El convertidor reconoce los cuatro juegos: elige la carpeta de Huntsville, Prime Suspects o Ravenhearst (la que tiene el `.exe` y la carpeta `data`) o la de The Vegas Heist (la que tiene `Resources.dll`). Algunas ediciones de Prime Suspects guardan el juego en un ejecutable protegido que la página no puede leer; la página lo avisa.
+
 1. Abre **[el convertidor de Case Recomp](https://dr3amyberry.github.io/Case-Recomp/)** en Chrome, Edge o Firefox, en el PC.
 2. Arrastra la carpeta del juego a la página o pulsa en el recuadro y elígela. Si el navegador pregunta si quieres "subir" los archivos, acepta: en realidad **no se suben a ningún sitio**, la conversión se hace dentro de tu navegador.
 3. La página detecta el juego. Cuando salga *Mystery Case Files: Huntsville — Compatible*, pulsa **Crear archivo para la app**. Tarda menos de un minuto.
@@ -59,15 +68,22 @@ El archivo de salida no puede estar dentro de la carpeta del repositorio.
 
 > El `.zip` contiene los datos de tu juego. Es solo para ti: **no lo compartas ni lo subas a internet.**
 
-*Prime Suspects* y *Ravenhearst* se importan igual, cada uno en su tarjeta, pero siguen **en desarrollo**: pueden tener fallos.
+Los demás juegos se importan igual, cada uno en su propia tarjeta. En Ravenhearst, los candados de las puertas se pueden saltar con el teléfono de ayuda del propio juego y el rompecabezas del diario tiene un botón **Girar pieza**. The Vegas Heist se puede jugar completo, pero **aún faltan cosas por confirmar** frente al juego original: si ves algo raro, escríbenos.
 
 ---
 
 ## English
 
-**Case Recomp** lets you play **Mystery Case Files: Huntsville** on Android using **your own original PC copy of the game**. The app includes no game. You convert your game's files into a `.zip` file and import it into the app.
+**Case Recomp** lets you play Big Fish PC games on Android using **your own original copy of the game**. The app includes no game. You convert your game's files into a `.zip` file and import it into the app.
 
-> ⚠️ **Beta version.** It may have bugs, graphics or sound glitches, and parts that do not yet work as in the original game. If you find a problem, please tell us by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues) (describe the steps; do not attach original game assets, proprietary screenshots or private information). **Provided as is, without warranty of any kind.**
+| Game | Status |
+|---|---|
+| Mystery Case Files: **Huntsville** | Playable |
+| Mystery Case Files: **Prime Suspects** | Playable |
+| Mystery Case Files: **Ravenhearst** | Playable, under review (locks and later chapters still being checked) |
+| Mystery P.I.: **The Vegas Heist** | Playable start to finish; **some details are still to be confirmed** against the original |
+
+> ⚠️ **If you find a bug** (something that does not work, or looks or sounds different from the original game), **write to us** by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues): say which game, what you were doing and what happened; do not attach original game assets, proprietary screenshots or private information. **Provided as is, without warranty of any kind.**
 
 ### Legal and privacy notices
 
@@ -94,6 +110,8 @@ If you cannot find it: right-click the game's shortcut → **Open file location*
 
 #### Option A: with the web page (recommended)
 
+The converter recognises all four games: choose the Huntsville, Prime Suspects or Ravenhearst folder (the one with the `.exe` and the `data` folder) or The Vegas Heist folder (the one with `Resources.dll`). Some Prime Suspects editions keep the game inside a protected executable the page cannot read; the page says so.
+
 1. Open **[the Case Recomp converter](https://dr3amyberry.github.io/Case-Recomp/)** in Chrome, Edge or Firefox, on your PC.
 2. Drop the game folder onto the page, or click the box and choose it. If the browser asks whether to "upload" the files, accept: they are **not sent anywhere**, the conversion runs inside your browser.
 3. The page detects the game. When it shows *Mystery Case Files: Huntsville — Supported*, press **Create file for the app**. It takes under a minute.
@@ -118,7 +136,7 @@ The output file cannot be inside the repository folder.
 
 > The `.zip` holds your game's data. It is for you only: **do not share it or upload it anywhere.**
 
-*Prime Suspects* and *Ravenhearst* are imported the same way, each on its own card, but they are still **in development** and may have bugs.
+The other games are imported the same way, each on its own card. In Ravenhearst, door locks can be skipped with the game's own help-line phone, and the diary jigsaw has a **Girar pieza** (rotate piece) button. The Vegas Heist can be played through, but **some things are still to be confirmed** against the original game: if anything looks wrong, write to us.
 
 ---
 
