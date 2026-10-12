@@ -183,7 +183,7 @@ class Bot:
         self.wait(lambda: self.label() not in ("splash2", "splash1", "bfgsplash"), seconds=60)
         if self.label() == "entername":
             self.sleep(2)
-            self.bridge("key|" + self.args.agent + "\r")
+            self.bridge("key|" + self.args.agent + "\\r")  # the bridge turns \r into Return
             self.wait(lambda: self.label() == "mainmenu")
         # With a saved scene the app's checkpoint presses the menu's Play itself.
         self.sleep(4)
