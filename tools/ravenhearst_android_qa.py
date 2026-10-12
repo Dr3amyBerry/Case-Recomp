@@ -334,10 +334,13 @@ class Bot:
 
     def finish_jigsaw(self):
         level = self.level()
-        self.wait(lambda: bool(self.buttons(65)) or self.level() != level, seconds=90)
+        # The diary page types itself in, then the Lingo "Next" button (briefNextA/B) appears.
+        def next_shown():
+            return any(name in ("briefNextA", "briefNextB") for name in self.sprites().values())
+        self.wait(lambda: next_shown() or self.level() != level, seconds=120)
         self.capture(f"level-{level}-diary-page")
         if self.level() == level:
-            self.touch(*next(iter(self.buttons(65).values())))
+            self.named("briefNextA")
         self.wait(lambda: self.level() != level, seconds=60)
         self.levels.append(level)
         self.event("level_complete", level=level)
