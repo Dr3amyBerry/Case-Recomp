@@ -26,6 +26,9 @@ import org.rigorcore.caserecomp.lingo.asText
  *   or `sprite:n`; arguments are integers, `#symbols` or strings; results as Lingo text
  * - `callsprites|from|to|method|args…` — the method on each sprite with a member, `n=result` lines
  * - `flashbutton|n` —a stage point on the first button of sprite n's Flash movie, or `none`
+ * - `flashbuttons|n` — every button clip of sprite n's Flash movie: `x y name` per line, or empty
+ * - `instprop|n|name` — that property of the first behaviour of sprite n that has it, as JSON
+ * - `key|text` - types each character as a key press (`\r` for Return)
  */
 internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, private val stage: () -> DirectorStageView? = { null }) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -87,6 +90,13 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
             "$n=" + (runCatching { rt.vm.callMethod(s, parts[3], listOf(s) + parts.drop(4).map(::argument))?.asText() }.getOrNull() ?: "<void>")
         }
         "flashbutton" -> flashButton(rt, parts[1].toInt())?.let { "${it.first} ${it.second}" } ?: "none"
+        "flashbuttons" -> flashButtons(rt, parts[1].toInt()).joinToString("\n") { (x, y, name) -> "$x $y $name" }
+        "instprop" -> rt.sprite(parts[1].toInt()).instances.firstOrNull { inst -> inst.properties.keys.any { it.equals(parts[2], true) } }
+            ?.let { json(rt.vm.getObjectProp(it, parts[2])) } ?: "null"
+        "key" -> {
+            for (ch in parts[1].replace("\\r", "\r")) { rt.keyDown(ch.toString()); rt.keyUp(ch.toString()) }
+            "ok"
+        }
         else -> "error: unknown command ${parts[0]}"
     }
 
@@ -143,6 +153,24 @@ internal class DirectorDebugBridge(private val runtime: () -> DirectorRuntime?, 
             if (player.buttonAt(mx, my) != null) return (x + 6) to (y + 6)
         }
         return null
+    }
+
+    /** One stage point per distinct button clip of sprite n's Flash movie, with its instance name. */
+    private fun flashButtons(rt: DirectorRuntime, n: Int): List<Triple<Int, Int, String>> {
+        val sprite = rt.sprite(n)
+        val player = sprite.flash.current() ?: return emptyList()
+        val b = sprite.bounds(); val r = player.movie.bounds
+        if (b[2] <= b[0] || b[3] <= b[1]) return emptyList()
+        val found = LinkedHashMap<Any, MutableList<Pair<Int, Int>>>()
+        for (y in b[1] until b[3] step 3) for (x in b[0] until b[2] step 3) {
+            val mx = r.xMin + (x - b[0]) * r.width / (b[2] - b[0]); val my = r.yMin + (y - b[1]) * r.height / (b[3] - b[1])
+            player.buttonAt(mx, my)?.let { clip -> found.getOrPut(clip) { ArrayList() } += x to y }
+        }
+        return found.map { (clip, points) ->
+            val cx = points.sumOf { it.first } / points.size; val cy = points.sumOf { it.second } / points.size
+            val (x, y) = points.minBy { (px, py) -> (px - cx) * (px - cx) + (py - cy) * (py - cy) }
+            Triple(x, y, (clip as? org.rigorcore.caserecomp.flash.MovieClip)?.instance?.name ?: "?")
+        }
     }
 
     fun register(context: Context) {

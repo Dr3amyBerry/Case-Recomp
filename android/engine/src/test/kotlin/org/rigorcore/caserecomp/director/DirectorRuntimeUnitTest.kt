@@ -395,6 +395,7 @@ class DirectorRuntimeUnitTest {
         rt.keyUp("a")
         assertEquals(LingoValue.FALSE, rt.callBuiltin(rt.vm, "keyPressed", listOf(LString("a"))))
         assertEquals(LingoValue.FALSE, rt.callBuiltin(rt.vm, "baKeyIsDown", listOf(LInt(0x41))))
+        assertEquals(listOf(49, 36, 53, 0, 12, 42), listOf(" ", "\r", "\u001b", "a", "Q", "\\").map(DirectorRuntime::macKeyCode))
         assertThrows(LingoError::class.java) { rt.runStatement("put 1") }
         val ticker = rt.vm.newInstance(rt.vm.bundle.scriptNamed("ticker")!!, emptyList())
         rt.actorList.items += ticker

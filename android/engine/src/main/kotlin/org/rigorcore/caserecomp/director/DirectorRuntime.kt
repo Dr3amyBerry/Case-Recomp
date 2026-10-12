@@ -546,6 +546,7 @@ class DirectorRuntime(
 
     override fun theBuiltin(name: String): LingoValue? = when (name.lowercase()) {
         "key" -> LString(lastKey)
+        "keycode" -> LInt(macKeyCode(lastKey))
         "frame" -> LInt(frame)
         "mousedown", "stilldown" -> LingoValue.bool(mouseIsDown)
         "mouseup" -> LingoValue.bool(!mouseIsDown)
@@ -620,6 +621,14 @@ class DirectorRuntime(
     }
 
     companion object {
+        /** `the keyCode`: Director reports Macintosh virtual key codes on every platform. */
+        fun macKeyCode(key: String): Int = when (key) {
+            " " -> 49; "\r", "\n" -> 36; "\b" -> 51; "\u001b" -> 53; "\t" -> 48
+            else -> MAC_KEYS.indexOf(key.lowercase().firstOrNull() ?: ' ').takeIf { it >= 0 && key.length == 1 } ?: 0
+        }
+        // Index = Mac virtual key code; '~' marks codes that are not character keys.
+        private const val MAC_KEYS = "asdfhgzxcv~bqweryt123465=97-80]ou[ip~lj'k;\\,/nm."
+
         const val FLASH_SOUND_CHANNEL = 100
         const val FLASH_SOUND_CHANNELS = 6
 
