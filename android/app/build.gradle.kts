@@ -32,7 +32,8 @@ android {
     // Personal builds only: -PbundledContentDir=<folder holding a "bundled" folder of the
     // player's own converted ZIPs> packs them as assets, imported on first launch.
     // Never pass it for a published build.
-    providers.gradleProperty("bundledContentDir").orNull?.let { dir ->
+    val personal = providers.gradleProperty("bundledContentDir").orNull
+    personal?.let { dir ->
         sourceSets["main"].assets.srcDir(dir)
         defaultConfig.versionNameSuffix = "-personal"
     }
@@ -51,7 +52,10 @@ android {
     buildTypes {
         release {
             // No game content is packaged: the player imports their own Director ZIP.
-            isMinifyEnabled = false
+            // Personal builds are shrunk and optimized with R8; the published APK is not (yet).
+            isMinifyEnabled = personal != null
+            isShrinkResources = personal != null
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
         }
         debug {
