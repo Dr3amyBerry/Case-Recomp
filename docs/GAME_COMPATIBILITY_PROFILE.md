@@ -28,7 +28,7 @@ El catálogo declara estado por revisión, edición y scope: `research`, `recogn
 | `exceptions` | ids de implementaciones acotadas registradas con parámetros tipados y evidencia | Declarativas; no arbitrary Lingo, JS, eval o patch de memoria. |
 | `evidence` | referencias a tests/goldens/resultados por scope | Publicar ids/resultados agregados; archivos originales privados fuera del repo. |
 
-Fingerprints: `sha256` de 64 hex, tamaño, rol semántico (`projector`, `cast`, `resource-library`, `runtime-library`) e id interno. Ejemplo concreto de títulos comerciales reside en archivos privados del registro hasta revisar qué metadata publicar. El SHA del ZIP de exportaci?n no sustituye huellas de originales; cambiar compresión no debería cambiar identidad del juego.
+Fingerprints: `sha256` de 64 hex, tamaño, rol semántico (`projector`, `cast`, `resource-library`, `runtime-library`) e id interno. Ejemplo concreto de títulos comerciales reside en archivos privados del registro hasta revisar qué metadata publicar. El SHA del ZIP de exportación no sustituye huellas de originales; cambiar compresión no debería cambiar identidad del juego.
 
 La elección exacta exige un grupo completo y una versión de registro confiable. `allOf` parcial, nombre comercial, strings de título, casts con nombres compartidos o versión autoafirmada son insuficientes. Si falta una biblioteca usada para efectos obligatorios, estado `incomplete`, no exact. Una variante alternativa solo entra con evidence id y fingerprints revisados.
 
@@ -97,7 +97,7 @@ Cada excepción requiere:
 3. `scope`: edición/fingerprints y, si es visual, identidad de resource/cast/member estable, nunca solo nombre.
 4. `parameters`: parámetros tipados, límites rígidos y defaults explícitos.
 5. `evidenceIds` y `testIds`: reproducir problema, demostrar corrección y ausencia de fuga a otro perfil.
-6. `retireWhen`: criterio falsable (p.ej. recuperaci?n de métricas originales o arreglo de un bug Xtra), prueba para retirar y revisión responsable.
+6. `retireWhen`: criterio falsable (p.ej. recuperación de métricas originales o arreglo de un bug Xtra), prueba para retirar y revisión responsable.
 
 Nudges de Huntsville requieren comparar dibujo y hit-test; no deben mover objetos interactivos sin verificar eventos. Retirar cuando su fuente/registro/layout se reproduzca sin offset y los goldens de texto/input pasen. Calibraciones de Tekton/Palatino requieren provider Android/versión y referencias medidas; retirar cuando el provider original o sus métricas comprobadas den el mismo resultado. Un margen o una ventana no-op no se vuelve estándar por meterlo en un perfil.
 
@@ -109,10 +109,10 @@ Orden obligatorio: estructura cerrada y tamaño → versión de schema → unici
 
 Se limita tamaño/profundidad, número de source sets/archivos/excepciones y longitudes de cadenas. El perfil nunca eleva límites de host; solo selecciona configuración dentro de límites o más estricta. Las huellas declaradas en un manifest solo cuentan como coincidencia exacta si pueden recomputarse sobre originales accesibles o si están ligadas a una identificación autenticada de procedencia comprobada. Los hashes de un bundle convertido no permiten reconstruir por sí solos la huella del exe original. La ruta legacy sigue disponible con identidad no verificada cuando falte ese enlace. El catálogo del producto, instalado y versionado, es la autoridad de estado de compatibilidad. Un perfil contenido en un juego importado es metadata no confiable hasta contrastarlo.
 
-Persistir `profileId`, revisión, digest de perfil/config, registry revision, module version, host ABI, source set y package digest con cada resultado de QA. Actualizar registro o runtime revalida el plan; no cambia una sesión viva. Versiones desconocidas muestran explicaci?n, no toman perfil de Huntsville como default.
+Persistir `profileId`, revisión, digest de perfil/config, registry revision, module version, host ABI, source set y package digest con cada resultado de QA. Actualizar registro o runtime revalida el plan; no cambia una sesión viva. Versiones desconocidas muestran explicación, no toman perfil de Huntsville como default.
 
 ## Aplicación a las dos copias locales
 
-Huntsville: candidato edición española Director 8.5.1, fuente multiarchivo, Xtras/Flash observados; calibraciones temporales aislables cuando tengan regresiones. A?n hay que convertir evidence histórica en un conjunto de aceptación reproducible antes de marcar full-verified.
+Huntsville: candidato edición española Director 8.5.1, fuente multiarchivo, Xtras/Flash observados; calibraciones temporales aislables cuando tengan regresiones. Aún hay que convertir evidence histórica en un conjunto de aceptación reproducible antes de marcar full-verified.
 
 Mystery P.I.: identidad/fingerprints locales y candidata familia SDA; versión exacta del framework desconocida. Separar versión fija PE de versión declarada por readme. No emitir un perfil ejecutable mientras falte módulo y contrato de capacidades; catalogue research. Director no es fallback.
