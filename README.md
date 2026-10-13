@@ -1,5 +1,11 @@
 # Case Recomp
 
+**ES:** Aplicación Android para jugar a títulos clásicos de *Mystery Case Files* y otros juegos compatibles de PC de Big Fish utilizando tus propios archivos originales. **No incluye ningún juego.**
+
+**EN:** Play supported classic *Mystery Case Files* and Big Fish PC games on Android with your own lawfully usable original game files. **No commercial game assets are included.**
+
+**Accesos rápidos / Quick links:** [Descargar APK / Download](https://github.com/Dr3amyBerry/Case-Recomp/releases/latest) · [Convertidor web / Converter](https://dr3amyberry.github.io/Case-Recomp/) · [Errores / Issues](https://github.com/Dr3amyBerry/Case-Recomp/issues) · [Documentación técnica / Developer docs](docs/DEVELOPER.md)
+
 [Español](#español) · [English](#english)
 
 ---
@@ -175,6 +181,6 @@ outputs. Historical local manifests and capture logs retain their recorded paths
 
 ### Multigame architecture / Arquitectura multijuego
 
-[Architecture and incremental plan](docs/MULTIGAME_ARCHITECTURE.md) ? [Huntsville audit](docs/HUNTSVILLE_COMPATIBILITY_AUDIT.md) ? [Versioned compatibility profiles](docs/GAME_COMPATIBILITY_PROFILE.md) ? [Mystery P.I. technical audit](docs/MYSTERY_PI_VEGAS_AUDIT.md) ? [Regression and acceptance plan](docs/MULTIGAME_REGRESSION_PLAN.md).
+[Architecture and incremental plan](docs/MULTIGAME_ARCHITECTURE.md) · [Huntsville audit](docs/HUNTSVILLE_COMPATIBILITY_AUDIT.md) · [Versioned compatibility profiles](docs/GAME_COMPATIBILITY_PROFILE.md) · [Mystery P.I. technical audit](docs/MYSTERY_PI_VEGAS_AUDIT.md) · [Regression and acceptance plan](docs/MULTIGAME_REGRESSION_PLAN.md).
 
 These documents specify future work; they do not add a Mystery P.I. runtime or declare new game compatibility.
