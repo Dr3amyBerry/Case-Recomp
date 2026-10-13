@@ -125,4 +125,4 @@ El orden histórico «investigar Vegas antes de Prime» ya se ejecutó; no bloqu
 
 ---
 
-_Este archivo es una lista de candidatos. No afirma jugabilidad, soporte legal de redistribución ni fechas de entrega._
+_Este archivo distingue los cuatro juegos actualmente anunciados como jugables (Vegas en Alpha) de los candidatos futuros. No promete fidelidad absoluta, derecho de redistribución de juegos de terceros ni fechas de entrega._
