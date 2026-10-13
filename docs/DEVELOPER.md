@@ -1,6 +1,6 @@
 # Case-Recomp — desarrollo e investigación
 
-Herramientas de conversión/inspección local y motor Android multijuego. **En v0.8.1 ya se publican APK con catálogo de cuatro juegos y motores Director/Lingo/Flash y SDA.** El shell sintético permanece como infraestructura de QA. The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
+Herramientas de conversión/inspección local y motor Android multijuego. **En v0.8.1 ya se publican APK con catálogo de cuatro juegos y motores Director/Lingo/Flash y SDA.** El shell sintético permanece como infraestructura de QA. El repositorio público **no incluye ejecutables comerciales, películas/casts originales, medios extraídos ni código Lingo propietario recuperado**.
 
 ## Actualización 13-10-2026
 
@@ -130,6 +130,6 @@ python -m caserecomp compare-lingo /private/pr-dumps /private/ls-dumps \
 ```
 
 Use `--alpha-mode strict` to stop and rollback on an unsupported paired mask.
-**This is not a complete Director renderer**: all linked ALFA planes and all 21 BITD members found across the private installation now have verified decode paths, but Director ink effects, Score/runtime behavior and original-game Lingo semantics remain open. See
+**Nota histórica de la Fase 3B (no describe el renderer completo vigente):** all linked ALFA planes and all 21 BITD members found across the private installation now have verified decode paths, but Director ink effects, Score/runtime behavior and original-game Lingo semantics remain open. See
 [Phase 3B media research](PHASE3B_MEDIA.md) and the
 [Android engine prototype](../android/README.md).
