@@ -2,7 +2,7 @@
 
 > **Auditoría 2026-10-09:** las afirmaciones previas de bonus/desenlace auténticos y campaña completa no están verificadas; existen mecanismos simulados en Kotlin y supuestos en Python. Véase [estado comprobado y pendientes](MYSTERY_PI_ANDROID_AUDIT.md).
 
-Fecha: 2026-10-08. Propuesta de evoluci?n fundada en [auditoría Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditoría Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **Especificación, todavía no implementación.** La investigación previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar módulos.
+Fecha: 2026-10-08. Propuesta de evolución fundada en [auditoría Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditoría Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **Especificación, todavía no implementación.** La investigación previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar módulos.
 
 ## 1. Decisiones arquitectónicas obligatorias y aprobadas (Requisitos permanentes)
 
@@ -105,15 +105,15 @@ flowchart TD
 |---|---|---|
 | Core de plataforma | identidad de instalación/sesión, capacidades, contratos, reloj y errores estructurados | Sin CastMember, LingoValue, Score, tags MPI ni if por nombre comercial. |
 | Detectores | cabeceras, formatos y fingerprints; presupuestos de I/O y profundidad | No ejecutan PE, scripts o instaladores; resultado de detección no equivale a compatibilidad. |
-| Gestor de compatibilidad | resolver identidad?perfil?m?dulo, comparar ABI/capacidades y estado de verificación | No inventa semánticas ni permite que el manifest privado se autoacredite como juego verificado. |
-| Registro/catálogo | perfiles conocidos, versiones, estado, pruebas y presentaci?n | Una card o `ready` no habilita por sí sola ejecución. |
+| Gestor de compatibilidad | resolver identidad → perfil → módulo, comparar ABI/capacidades y estado de verificación | No inventa semánticas ni permite que el manifest privado se autoacredite como juego verificado. |
+| Registro/catálogo | perfiles conocidos, versiones, estado, pruebas y presentación | Una card o `ready` no habilita por sí sola ejecución. |
 | Instalaciones privadas | staging, validación, activación atómica, inventario y rollback | Almacenamiento separado por instalación; una importación fallida no reemplaza otra. |
 | Director | contenedores/casts, Score, Lingo, eventos, ink y Xtras | Sigue reutilizable por tecnología; adaptador exporta frames/eventos mediante contratos comunes. |
 | SDA propuesto | recursos PE/RAWDATA, XUI, componentes y ejecución verificada | Sin contaminación de Director; ruta nativa pendiente de determinar. |
-| Servicios Android | presentaci?n, input, audio, persistencia, lifecycle, recursos y diagnóstico | Implementación común; los adaptadores tecnológicos traducen sus semánticas. |
+| Servicios Android | presentación, input, audio, persistencia, lifecycle, recursos y diagnóstico | Implementación común; los adaptadores tecnológicos traducen sus semánticas. |
 | Referencias legacy | shell sintético, `.crcontent/.crflow/.crscene`, fixtures y pruebas | Se preservan. No son fallback automático para lógica no implementada por el nuevo runtime. |
 
-Primero introducir paquetes Kotlin y adaptadores dentro de los módulos actuales. Dividir Gradle después, cuando existan límites y pruebas estables: `core-api`, `android-host`, `runtime-director`, `runtime-sda` y, si aporta valor real, `format-tools`. Evitar nuevos módulos vac?os y migraciones masivas de archivos.
+Primero introducir paquetes Kotlin y adaptadores dentro de los módulos actuales. Dividir Gradle después, cuando existan límites y pruebas estables: `core-api`, `android-host`, `runtime-director`, `runtime-sda` y, si aporta valor real, `format-tools`. Evitar nuevos módulos vacíos y migraciones masivas de archivos.
 
 ## Contratos entre runtime y servicios
 
@@ -137,30 +137,30 @@ interface RuntimeSession : AutoCloseable {
 }
 ```
 
-`ResolvedLaunchPlan` contiene identidad verificada, revisión del perfil, digest de configuración resuelta, módulo/ABI, capacidades concedidas, handles privados y budget. Se genera por el gestor, nunca tomando esos datos del paquete como autoridad. La preparaci?n puede fallar con `missing-capability`, `unverified-edition`, `unsupported-format`, `ambiguous-identity`, `corrupt-content` o `budget-exceeded` antes de construir el runtime.
+`ResolvedLaunchPlan` contiene identidad verificada, revisión del perfil, digest de configuración resuelta, módulo/ABI, capacidades concedidas, handles privados y budget. Se genera por el gestor, nunca tomando esos datos del paquete como autoridad. La preparación puede fallar con `missing-capability`, `unverified-edition`, `unsupported-format`, `ambiguous-identity`, `corrupt-content` o `budget-exceeded` antes de construir el runtime.
 
 `HostServices` contiene puertos tecnológicos independientes:
 
 | Puerto | Contrato mínimo | Cómo conservar lo actual / prueba |
 |---|---|---|
-| FrameSink / Surface | frame ARGB o comandos acotados con tamaño, stride, formato alpha/color y token de ownership; letterbox y coordenadas lógicas | Director convierte `LingoImage` dentro de su adaptador. Presentaci?n no interpreta Score ni ink. Comparar pixel/alpha y touch map. |
+| FrameSink / Surface | frame ARGB o comandos acotados con tamaño, stride, formato alpha/color y token de ownership; letterbox y coordenadas lógicas | Director convierte `LingoImage` dentro de su adaptador. Presentación no interpreta Score ni ink. Comparar pixel/alpha y touch map. |
 | InputSource | pointer id/tool, coordenadas lógicas, timestamps monotónicos, move/down/up/cancel/hover y eventos de texto/tecla separados | Touch rollover es política explícita; eventos externos cancelados en pause/close. Orden y fuera del stage idénticos. |
 | AudioService | handles privados, canales/voices, gain, loops, fade, posición y completions con clock; prepare/play/pause/stop idempotentes | `SoundOutput` sigue en Director como fachada. No pasar `CastMember` al servicio. Callback prepared respeta estado pausado y generation id. |
 | StorageService | namespace por instalación/familia de save, KV lógico + archivos binarios acotados, escritura atómica y flush | `DirectorStore` traduce claves legacy. FileIO/registro permanecen adapters. No exponer rutas arbitrarias del host. |
-| ContentService | enumeraci?n declarada y lectura aleatoria/streaming de blobs verificados e inmutables | Director conserva su validador ZIP. SDA usa validador de formato propio. Límites de profundidad, archivos, descompresión, pixels y tiempo. |
+| ContentService | enumeración declarada y lectura aleatoria/streaming de blobs verificados e inmutables | Director conserva su validador ZIP. SDA usa validador de formato propio. Límites de profundidad, archivos, descompresión, pixels y tiempo. |
 | Clock / Scheduler | reloj monotónico inyectable, cadence solicitada por runtime, pausa sin salto arbitrario de tiempo | DeterministicClock en pruebas; frame rate original se respeta. Datos de ticks no se deducen del nombre del juego. |
 | Text / Image services | decodificación acotada, glyph metrics/layout request sin tipos Director, font assets/atlas y alpha definido | Primero adaptar decoder ya acotado. Font mapping y atlas son providers; no trasladar heurísticas a todos los juegos. |
 | ResourceBudget | reservas y liberaciones por decoded media, superficies, cache y audio; cancelación y expulsión medidas | Budget global engloba el heap/host; los módulos pueden imponer límites más estrictos. Perfil solo puede reducir límites. |
 | Diagnostics | eventos estructurados, métricas por sesión, warnings clasificados y trazas privadas opt-in | No loguear rutas/usernames/raw scripts en reporte público. Separar unsupported operation de dispatch válido. |
 | SessionEvents | quit, error, loading, ready, needs-input y estado persistente | `quitRequested` pasa al lifecycle común; no hay transición de escena implementada por el host. |
 
-Un Único propietario serializa el estado de cada sesión. Preparaci?n/decodificación puede usar workers; eventos y callbacks vuelven con token de generación para evitar operar sobre una sesión cerrada. Ownership de frame, hilo y validez del buffer se negocian; no compartir `Paint`, VM mutable o buffers entre sesiones.
+Un Único propietario serializa el estado de cada sesión. Preparación/decodificación puede usar workers; eventos y callbacks vuelven con token de generación para evitar operar sobre una sesión cerrada. Ownership de frame, hilo y validez del buffer se negocian; no compartir `Paint`, VM mutable o buffers entre sesiones.
 
 Lifecycle: `PREPARING → READY → RUNNING → PAUSED → CLOSED`, con `FAILED` desde estados activos. `start` solo una vez; pause/resume repetidos seguros. Pausa cancela gestos, conserva progreso y detiene avance temporal/audio. Stop/muerte de proceso recupera persistencia comprobada; no prometer serializar una VM completa si solo se preservan saves del juego. Close libera parcialmente preparados y completa flush necesario. Foco/audio/IME se gestionan por host.
 
 ## Detección e identificación extensibles
 
-1. Inventariar archivos bajo budgets; particionar candidatos por grafo de dependencias y procedencia. No mezclar automáticamente dos juegos encontrados en la misma selecci?n.
+1. Inventariar archivos bajo budgets; particionar candidatos por grafo de dependencias y procedencia. No mezclar automáticamente dos juegos encontrados en la misma selección.
 2. Aplicar inspectores de formatos por contenido: PE, RIFF/XFIR, películas/casts Director, recursos PE/SDA y formatos desconocidos. Extensión/nombre solo son pistas para priorizar.
 3. Construir `EngineProbe` con familia candidata, rango/versión observado, evidencia y confianza. No ejecutar imports nativos. Cadenas de un SDK apoyan una hipótesis; no determinan por sí solas edición o compatibilidad.
 4. Comparar fingerprints obligatorios contra un registro de fuentes conocidas. La coincidencia exacta multiarchivo exige todos los digests, tamaños y roles críticos de la variante registrada. Resolver aliases/rutas relativas sin confiar en un nombre Único.
@@ -186,22 +186,22 @@ La edición local debe registrarse con huellas del exe y casts originales, idiom
 
 Paquetes previamente importados siguen funcionando mediante su ruta legacy, sin recibir ajustes nuevos de otros títulos. Si no incluyen evidencia suficiente de identidad, mostrar no verificado y conservar rollback; una migración futura a excepciones seleccionadas exige reconstruir su provenance desde originales o un Índice local comprobado. No convertir silenciosamente todos los ZIPs existentes en Huntsville.
 
-Orden: identidad y baseline → interfaces/adaptador sin cambios semánticos → instalación y almacenamiento → resolución de perfiles → extracción controlada de calibraciones → servicios comunes de audio/presentaci?n → investigación SDA. Cada etapa corre suite sintética y matrix privada antes/después; no eliminar el shell previo ni golden captures.
+Orden: identidad y baseline → interfaces/adaptador sin cambios semánticos → instalación y almacenamiento → resolución de perfiles → extracción controlada de calibraciones → servicios comunes de audio/presentación → investigación SDA. Cada etapa corre suite sintética y matrix privada antes/después; no eliminar el shell previo ni golden captures.
 
 ## Plan incremental con dependencias y criterios
 
-| Cambio propuesto | Justificaci?n | Dependencias | Riesgo | Pruebas / salida |
+| Cambio propuesto | Justificación | Dependencias | Riesgo | Pruebas / salida |
 |---|---|---|---|---|
 | M0: congelar fuente/evidencia y registrar baseline | Saber qué se preserva | auditorías y huellas locales | confundir historial WSA con test nuevo | suites actuales + evidencia nativa versionada; matriz con estados reales. Auditoría y baseline de código ya hechos; captura nativa nueva pendiente. |
 | M1: registro y detector, inicialmente solo lectura | Sustituir casts/card fijos sin alterar play | contrato de fingerprints y schema | falsa identidad y mezcla de fuentes | multiarchivo exacto, rename inocuo, modificación 1 byte, edición desconocida, ambigüedad, dos juegos. No activar perfiles todavía. |
 | M2: core contracts + Director wrapper | Conservar comportamiento detrás de API común | M0, contrato de sesión | orden de eventos, callbacks y cleanup | traces/frame hashes baseline vs wrapper; tests lifecycle, clocks, errores y budgets. |
-| M3: Índice de instalaciones y adapter legacy de saves | Selecci?n real de varios juegos | M1/M2; formatos originales intactos | pérdida o cruce de saves | reimport, cambio de conversion, dos instalaciones, rollback, muerte de proceso e import fallido atómico. |
+| M3: Índice de instalaciones y adapter legacy de saves | Selección real de varios juegos | M1/M2; formatos originales intactos | pérdida o cruce de saves | reimport, cambio de conversion, dos instalaciones, rollback, muerte de proceso e import fallido atómico. |
 | M4: resolver perfiles y capacidades | Activar solo excepciones comprobadas | M1/M2/M3, schema/ABI y fuente exacta | perfil manipulado o fallback incorrecto | incompatibilidad de versiones, capacidad faltante, valor desconocido, evidence/retirement obligatorio. |
 | M5: sacar calibraciones Huntsville del código global | Evitar contaminar títulos futuros | M4 y goldens de texto/gestos/offset | wrap/baseline/hit-test cambia | misma edición con valores equivalentes, otro Director sintético sin ajustes, nudges on/off, dos Android. Una excepción por cambio. |
 | M6: factorizar servicios comunes | Reutilizar infraestructura comprobada | M2 y contratos de recursos | audio latency/alpha/memoria | eventos prepared durante pause, efectos concurrentes, atlas, bounds, allocations, p95/p99. No sustituir semántica Director de ink. |
 | M7: cerrar factibilidad SDA | Evitar port específico sin runtime real | investigación XUI + grafo nativo + capturas | lógica nativa no descrita por recursos | parser sintético y contrato mínimo cerrado; decidir ejecución compatible, traducción o emulación. Sin play comercial en catálogo. |
 | M8: primer slice SDA detrás de interfaces | Validar segundo motor y servicios | M3/M4/M6/M7 | hardcode de lógica del título | slice nativo con input/audio/save vs original y regresiones Huntsville antes/después. No declarar juego completo. |
-| M9: catálogo y crecimiento controlado | Incorporar juegos sin duplicar core | matrix de aceptación por edición | soporte por nombre/versión incorrecto | publicaci?n de estado y evidencia revisada; detector/Android/web usan misma revisión del registro. |
+| M9: catálogo y crecimiento controlado | Incorporar juegos sin duplicar core | matrix de aceptación por edición | soporte por nombre/versión incorrecto | publicación de estado y evidencia revisada; detector/Android/web usan misma revisión del registro. |
 
 Cada milestone debe ser un cambio acotado y reversible; una falla bloquea su promoción y no obliga a modificar el runtime anterior. No se fija un calendario de SDA antes de comprobar su ruta de ejecución.
 
@@ -215,7 +215,7 @@ Primera versión multijuego ejecuta una sesión a la vez. No necesita paralelism
 
 Cada tecnología mantiene su parser/runtime y pruebas; todo código común depende solo del core API. El costo de agregar un título compatible es fingerprints + perfil + evidencia, no clonar motor. Un formato nuevo puede justificar un módulo nuevo. No descargar código desde perfiles ni introducir scripts arbitrarios de configuración.
 
-Ver [especificación de perfiles](GAME_COMPATIBILITY_PROFILE.md) y [plan de regresiones](MULTIGAME_REGRESSION_PLAN.md). La auditoría no incorpora a?n Mystery P.I. al launcher ni al convertidor, y no declara compatibilidad nueva.
+Ver [especificación de perfiles](GAME_COMPATIBILITY_PROFILE.md) y [plan de regresiones](MULTIGAME_REGRESSION_PLAN.md). La auditoría no incorpora aún Mystery P.I. al launcher ni al convertidor, y no declara compatibilidad nueva.
 
 ## Stage 1 implementation checkpoint (2026-10-08)
 
@@ -297,7 +297,7 @@ SdaAtlasFont/SdaImageBudget son capacidades genéricas: charset UTF-16, métrica
 
 SdaButtonPresentation resuelve variantes y offsets de botones usando exclusivamente atributos XUI. SdaResourceCanvas ofrece dibujo de esas variantes y geometría del control; SdaVisualProfile.pointer comunica el estado del puntero. VegasVisualProfile decide qué controles dibujar y sus bindings. La captura del gesto de pausa y la pausa transitoria de presentación pertenecen a SdaGameView; el launcher reutiliza el guardado existente. Ningún ID, textura o offset de Vegas entra en el núcleo SDA. Director/Huntsville permanecen independientes. La integración visual y la auditoría global aún son parciales.
 
-### SDA: colocaci?n compartida del desenlace (2026-10-10)
+### SDA: colocación compartida del desenlace (2026-10-10)
 
 SdaPlacementRiddleGame extrae el controlador existente de bandeja, puntero y checkpoint; SdaFirstRiddleGame conserva su API y SdaSecondRiddleGame interpreta la segunda definición de recursos, sus variantes de imágenes y confirmación inicial persistida. SdaCampaign recibe bindings opcionales de ambas fases y resuelve recursos antes de transicionar. Android ofrece recorte genérico de atlas y callbacks de diálogo/dibujo; IDs, fotogramas, coordenadas y eventos comerciales permanecen en VegasVisualProfile/adaptador launcher. Director/Huntsville permanecen intactos. La tercera fase y las animaciones auténticas siguen pendientes.
 
