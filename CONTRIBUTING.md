@@ -1,5 +1,7 @@
 # Contributing / Contribuir a Case Recomp
 
+> **Nota de vigencia — 2026-10-13:** Antes de proponer cambios, consultar el estado actual de cuatro juegos y los motores; conservar la separación de datos comerciales, tests por título y aprobaciones. [Estado actual](docs/STATUS_ACTUAL.md).
+
 **Licencia del proyecto (2026-10-08):** el código original cuyos titulares puedan licenciarlo se ofrece bajo [PolyForm Noncommercial 1.0.0](LICENSE). Puedes modificar y compartir el software para fines no comerciales respetando la licencia y avisos. El uso comercial requiere autorización separada. Este documento **no transfiere copyright ni establece un CLA**. Consulta [LICENSING_STATUS.md](LICENSING_STATUS.md).
 
 ## Español

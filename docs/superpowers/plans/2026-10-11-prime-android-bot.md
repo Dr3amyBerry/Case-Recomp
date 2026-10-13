@@ -1,5 +1,7 @@
 # Prime Android automation
 
+> **Nota de vigencia — 2026-10-13:** Plan de ejecución **fechado**, no declaración del estado del HEAD actual. Los avances posteriores están recopilados en la documentación vigente. [Estado actual](../../STATUS_ACTUAL.md).
+
 Approved scope: one local run covering 22 original cases, lifecycle persistence,
 long-session measurements, import/catalogue and title isolation. No model calls.
 

@@ -1,5 +1,7 @@
 ﻿# Control of an existing native Windows reference
 
+> **Nota de vigencia — 2026-10-13:** Guía de herramienta/investigación con alcance propio. Su prototipo o sus métricas antiguas no representan por sí solos la compatibilidad Android completa de v0.8.1. [Estado actual](../../docs/STATUS_ACTUAL.md).
+
 The user explicitly requested normal Windows execution and window control without
 interfering with their desktop. This tool does not start a game, activate a window,
 move the system pointer, send global keys or enable virtualization.

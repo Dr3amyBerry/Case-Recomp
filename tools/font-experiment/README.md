@@ -1,5 +1,7 @@
 # Experimental Director font recovery
 
+> **Nota de vigencia — 2026-10-13:** Guía de herramienta/investigación con alcance propio. Su prototipo o sus métricas antiguas no representan por sí solos la compatibilidad Android completa de v0.8.1. [Estado actual](../../docs/STATUS_ACTUAL.md).
+
 This is a separate research tool and standalone Android glyph lab. It does not
 change the production renderer, game bundles, save data or approved APKs.
 Recovered fonts, contour JSON, comparison images and font-bearing APKs stay private.

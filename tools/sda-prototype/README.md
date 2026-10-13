@@ -1,5 +1,7 @@
 # Experimental SDA scene prototype
 
+> **Nota de vigencia — 2026-10-13:** Guía de herramienta/investigación con alcance propio. Su prototipo o sus métricas antiguas no representan por sí solos la compatibilidad Android completa de v0.8.1. [Estado actual](../../docs/STATUS_ACTUAL.md).
+
 This independent Python prototype reads original RAWDATA resources as data. It
 never launches `MysteryPIVegas.exe`, loads a native DLL or edits Director/Android.
 It implements a bounded scene interaction slice from reviewed native behavior.

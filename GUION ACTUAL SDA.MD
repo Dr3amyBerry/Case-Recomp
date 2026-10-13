@@ -1,5 +1,7 @@
 # CASE-RECOMP — GOAL DEFINITIVO V3
 
+> **Nota de vigencia — 2026-10-13:** Este **guion conserva los objetivos y reglas de su fecha**. Las instrucciones que citan `intento-geminis` son históricas: actualmente se identificó únicamente la rama `main`. No repetir fases completadas ni reinterpretar prioridades sin revisar el código y la evidencia vigentes. [Estado actual](docs/STATUS_ACTUAL.md).
+
 ## RECONSTRUCCIÓN ACELERADA DE MYSTERY P.I.: THE VEGAS HEIST, APROVECHAMIENTO DEL PSEUDOCÓDIGO SDA Y VALIDACIÓN FINAL COMPLETA
 
 **Documento consolidado:** método nuevo V3 + alcance técnico completo del Goal original. Ninguna obligación final de calidad, jugabilidad, compatibilidad, seguridad o cobertura ha sido eliminada; lo que cambia es **cómo y cuándo** se investiga y se comprueba.

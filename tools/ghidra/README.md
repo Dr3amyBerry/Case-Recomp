@@ -1,5 +1,7 @@
 ﻿# Ghidra static exports
 
+> **Nota de vigencia — 2026-10-13:** Guía de herramienta/investigación con alcance propio. Su prototipo o sus métricas antiguas no representan por sí solos la compatibilidad Android completa de v0.8.1. [Estado actual](../../docs/STATUS_ACTUAL.md).
+
 ExportNativeSlice.java executes inside Ghidra, not inside the inspected executable.
 Use official Ghidra 12.1.4 and JDK 21. Headless can import a PE and retain its project:
 

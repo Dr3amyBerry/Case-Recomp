@@ -1,5 +1,7 @@
 # Vegas: calidad y cobertura visual Android
 
+> **Nota de vigencia — 2026-10-13:** Plan de ejecución **fechado**, no declaración del estado del HEAD actual. Los avances posteriores están recopilados en la documentación vigente. [Estado actual](../../STATUS_ACTUAL.md).
+
 Alcance autorizado: intento-geminis; SDA y perfil Vegas; Director/Huntsville/APK aprobadas intactos. El GUION ACTUAL.MD vigente autoriza ejecutar el original y usar el escritorio para comparación Windows/Android; preservar archivos y partidas.
 
 1. Recuperar métricas y dibujo de atlas originales mediante referencia Python independiente; pruebas sintéticas de alfa, runs, UTF-16, espaciado y alineación. Política por recurso: fotos bilineal; UI/atlas comparados por separado; ninguna textura artificial grande. Corregir anchors de etiquetas y retirada de tiles. Capturas antes/después y commit verificable.

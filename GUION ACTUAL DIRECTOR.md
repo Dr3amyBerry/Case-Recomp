@@ -1,5 +1,7 @@
 # MISIÓN: Mystery Case Files: Prime Suspects — Reconstrucción Android
 
+> **Nota de vigencia — 2026-10-13:** Este **guion conserva los objetivos y reglas de su fecha**. Las instrucciones que citan `intento-geminis` son históricas: actualmente se identificó únicamente la rama `main`. No repetir fases completadas ni reinterpretar prioridades sin revisar el código y la evidencia vigentes. [Estado actual](docs/STATUS_ACTUAL.md).
+
 ## Objetivo principal
 
 Comienza el desarrollo de **Mystery Case Files: Prime Suspects** dentro del repositorio `Dr3amyBerry/Case-Recomp`.
