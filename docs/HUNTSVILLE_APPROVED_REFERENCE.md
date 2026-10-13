@@ -3,9 +3,9 @@
 Estado: **APROBADO_HUMANAMENTE**. Fecha: 2026-10-08, America/Caracas.
 
 El usuario aprobo el estado revisado y autorizo explicitamente la investigacion de
-Mystery P.I. en su instruccion ?Paso 1 ? Cerrar formalmente Huntsville? seguida de
-?Paso 2 ? Decompilar Mystery P.I. con Ghidra?. Esta aprobacion cierra la etapa de
-Huntsville; no acredita compatibilidad de Mystery P.I. ni una campa?a completa probada.
+Mystery P.I. en su instrucción «Paso 1 — Cerrar formalmente Huntsville», seguida de
+«Paso 2 — Decompilar Mystery P.I. con Ghidra». Esta aprobación cierra la etapa de
+Huntsville; no acredita compatibilidad de Mystery P.I. ni una campaña completa probada.
 
 Referencia de codigo: `0cb7683e680139a03500fcf3860a14859880ba8b`. Documentacion aprobada: `72c997b`.
 Perfil Huntsville revision 6; version APK 0.6.0, versionCode 8.
@@ -16,7 +16,7 @@ Perfil Huntsville revision 6; version APK 0.6.0, versionCode 8.
 | Debug usada en WSA | `3d48bc72842e182fbbf78e284e4278b2a0a54fc1d661480aadb8b0b840765b37` |
 
 Copias preservadas localmente en `local-output/huntsville-approved-2026-10-08/`.
-`approved-reference.json` conserva rutas, tama?os, identidad, firma y aprobacion.
+`approved-reference.json` conserva rutas, tamaños, identidad, firma y aprobación.
 Los originales, APKs, screenshots y saves siguen privados y fuera de Git.
 El certificado release es `8be7a724e1feaa07de177433b1cdbde283d28793716aebb0f2b21a5a8061a5d2`.
 El archivo heredado no seguido DirectorAndroidPorts.kt forma parte del arbol local
@@ -34,6 +34,6 @@ los ajustes. No se amplia el reconocimiento por nombre ni se migran saves entre
 ZIPs automaticamente. Esto no bloquea la investigacion autorizada de Mystery P.I.
 
 Las secciones historicas con PENDIENTE_VALIDACION_HUMANA reflejan el estado anterior
-a esta aprobacion. Para futuras regresiones, conservar la APK y este commit, comparar
+a esta aprobación. Para futuras regresiones, conservar la APK y este commit, comparar
 la misma instalacion privada, partida y secuencia de entrada y consultar
 [MULTIGAME_REGRESSION_PLAN.md](MULTIGAME_REGRESSION_PLAN.md).
