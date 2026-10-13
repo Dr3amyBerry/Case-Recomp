@@ -23,7 +23,7 @@ gradle --offline --no-daemon --console=plain :engine:testDebugUnitTest :app:test
 Pop-Location
 ```
 
-El test `PrivateBootSmokeTest.kt` es local/no seguido. Si el bundle no existe, usa assume y puede omitirse; un checkout público debe registrar ese skip, no contarlo como Huntsville comprobado. Si existe, puede generar logs/shots/saves en el Área M3: dirigir sesiones de comparación a copias de trabajo privadas, preservando goldens inmutables. No enviar sus entradas ni salidas a CI p?blica. Esta ejecución gener? outputs del arnés; no recaptur? ni reemplazó el projector nativo como referencia.
+El test `PrivateBootSmokeTest.kt` es local/no seguido. Si el bundle no existe, usa assume y puede omitirse; un checkout público debe registrar ese skip, no contarlo como Huntsville comprobado. Si existe, puede generar logs/shots/saves en el Área M3: dirigir sesiones de comparación a copias de trabajo privadas, preservando goldens inmutables. No enviar sus entradas ni salidas a CI pública. Esta ejecución generó outputs del arnés; no recapturó ni reemplazó el projector nativo como referencia.
 
 Logs privados: `private/mystery-pi-vegas/research/python-baseline-tests.txt` y `android-baseline-tests.txt`. JUnit XML actuales: `android/{engine,app}/build/test-results/testDebugUnitTest/`. Registrar el Árbol local exacto y el archivo no seguido `DirectorAndroidPorts.kt`, además del Git SHA.
 
@@ -31,20 +31,20 @@ Logs privados: `private/mystery-pi-vegas/research/python-baseline-tests.txt` y `
 
 | Área | Base sintética existente | Referencia privada y criterio de aceptación |
 |---|---|---|
-| Inicio/men? | `DirectorRuntimeUnitTest`, `LingoVmUnitTest`, `DirectorContentUnitTest` | Splash, nombre, usuarios, men? y salida: mismo orden de eventos y estado observable, sin nueva excepción ni warnings no explicados. |
-| Escena/navegaci?n | `test_score`, `test_relationships`, runtime, verified-flow/scene | menú → mapa → primera escena, finds/misses, hints, completion, return, next case y time-out; confirmar contadores/progreso y estado persistente. |
+| Inicio/menú | `DirectorRuntimeUnitTest`, `LingoVmUnitTest`, `DirectorContentUnitTest` | Splash, nombre, usuarios, menú y salida: mismo orden de eventos y estado observable, sin nueva excepción ni warnings no explicados. |
+| Escena/navegación | `test_score`, `test_relationships`, runtime, verified-flow/scene | menú → mapa → primera escena, finds/misses, hints, completion, return, next case y time-out; confirmar contadores/progreso y estado persistente. |
 | Imagen/alpha/ink | `test_phase3b_bitmap_coverage`, `test_phase3b_media`, `test_fidelity`, `StageRendererUnitTest` | Checkpoints privados de foreground/background/matte/opaque. Igualdad exacta donde pipeline sea determinista; tolerancias de codec documentadas y localizadas. |
 | Texto y fuentes | `test_movie_bundle`, `StageRendererUnitTest`; coverage Android actual limitada | Goldens en Android por edición, provider y versión de SO: wrap, baseline, kerning, indents, bold/italic, acentos, fixedline y clipping. Una imagen JVM AWT no acredita Android fonts. |
 | Input/eventos | runtime + `DirectorViewportUnitTest`; `DirectorEntryGestureInstrumentationTest` disponible | Tacto rápido/largo, cancel, drag, hover, teclado/IME, out-of-stage release; timestamps y move/down/up/leave, sin hit desplazado por nudge. |
 | Animación/Flash | `FlashPlayerUnitTest`, parser/renderer | Timeline, máscaras, clone/remove, z-order, rollover y dialog; misma duración dentro de tolerancia declarada en ticks. |
 | Audio | `test_swa`, `test_phase3b_media`, SoundOutput sintético | Music/effects/loops/fades/fin de canal; latencia y sync medidas en dispositivo. Pause durante prepare, interruptions y return no reinician ni duplican. |
-| Guardados/recuperaci?n | runtime slots, Xtras, private-content/flow/scene tests; lifecycle instrumentation | Comparar claves/estado de progreso después de force-stop, reimport/upgrade y relaunch. Dos juegos con claves iguales nunca comparten save. |
+| Guardados/recuperación | runtime slots, Xtras, private-content/flow/scene tests; lifecycle instrumentation | Comparar claves/estado de progreso después de force-stop, reimport/upgrade y relaunch. Dos juegos con claves iguales nunca comparten save. |
 | Rendimiento/memoria | `PerformanceBudgetUnitTest` y límites de imports | Startup y p95/p99 de ticks/frame/input, PSS/heap/cache, peak buffers y 20 ciclos abrir/cerrar. La prueba legacy de budget no demuestra budget del stage Director ni SDA. |
 | Integridad/failures | `test_hardening`, `DirectorContentUnitTest`, repositorios instrumentados | Hash incorrecto incluso en entrada no usada, zip traversal/bomb, imagen gigante, unknown schema/ABI, import cancelado y rollback. |
 
 Nuevas pruebas deben reproducir una divergencia o contrato observable. Los tests actuales de texto JVM no sustituyen goldens del rasterizador Android.
 
-## Comparación antes/después de cada generalizaci?n
+## Comparación antes/después de cada generalización
 
 1. Congelar originales y goldens con source set, hashes, fechas/clock, seed, snapshot de save, input stream y expectativa de estado. Mantener capturas native de `private/huntsville/case-recomp-phase6` y `huntsville-first-playable` como evidencia independiente; no reescribirlas con capturas del nuevo runtime.
 2. Preparar directorios separados baseline/candidate y copias de saves. Registrar Git SHA + diff del Árbol, module/ABI, profile digest, versión de builder/decoder, ZIP SHA, Android/modelo, stage scale y políticas font/input.
@@ -59,7 +59,7 @@ Comparación de rendimiento: mismo dispositivo y build, warm/cold diferenciados 
 
 ## Casos nuevos obligatorios para gestor/perfiles
 
-Estos son casos de aceptación a implementar junto con M1–M6; no se afirman ejecutados porque el gestor a?n no existe.
+Estos son casos de aceptación a implementar junto con M1–M6; no se afirman ejecutados porque el gestor aún no existe.
 
 | Caso | Resultado requerido |
 |---|---|
@@ -67,14 +67,14 @@ Estos son casos de aceptación a implementar junto con M1–M6; no se afirman ej
 | Renombrar exe/carpeta preservando bytes/dependencias | Misma identidad, sin usar basename como autoridad. |
 | Mismo nombre, bytes de otra edición; o cambio de un byte en cast critical | Sin perfil exacto ni excepción del juego anterior. |
 | Exe conocido + cast incompleto, distinto o duplicado en otro root | Incomplete/ambiguous; no casar archivos ajenos por nombre. |
-| Dos juegos en selecci?n | Particionar candidatos verificables o informar mixed-input; no combinar ni elegir el mayor. |
+| Dos juegos en selección | Particionar candidatos verificables o informar mixed-input; no combinar ni elegir el mayor. |
 | PE x86 SDA sin película Director | Ruta de detector SDA/unknown, nunca DirectorRuntime como fallback. |
-| Perfil/schema mayor, ABI desconocida, capability required faltante | Rechazo explícito antes de VM y preservaci?n de instalación activa. |
+| Perfil/schema mayor, ABI desconocida, capability required faltante | Rechazo explícito antes de VM y preservación de instalación activa. |
 | Manifest afirma Huntsville pero source fingerprints no coinciden | Rechazo de autoridad de identidad; integridad ZIP no acredita título. |
 | Director sintético con Palatino/Tekton o member name igual | No recibe calibraciones/offsets de Huntsville. |
 | Perfil con nudge/evidence inexistente o fuera de límites | Rechazo; sin código/script arbitrario ni relajación de integridad. |
 | Dos instalaciones usan misma registry key/resource name | Sin cruce de save, media cache, audio, trace ni presentation. |
-| Cambio de ZIP por cover/compression, misma fuente | Identidad igual; migración de saves explícita y rollback, no uni?n automática. |
+| Cambio de ZIP por cover/compression, misma fuente | Identidad igual; migración de saves explícita y rollback, no unión automática. |
 | Switch de juego mientras audio prepara o input down pendiente | Callbacks de generación anterior ignorados y recursos cerrados. |
 | Fallo parse/start/import, proceso muerto o cancelar picker | Nada parcialmente activo; legacy package/saves recuperables. |
 
@@ -84,6 +84,6 @@ Huntsville se mide con su edición real y un Director sintético que tenga fuent
 
 Cuando haya segundo módulo: SDL/SDA sintético con atlas/Ogg/eventos; Huntsville con la misma secuencia; Mystery P.I. slice frente al original. Después otro fixture SDA sin componentes MPI para demostrar que el módulo no está codificado exclusivamente para The Vegas Heist.
 
-Escala de promoción: research → identified → parser-verified → runtime-slice → device-verified → full-verified, registrando cada scope de manera separada. En el catálogo se proyecta a los estados especificados en el perfil; una observaci?n estática solo permite identified/research. Para full se exige matriz de escenas/puzzles/final, configuraciones, variantes de input, guardados y audio de la edición. No generalizar la aceptación entre regiones o versiones sin evidencia.
+Escala de promoción: research → identified → parser-verified → runtime-slice → device-verified → full-verified, registrando cada scope de manera separada. En el catálogo se proyecta a los estados especificados en el perfil; una observación estática solo permite identified/research. Para full se exige matriz de escenas/puzzles/final, configuraciones, variantes de input, guardados y audio de la edición. No generalizar la aceptación entre regiones o versiones sin evidencia.
 
-No se repitieron instrumentación API 26/33/36 ni pruebas WSA durante esta auditoría. Se ejecutarán al implementar cambios que afecten esa frontera y antes de promoción. No se ha comparado una candidata de generalizaci?n porque el código sigue intacto; esta ausencia es un estado explícito, no un resultado positivo.
+No se repitieron instrumentación API 26/33/36 ni pruebas WSA durante esta auditoría. Se ejecutarán al implementar cambios que afecten esa frontera y antes de promoción. No se ha comparado una candidata de generalización porque el código sigue intacto; esta ausencia es un estado explícito, no un resultado positivo.
