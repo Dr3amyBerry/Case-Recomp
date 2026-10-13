@@ -176,7 +176,7 @@ APK experimental vegas-pda-level-debug.apk SHA256 5a903c762ea5c9a53f353c10bba6b0
 Continuar en VegasVisualProfile.base/drawHud/drawBonusBase, SdaPrivateVisualInstrumentationTest y SdaLauncherActivity. Para pistas revisar únicamente los handlers imprescindibles ya exportados (eyespyhint y score.hint), sin inventar reglas ni mostrar un botón sin interacción comprobada. Director/Huntsville/main/APK aprobadas y cambios ajenos intactos. Objetivo global activo.
 
 
-## V3 grouped bonus composition (2026-10-09) ? PARCIAL
+## V3 grouped bonus composition (2026-10-09) — PARCIAL
 
 VegasVisualProfile now draws the original anonymous minigame overlay background/frame, four HOWTOPLAY headings, TileRot/TileSwap empty-PDA panels, goal/instruction captions and the active reference thumbnail from ENVS.MSE. Coordinates and resource IDs remain exclusively in the Vegas profile. Jigsaw removes the provisional rotate button/counter when a visual profile is active; a second finger rotates the held piece, while native secondary-click rotation remains available. This is an Android touch adaptation, not an original Windows gesture. Objective captions disappear during pause and return on resume.
 
@@ -209,7 +209,7 @@ Private before/after report, captures and APK: local-output/vegas-v3-bonus/relie
 
 Replaced the provisional LEVEL_COMPLETE panel in the Vegas profile with tilegamewon: original shared underlay/frame, congratulation atlas caption, Polaroid frame, correct evidence photo/caption and native OK button. 004429d0 selects image and label by equal child index; 00410240 supplies clue minus one. ENVS contains 25 photos and 25 captions. The generic SDA view offers optional drawLevelComplete/levelCompleteRect hooks, captures the profile-provided OK button and confirms on release; title IDs and coordinates remain exclusively in VegasVisualProfile. The previous generic fallback remains available to profiles without this capability. Engine rewards/checkpoint/next-level rules are unchanged.
 
-202 JVM tests/builds and private real-Android four-bonus component test PASS in 41.824 s. After normal bonus completion, each of clues 1?4 is captured; same-process checkpoint restoration preserves the result; OK DOWN leaves LEVEL_COMPLETE and OK UP reaches the next MAP. This now tests result confirmation through View MotionEvents instead of directly calling confirmLevelComplete in that part of the fixture. It remains component coverage, not catalogue/import/profile campaign E2E or cross-process restoration. Clues 5?25 have identified resources, not verified screen coverage.
+202 JVM tests/builds and private real-Android four-bonus component test PASS in 41.824 s. After normal bonus completion, each of clues 1–4 is captured; same-process checkpoint restoration preserves the result; OK DOWN leaves LEVEL_COMPLETE and OK UP reaches the next MAP. This now tests result confirmation through View MotionEvents instead of directly calling confirmLevelComplete in that part of the fixture. It remains component coverage, not catalogue/import/profile campaign E2E or cross-process restoration. Clues 5–25 have identified resources, not verified screen coverage.
 
 Private APK, four result captures and HTML: local-output/vegas-v3-bonus/results/. APK SHA256 2d76dc58778aea407fdfd6005a82423ebdc6a0500ee3f737d2c348702b4e60cd. Windows-equivalent result capture, native animation/audio, full PDA visibility states, menus/options/hints, remaining results, finale and full performance/campaign validation remain pending. Continue in VegasVisualProfile.drawLevelComplete and SdaGameView.controlRect/onTouchEvent; menu recovery starts with ENVS menudlg2/mainoptionsdlgeyespy and dialogimg composition. Director/Huntsville and unrelated WIP were preserved.
 
@@ -233,7 +233,7 @@ First-riddle drawing now delegates optional base/caption hooks to the profile. V
 
 Instrumentation supports visualDisplayId and copies the real Android window surface with PixelCopy, using window-local viewport coordinates. This replaces default-display screenshots that became unreliable when moving WSA between host monitors; it never draws the View into a bitmap. visualDisplayId=2 kept the app on the Windows secondary monitor, verified by window coordinates. A prior full-display run failed at level 23 during frame comparison after moving the window; its log is preserved. With window capture, the full 25-level component run PASSed in 164.436 s, including first-riddle entry. 202 JVM tests/builds also passed in this block. This remains component coverage, not import/profile E2E, exhaustive scene coverage or finale completion.
 
-Private APK/captures/aligned before-after report: local-output/vegas-finale-visual/. APK SHA256 485dc56d5c81f35f87d29ad586d79a8371630d06d74ab259a5274335f1739fd7. Comparison derivatives crop/normalize the logical 800?600 stage; raw capture provenance is retained. No original Windows screen equivalence, supersampling or new resource resolution is claimed. Continue in VegasVisualProfile.drawRiddleBase/drawRiddleCaption, SdaGameView.drawFinale and SdaCampaign.advance/first-riddle timing after resolving native semantics. Director/Huntsville and unrelated WIP remain unchanged.
+Private APK/captures/aligned before-after report: local-output/vegas-finale-visual/. APK SHA256 485dc56d5c81f35f87d29ad586d79a8371630d06d74ab259a5274335f1739fd7. Comparison derivatives crop/normalize the logical 800×600 stage; raw capture provenance is retained. No original Windows screen equivalence, supersampling or new resource resolution is claimed. Continue in VegasVisualProfile.drawRiddleBase/drawRiddleCaption, SdaGameView.drawFinale and SdaCampaign.advance/first-riddle timing after resolving native semantics. Director/Huntsville and unrelated WIP remain unchanged.
 
 
 ### V3 user-reported PDA/retired-tile defects (2026-10-09)
@@ -256,24 +256,24 @@ Time, PUNTUACION and the numeric score now use the original atlas at 85%, in thr
 Next native-menu blocker resolved statically: dialogimg factory calls 0041e050, renderer 0041e0f0, and 00465530 assigns the nine mpi_diag textures via 0041e0d0. Original corners/edges/center are available; implement tiled composition, not stretched artwork. Frida 17.23.3 remains installed; hooks were unnecessary for this identification. Native menu/options/instructions and the full Goal V3 remain pending.
 
 
-### V3 ? marco nativo y menu XUI (avance parcial)
+### V3 — marco nativo y menu XUI (avance parcial)
 
 `SdaResourceCanvas.tiledPanel` repite las nueve texturas a dimensiones nativas y recorta el ultimo mosaico, sin crear copias ampliadas. `SdaResourceMenuView` interpreta el contenedor y botones; `VegasVisualProfile.menuView` mantiene IDs, layout y acciones de Vegas fuera del servicio generico. El launcher usa el menu de recursos en lugar de la lista Android.
 
-WSA API33/display2: `launcher_menu_resume_and_saved_exit` PASS (1.689 s), con eventos DOWN/UP, liberacion fuera y CANCEL; guarda checkpoint y restaura exactamente las preferencias previas del test. `original_dialog_tiles_repeat_without_stretching` PASS (0.486 s): muestras de pixeles/alfa en 325x320, 470x430 y 560x420. Build experimental y suites JVM pasan. No son pruebas de campa?a E2E ni nueva regresion visual de Huntsville.
+WSA API33/display2: `launcher_menu_resume_and_saved_exit` PASS (1.689 s), con eventos DOWN/UP, liberacion fuera y CANCEL; guarda checkpoint y restaura exactamente las preferencias previas del test. `original_dialog_tiles_repeat_without_stretching` PASS (0.486 s): muestras de pixeles/alfa en 325x320, 470x430 y 560x420. Build experimental y suites JVM pasan. No son pruebas de campaña E2E ni nueva regresion visual de Huntsville.
 
 **PARCIAL:** reanudar y guardar/volver al catalogo operativos. El boton MENU PRINCIPAL conserva temporalmente ese retorno al catalogo; OPTIONS/INSTRUCTIONS avisan que falta implementacion. Portada nativa, opciones, ayuda, hover y audio siguen pendientes. No se declara completo el menu ni el Goal. Captura PixelCopy del dialogo: las zonas transparentes se ven negras al capturar solo su ventana; la composicion con el fondo sigue NO VERIFICADA. Comparacion equivalente Windows pendiente.
 
 Resultados privados: `local-output/vegas-native-menu/` (APK, Android antes/despues, HTML, coverage.json y logs). Continuar en `VegasVisualProfile.menuView`, `SdaResourceMenuView.onDraw/onTouchEvent` y `SdaLauncherActivity.wireViewCallbacks`: integrar `mainmenuunderlay`, `mainoptionsdlg` y overlays de instrucciones con comportamiento autentico. Frida 17.23.3 confirmado; no se ejecuto otro titulo ni se amplio el piloto porque los bindings estaticos ya desbloquearon este cambio. Director/Huntsville y WIP ajeno intactos.
 
 
-### V3 ? portada interna y ayuda navegable
+### V3 — portada interna y ayuda navegable
 
-Supera la limitacion de `8287ec3`: `MENU PRINCIPAL` abre ahora `mainmenuunderlay`, no el catalogo. La portada tambien aparece al lanzar la campa?a; mantiene el reloj pausado hasta continuar. `SALIR` guarda y vuelve al host multijuego. Se dibujan fondos, tarjeta generica, boton de campa?a, candado y controles originales. `SdaResourceMenuView.show/onDraw` compone nodos y cambia pantallas; IDs, visibilidad y callbacks quedan en `VegasVisualProfile.menuView`.
+Supera la limitacion de `8287ec3`: `MENU PRINCIPAL` abre ahora `mainmenuunderlay`, no el catalogo. La portada tambien aparece al lanzar la campaña; mantiene el reloj pausado hasta continuar. `SALIR` guarda y vuelve al host multijuego. Se dibujan fondos, tarjeta generica, boton de campaña, candado y controles originales. `SdaResourceMenuView.show/onDraw` compone nodos y cambia pantallas; IDs, visibilidad y callbacks quedan en `VegasVisualProfile.menuView`.
 
 Ayuda general: cuatro paginas originales con captions/imagenes/atlas, flechas ida/vuelta y HECHO. Ayuda contextual: TileRot, TileSwap, WordSearch y Jigsaw, con retorno al menu y reanudacion. No se tradujeron instrucciones de mouse a texto tactil inventado. Controles sin `value` no se capturan como SALIR.
 
-Pruebas: 202 JVM, 0 fallos/errores; build APK/test APK correcto. WSA API33/display2: bateria de 3 tests PASS (76.090 s), incluyendo renderer de mosaicos, cuatro familias con entradas Android y resultados hasta nivel 5, portada/ayuda/guardado. Tras recuperar el candado confirmado por Windows, prueba del launcher PASS (3.985 s). Preparacion de escenas tecnica: NO es E2E de la campa?a completa. Preferencias previas restauradas por el test. Director/Huntsville sin cambios; nueva regresion visual integral de Huntsville pendiente.
+Pruebas: 202 JVM, 0 fallos/errores; build APK/test APK correcto. WSA API33/display2: bateria de 3 tests PASS (76.090 s), incluyendo renderer de mosaicos, cuatro familias con entradas Android y resultados hasta nivel 5, portada/ayuda/guardado. Tras recuperar el candado confirmado por Windows, prueba del launcher PASS (3.985 s). Preparacion de escenas tecnica: NO es E2E de la campaña completa. Preferencias previas restauradas por el test. Director/Huntsville sin cambios; nueva regresion visual integral de Huntsville pendiente.
 
 Estado **PARCIAL**: opciones/audio, perfiles, nombre/avatar, records, modo ilimitado/coleccionables, faders, sonidos, fresh-profile iniciar/continuar, logo externo y variante `mainoverlaydlg5` pendientes. La ayuda de escenas usa por ahora la introduccion general; la ruta nativa `eyespyinstructionsdlg*` sigue pendiente. `center` y transiciones necesitan contraste nativo. No se declara completo el menu ni el Goal.
 
@@ -282,7 +282,7 @@ Evidencia privada: `local-output/vegas-navigation/` (APK, nueve capturas Android
 Continuacion: `VegasVisualProfile.menuView` (mainoptionsdlg, perfiles y ojos/escenas); `SdaResourceMenuView.onDraw/onTouchEvent` (sliders/checkboxes y flags nativos); `SdaLauncherActivity.showResourceMenu/wireViewCallbacks` (servicios de opciones y perfil). Frida sigue 17.23.3; reutilizados XUI/evidencias sin ejecutar Los Angeles ni ampliar la investigacion.
 
 
-### V3 ? audio privado incluido en la conversion (prerrequisito)
+### V3 — audio privado incluido en la conversion (prerrequisito)
 
 El empaquetador recogia solo `texture`; omitia `sfx` y `audiostream`. `tools/sda-prototype/package_vegas.py:referenced_resources/build_package` incluye ahora esas dependencias, deduplica aliases de mayusculas y reporta referencias ausentes sin sustituirlas. La conversion falla ante XML invalido en vez de ocultarlo. Paquete nuevo independiente: `local-output/vegas-audio/vegas-full-with-audio.zip`, con 40 OGG unicos (2,759,436 bytes); todos los hashes de recursos existentes coinciden con `vegas-menu-cover-full.zip`. Los paquetes anteriores se conservan. El ZIP historico `vegas_full.zip` usa otra portada; no se presento como baseline equivalente.
 
@@ -293,11 +293,11 @@ Pruebas: 3 Python PASS. `SdaPrivateAudioInstrumentationTest.packaged_music_and_e
 Continuar en `SdaLauncherActivity.showResourceMenu`, `VegasVisualProfile.menuView` (mainoptionsdlg) y `SdaResourceMenuView.onDraw/onTouchEvent` (sliders); crear servicio generico de reproduccion SDA con cierre de players y volumen acotado. Frida 17.23.3 ya confirmado: no hizo falta otro piloto ni ejecutar Los Angeles.
 
 
-### V3 ? reproduccion real de musica y clics del menu
+### V3 — reproduccion real de musica y clics del menu
 
 `SdaAudioSession` aporta reproduccion Android asincrona a partir de `audiostream`/`sfx`, volumen acotado 0..100, hasta ocho efectos simultaneos, pausa/reanudacion y liberacion de players/caches propios. No contiene IDs comerciales. `VegasVisualProfile.audioSession/menuView` selecciona mainmenutrack y defaults originales de los sliders (50/75); los clics usan el `sfx` del nodo XUI. `SdaLauncherActivity` conecta lifecycle y cierre; al continuar se detiene la musica del menu. Paquetes anteriores sin OGG siguen abriendo, con diagnostico de ausencia y sin inventar sonidos.
 
-Pruebas finales: 202 JVM/0 fallos/errores, build de APK/test APK correcto; 2 tests de audio WSA PASS (2.253 s), menu/guardado con paquete nuevo PASS (3.893 s) y con paquete anterior PASS (3.644 s). La prueba usa eventos Android para AYUDA y confirma que arranca el efecto; pausa/stop/resume son callbacks reales al abrir el catalogo en la MISMA tarea y display2. Cierre comprueba cero players y cero caches; preferencias previas conservadas. No prueba escucha humana ni campa?a completa.
+Pruebas finales: 202 JVM/0 fallos/errores, build de APK/test APK correcto; 2 tests de audio WSA PASS (2.253 s), menu/guardado con paquete nuevo PASS (3.893 s) y con paquete anterior PASS (3.644 s). La prueba usa eventos Android para AYUDA y confirma que arranca el efecto; pausa/stop/resume son callbacks reales al abrir el catalogo en la MISMA tarea y display2. Cierre comprueba cero players y cero caches; preferencias previas conservadas. No prueba escucha humana ni campaña completa.
 
 Se conservaron logs de los intentos iniciales fallidos: ActivityScenario.moveToState usaba un auxiliar en otro display/proceso, que no pausaba esta ventana WSA. Se sustituyo por el catalogo real en el mismo display, manteniendo las aserciones de lifecycle. Corregido registro de slots: identidad estable al cambiar ready, para que release elimine todos los reproductores. Auxiliares de test cerrados tras finalizar.
 
@@ -347,20 +347,20 @@ Verificacion: compilacion y pruebas JVM correctas; prueba Android de mapa, escen
 
 ### PDA: pista original recuperada (V3)
 
-La zona vacia encima de MAPA ahora contiene PISTA durante la escena. Utiliza sus texturas y atlas originales; muestra recarga y efecto sobre un objeto aun pendiente. Captura Android real y comparacion local: `local-output/vegas-hints/comparison.html`. El informe diferencia recursos extraidos de capturas Android, y el antes/despues contiene estados y objetivos distintos: no calcula una diferencia de pixeles enga?osa. No hay nueva referencia Windows equivalente; la fidelidad de la animacion y de todos los estados queda PARCIAL. El efecto ya no invade el PDA ni el letterboxing. Pruebas y pendientes detallados en el informe de auditoria.
+La zona vacia encima de MAPA ahora contiene PISTA durante la escena. Utiliza sus texturas y atlas originales; muestra recarga y efecto sobre un objeto aun pendiente. Captura Android real y comparacion local: `local-output/vegas-hints/comparison.html`. El informe diferencia recursos extraidos de capturas Android, y el antes/despues contiene estados y objetivos distintos: no calcula una diferencia de pixeles engañosa. No hay nueva referencia Windows equivalente; la fidelidad de la animacion y de todos los estados queda PARCIAL. El efecto ya no invade el PDA ni el letterboxing. Pruebas y pendientes detallados en el informe de auditoria.
 
 
 ### Opciones: PISTAS ILIMITADAS original habilitada
 
 La casilla y su etiqueta ahora aparecen activas y admiten off/on/hover mediante las texturas originales. OK guarda, CANCEL/cierre restauran el preview y la opcion afecta la recarga real conservando su penalizacion. APK, captura WSA, matriz y HTML: `local-output/vegas-rapid-hints/`. Comparacion con captura Windows anterior de otro estado: referencia contextual, no aprobacion de todos los estados. Las otras tres casillas permanecen deshabilitadas hasta integrar sus contratos autenticos.
 
-### PDA: tres l?neas m?s compactas (2026-10-10)
+### PDA: tres líneas más compactas (2026-10-10)
 
-Por petici?n humana, tiempo, etiqueta de puntuaci?n y cifra utilizan escala 0.45 en vez de 0.55 (18.2% menos), conservando el centrado y la cifra en su propia l?nea. Cambio exclusivo del perfil Vegas. APK experimental compilada e instalada en WSA; prueba Android de men?, reanudaci?n y salida: 1/1, 3.763 s. La revisi?n visual humana del nuevo tama?o sigue pendiente; no se certifica fidelidad al original por este ajuste.
+Por petici?n humana, tiempo, etiqueta de puntuaci?n y cifra utilizan escala 0.45 en vez de 0.55 (18.2% menos), conservando el centrado y la cifra en su propia línea. Cambio exclusivo del perfil Vegas. APK experimental compilada e instalada en WSA; prueba Android de men?, reanudaci?n y salida: 1/1, 3.763 s. La revisión visual humana del nuevo tamaño sigue pendiente; no se certifica fidelidad al original por este ajuste.
 
 ### Segunda fase jugable desde la primera (2026-10-10)
 
-PARCIAL: di?logos originales, ocho colocaciones Android, checkpoint de pieza sostenida y salida con guardado. Atlas de reloj de arena/palanca corregidos con fotogramas nativos; comparaci?n alineada contra recurso extra?do verificada, referencia Windows pendiente. Informe y siete capturas PixelCopy reales en local-output/vegas-second-riddle/comparison.html; matriz coverage.json. V?ase el bloque correspondiente en MYSTERY_PI_ANDROID_AUDIT.md para pruebas, memoria, SHA de APK, fallos conservados y funciones de continuaci?n. Tercera fase y validaci?n integral pendientes.
+PARCIAL: diálogos originales, ocho colocaciones Android, checkpoint de pieza sostenida y salida con guardado. Atlas de reloj de arena/palanca corregidos con fotogramas nativos; comparación alineada contra recurso extra?do verificada, referencia Windows pendiente. Informe y siete capturas PixelCopy reales en local-output/vegas-second-riddle/comparison.html; matriz coverage.json. V?ase el bloque correspondiente en MYSTERY_PI_ANDROID_AUDIT.md para pruebas, memoria, SHA de APK, fallos conservados y funciones de continuación. Tercera fase y validación integral pendientes.
 
 
 ### Third phase original composition and earned reel code (2026-10-10)
