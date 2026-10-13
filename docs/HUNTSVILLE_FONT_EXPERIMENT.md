@@ -1,6 +1,6 @@
 # Huntsville: fuentes originales y prueba experimental
 
-Registro de la prueba 0.1; diagn?stico actualizado en [correcci?n PFR1](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
+Registro de la prueba 0.1; diagnóstico actualizado en [corrección PFR1](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
 
 Fecha: 2026-10-08. Estado: **PFR1 EXTRAÍDO; CONVERSIÓN EXPERIMENTAL CON DEFECTOS VISUALES**.
 No se adoptó un renderer nuevo ni se reemplazó la build aprobada.
