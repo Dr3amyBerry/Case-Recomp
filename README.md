@@ -174,6 +174,10 @@ private/
     case-recomp-phase6/         # navigation captures and evidence
   mystery-pi-vegas/
     game/                      # original The Vegas Heist installation
+  prime-suspect/
+    game/                      # personal Prime Suspects installation (example)
+  ravenhearst/
+    game/                      # personal Ravenhearst installation (example)
   tools/                       # shared reverse engineering tools
   signing/                     # local Android signing material
 ```
