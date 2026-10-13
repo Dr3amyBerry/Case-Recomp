@@ -1,5 +1,7 @@
 # Case Recomp — Licencia y alcance / Licensing status
 
+> **Nota técnica de vigencia — 13-10-2026:** Las referencias técnicas deben leerse junto al release multijuego v0.8.1. La fecha de revisión jurídica/licencias indicada más abajo **no se cambia ni se considera renovada** por esta anotación técnica. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **Vigente desde / Effective:** 2026-10-08.
 
 El código original de **Case Recomp** sobre el que sus respectivos titulares pueden conceder derechos se ofrece bajo la **[PolyForm Noncommercial License 1.0.0](LICENSE)**. El archivo LICENSE reproduce íntegramente el texto oficial, sin modificaciones.
@@ -16,7 +18,7 @@ Los autores/titulares conservan su capacidad de explotar comercialmente **su pro
 
 ### Qué NO cubre esta licencia
 
-La licencia de Case Recomp **no** licencia ni concede derechos sobre *Mystery Case Files*, *Huntsville*, *Prime Suspects*, *Ravenhearst*, sus marcas, imágenes, audios, fuentes, scripts, ejecutables, archivos de instalación ni paquetes convertidos aportados por usuarios. Poseer el juego original no garantiza autorización para cualquier conversión o elusión; revise sus términos y la ley aplicable. Tampoco reemplaza licencias de terceros como Pyodide, Pillow, mutagen, AndroidX, ProjectorRays o LibreShockwave: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+La licencia de Case Recomp **no** licencia ni concede derechos sobre *Mystery Case Files*, *Huntsville*, *Prime Suspects*, *Ravenhearst*, *Mystery P.I.: The Vegas Heist*, sus marcas, imágenes, audios, fuentes, scripts, ejecutables, archivos de instalación ni paquetes convertidos aportados por usuarios. Poseer el juego original no garantiza autorización para cualquier conversión o elusión; revise sus términos y la ley aplicable. Tampoco reemplaza licencias de terceros como Pyodide, Pillow, mutagen, AndroidX, ProjectorRays o LibreShockwave: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ### Condiciones para compartir
 

@@ -1,12 +1,14 @@
 # Case Recomp — Aviso legal y evaluación de riesgos (Venezuela)
 
+> **Nota técnica de vigencia — 13-10-2026:** Las referencias técnicas deben leerse junto al release multijuego v0.8.1. La fecha de revisión jurídica/licencias indicada más abajo **no se cambia ni se considera renovada** por esta anotación técnica. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **Versión:** 2026-10-08 · **Estado:** documentación pública para la beta, no certificación jurídica ni autorización de titulares.
 
 ## Identidad y alcance
 
 Case Recomp es un proyecto independiente de **compatibilidad de formatos y ejecución**, alojado en https://github.com/Dr3amyBerry/Case-Recomp, mantenido bajo la cuenta pública del repositorio. La identidad jurídica del titular del proyecto y el domicilio legal siguen pendientes de declarar. **Contacto designado para asuntos legales y privacidad: [contact@rigorcore.com](mailto:contact@rigorcore.com)**. El mantenedor proporcionó esta dirección; su recepción efectiva aún no se ha verificado.
 
-**No afiliación.** Case Recomp NO está afiliado, patrocinado, autorizado ni respaldado por Big Fish Games, BFG Entertainment u otros titulares de los juegos. Los nombres *Mystery Case Files*, *Huntsville*, *Prime Suspects* y *Ravenhearst*, así como logotipos, personajes, escenas, música y otros materiales, pertenecen a sus respectivos titulares. Mencionar un título indica una compatibilidad técnica pretendida, **no** un derecho de marca, licencia o respaldo.
+**No afiliación.** Case Recomp NO está afiliado, patrocinado, autorizado ni respaldado por Big Fish Games, BFG Entertainment u otros titulares de los juegos. Los nombres *Mystery Case Files*, *Huntsville*, *Prime Suspects*, *Ravenhearst* y *Mystery P.I.: The Vegas Heist*, así como logotipos, personajes, escenas, música y otros materiales, pertenecen a sus respectivos titulares. Mencionar un título indica una compatibilidad técnica pretendida, **no** un derecho de marca, licencia o respaldo.
 
 La aplicación pública está diseñada para distribuir solamente el motor y permitir que una persona seleccione **localmente** el contenido de su instalación obtenida legítimamente. El usuario no debe compartir públicamente el ZIP generado, el ejecutable original ni los casts, bytecode o recursos extraídos. Ninguna advertencia sustituye el permiso que pueda ser necesario para copiar, transformar o utilizar contenido ajeno.
 

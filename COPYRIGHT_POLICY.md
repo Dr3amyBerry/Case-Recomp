@@ -1,5 +1,7 @@
 # Case Recomp — Política de propiedad intelectual, marcas y retirada de contenido
 
+> **Nota técnica de vigencia — 13-10-2026:** Las referencias técnicas deben leerse junto al release multijuego v0.8.1. La fecha de revisión jurídica/licencias indicada más abajo **no se cambia ni se considera renovada** por esta anotación técnica. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **2026-10-08** — Documento de operación del proyecto, **no** permiso para reproducir obras ajenas.
 
 ## Principios

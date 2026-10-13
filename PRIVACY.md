@@ -1,5 +1,7 @@
 # Case Recomp — Política de privacidad / Privacy notice
 
+> **Nota técnica de vigencia — 13-10-2026:** El producto v0.8.1 ofrece Normal, Lite y Super Lite como instalaciones separadas; cada variante usa almacenamiento privado propio. La inspección de privacidad original sigue fechada el 08-10-2026 y necesita una auditoría independiente de la distribución más reciente. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **Revisión / Revised:** 2026-10-08 · **Alcance:** web de conversión alojada en GitHub Pages, repositorio público y APK beta de Case Recomp.
 
 ## Español

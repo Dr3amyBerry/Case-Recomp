@@ -1,10 +1,12 @@
 # Case Recomp — Condiciones de uso / Terms of use
 
+> **Nota técnica de vigencia — 13-10-2026:** Las referencias técnicas deben leerse junto al release multijuego v0.8.1. La fecha de revisión jurídica/licencias indicada más abajo **no se cambia ni se considera renovada** por esta anotación técnica. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **Versión / Version:** 2026-10-08 · **Beta independiente, sin juegos incluidos.**
 
 ## Español
 
-**Objeto.** Case Recomp ofrece una herramienta experimental de compatibilidad Android y, cuando esté disponible, un convertidor local de formatos para archivos aportados por el usuario. El proyecto y sus servicios pueden cambiar, suspenderse o dejar de actualizarse. No es una versión oficial de ningún juego mencionado.
+**Objeto.** Case Recomp ofrece una herramienta experimental de compatibilidad Android y un convertidor local de formatos disponible en la página web del proyecto para archivos aportados por el usuario. El proyecto y sus servicios pueden cambiar, suspenderse o dejar de actualizarse. No es una versión oficial de ningún juego mencionado.
 
 **Archivos y derechos.** La app no vende ni proporciona copias de *Mystery Case Files* ni de otros títulos. Utilice únicamente una instalación sobre la que tenga derechos suficientes conforme a la ley y a las licencias aplicables. No cargue archivos obtenidos ilícitamente. No comparta públicamente el ZIP convertido ni entregue obras, audio, imágenes, scripts o ejecutables de terceros a repositorios o servicios de soporte. La titularidad legítima de una copia **no garantiza por sí sola** que cualquier transformación, decompilación o elusión tecnológica esté autorizada.
 

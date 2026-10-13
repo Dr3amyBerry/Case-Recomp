@@ -1,5 +1,7 @@
 # Case Recomp — Inventario de terceros y avisos de licencia
 
+> **Nota técnica de vigencia — 13-10-2026:** Las referencias técnicas deben leerse junto al release multijuego v0.8.1. La fecha de revisión jurídica/licencias indicada más abajo **no se cambia ni se considera renovada** por esta anotación técnica. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **2026-10-08 · Inventario inicial, no certificación de cumplimiento.** Identifica dependencias públicas detectadas; los detalles exactos de versiones, módulos transitivos y avisos que deben reproducirse en cada distribución aún requieren SBOM/revisión del artefacto concreto.
 
 | Componente | Cómo se utiliza según el código revisado | Referencia de licencia / tarea |

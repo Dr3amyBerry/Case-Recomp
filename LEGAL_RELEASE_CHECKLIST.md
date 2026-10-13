@@ -1,5 +1,7 @@
 # Case Recomp — Checklist legal de distribución (Venezuela + público internacional)
 
+> **Nota técnica de vigencia — 13-10-2026:** Desde esta revisión se publicó v0.8.1 en tres APK. El cumplimiento legal del artefacto publicado, historial y dependencias **requiere aún revisión específica**; no se certifica con una revisión de texto. [Estado actual del proyecto](docs/STATUS_ACTUAL.md). **Esta nota no altera los términos ni constituye aprobación jurídica nueva.**
+
 **Fecha:** 2026-10-08 · **Estado:** varias tareas bloqueantes para lanzamiento amplio. Las marcas de estado reflejan hallazgos del código, **no** una certificación jurídica.
 
 | Riesgo | Estado | Trabajo pendiente y criterio de cierre |
