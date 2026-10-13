@@ -1,5 +1,7 @@
 # Huntsville: cierre de la Etapa 1
 
+> **Estado documental (2026-10-13):** Referencia de aprobación histórica **de una edición y un build**, que debe conservarse sin reinterpretar sus firmas o hashes. Desde entonces se publicó v0.8.1 con cuatro juegos. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Estado: **APROBADO_HUMANAMENTE**. Fecha: 2026-10-08, America/Caracas.
 
 El usuario aprobo el estado revisado y autorizo explicitamente la investigacion de

@@ -1,5 +1,7 @@
 # Huntsville: fuentes originales y prueba experimental
 
+> **Estado documental (2026-10-13):** Informe de Huntsville de una sesión o experimento concreto: conservar su aprobación, pruebas y límites según su fecha; no proyectar esa línea base al release completo v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Registro de la prueba 0.1; diagnóstico actualizado en [corrección PFR1](HUNTSVILLE_PFR1_CONTOUR_CORRECTION.md).
 
 Fecha: 2026-10-08. Estado: **PFR1 EXTRAÍDO; CONVERSIÓN EXPERIMENTAL CON DEFECTOS VISUALES**.

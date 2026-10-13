@@ -1,5 +1,7 @@
 # Case-Recomp — legacy source and private artifact retirement candidates
 
+> **Estado documental (2026-10-13):** Las candidaturas de retirada no autorizan borrar código automáticamente; la regresión actual debe incluir cuatro juegos y dos familias de motor. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 > **THIS IS NOT A DELETION PLAN TO EXECUTE AUTOMATICALLY.** Audit baseline `9e2c37115d14009b25e473197407da4d37abcdd0`. Proposed categories only: **no files were deleted, changed, or moved** in this documentation commit. “Superseded as the preferred whole-game architecture” is not the same as “unused”.
 
 ## Classification and public code

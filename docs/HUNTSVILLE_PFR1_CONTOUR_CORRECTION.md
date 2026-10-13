@@ -1,5 +1,7 @@
 # Huntsville: corrección experimental de contornos PFR1
 
+> **Estado documental (2026-10-13):** Informe de Huntsville de una sesión o experimento concreto: conservar su aprobación, pruebas y límites según su fecha; no proyectar esa línea base al release completo v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Fecha: 2026-10-08. Estado: **CURVAS CORREGIDAS; REVISIÓN VISUAL HUMANA PENDIENTE**.
 Este resultado sustituye el diagnóstico de deformaciones de la prueba 0.1.
 No autoriza incorporar fuentes al motor Director, cambiar el perfil de Huntsville

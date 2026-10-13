@@ -1,5 +1,7 @@
 # Huntsville: reloj y guardado de sesion
 
+> **Estado documental (2026-10-13):** Informe de Huntsville de una sesión o experimento concreto: conservar su aprobación, pruebas y límites según su fecha; no proyectar esa línea base al release completo v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Estado: **APROBADO_HUMANAMENTE**. [Referencia congelada y autorizacion de Etapa 2](HUNTSVILLE_APPROVED_REFERENCE.md). Etapa 1; Mystery P.I. sigue pendiente de autorizacion.
 
 El reloj de reproduccion es monotono y excluye el tiempo que la actividad pasa en

@@ -1,5 +1,7 @@
 # Auditoría de compatibilidad heredada de Huntsville
 
+> **Estado documental (2026-10-13):** Informe de Huntsville de una sesión o experimento concreto: conservar su aprobación, pruebas y límites según su fecha; no proyectar esa línea base al release completo v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Fecha: 2026-10-08. Base pública: `9d43dda` (`main`). Esta auditoría y las propuestas asociadas no modifican el motor. El archivo local no seguido `DirectorAndroidPorts.kt` se conserva y se incluye en la huella del Árbol de trabajo; no forma parte de esa revisión Git. Los resultados JVM corresponden a ese Árbol local, no a un checkout limpio del commit.
 
 ## Método y alcance

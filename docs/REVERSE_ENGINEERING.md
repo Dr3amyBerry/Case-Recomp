@@ -1,5 +1,7 @@
 # Director/XFIR reverse engineering — Phase 2
 
+> **Estado documental (2026-10-13):** Las cifras, trazas y formatos analizados corresponden a las muestras originales; el runtime Android Director y SDA ha evolucionado después. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 This document records reproducible *structure-only* inspection of a privately supplied installed game. The **original executables, media, compressed casts, decompiled Lingo, and extracted output are deliberately absent** from the public repository. No executable was run.
 
 ## Source-set inventory and proven observations

@@ -1,5 +1,7 @@
 # Huntsville Stage 1 review build
 
+> **Estado documental (2026-10-13):** Informe de Huntsville de una sesión o experimento concreto: conservar su aprobación, pruebas y límites según su fecha; no proyectar esa línea base al release completo v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md). No se han ejecutado nuevas pruebas de este tema al actualizar el texto.
+
 Estado: **APROBADO_HUMANAMENTE**. [Referencia congelada y autorizacion de Etapa 2](HUNTSVILLE_APPROVED_REFERENCE.md). Fecha: 2026-10-08.
 
 Build actualizada: cursor separado del nombre y subido 3 pixeles respecto a la build anterior,
