@@ -4,7 +4,7 @@
 
 **EN:** Play supported classic *Mystery Case Files* and Big Fish PC games on Android with your own lawfully usable original game files. **No commercial game assets are included.**
 
-**Accesos rápidos / Quick links:** [Descargar APK / Download](https://github.com/Dr3amyBerry/Case-Recomp/releases/latest) · [Convertidor web / Converter](https://dr3amyberry.github.io/Case-Recomp/) · [Errores / Issues](https://github.com/Dr3amyBerry/Case-Recomp/issues) · [Documentación técnica / Developer docs](docs/DEVELOPER.md)
+**Accesos rápidos / Quick links:** [Descargar APK / Download](https://github.com/Dr3amyBerry/Case-Recomp/releases/latest) · [Convertidor web / Converter](https://dr3amyberry.github.io/Case-Recomp/) · [Errores / Issues](https://github.com/Dr3amyBerry/Case-Recomp/issues) · [Estado actual / Current status](docs/STATUS_ACTUAL.md) · [Índice / Docs index](docs/INDICE.md) · [Documentación técnica / Developer docs](docs/DEVELOPER.md)
 
 [Español](#español) · [English](#english)
 
@@ -20,6 +20,8 @@
 | Mystery Case Files: **Prime Suspects** | Jugable |
 | Mystery Case Files: **Ravenhearst** | Jugable, en revisión (candados y capítulos finales por confirmar) |
 | Mystery P.I.: **The Vegas Heist** | **Alpha**: jugable de principio a fin, pero con errores conocidos y detalles por confirmar frente al original |
+
+**Alcance de las pruebas y pendientes por juego:** [estado actual](docs/STATUS_ACTUAL.md). «Jugable» no equivale a fidelidad completa para cualquier edición.
 
 > ⚠️ **Si encuentras un error** (algo que no funciona, se ve o suena distinto al juego original), **escríbenos** abriendo un [issue en GitHub](https://github.com/Dr3amyBerry/Case-Recomp/issues): di qué juego, qué hacías y qué pasó, sin adjuntar archivos originales del juego ni información privada. **Se entrega tal cual, sin garantías de ningún tipo.**
 
@@ -39,7 +41,7 @@
 
 ### Cómo sacar el archivo .zip de tu juego
 
-Necesitas el juego **ya instalado en tu PC** (Windows). Es la carpeta que contiene `MysteryCaseFiles.exe` y una carpeta `data` llena de archivos `.cct`. Normalmente está en una ruta como:
+Necesitas el juego **ya instalado en tu PC** (Windows). **Ejemplo Huntsville:** es la carpeta que contiene `MysteryCaseFiles.exe` y una carpeta `data` llena de archivos `.cct`. Normalmente está en una ruta como:
 
 - `C:\Program Files (x86)\Big Fish Games\Mystery Case Files Huntsville\`
 - o la carpeta que elegiste al instalarlo.
@@ -92,6 +94,8 @@ Los demás juegos se importan igual, cada uno en su propia tarjeta. En Ravenhear
 | Mystery Case Files: **Ravenhearst** | Playable, under review (locks and later chapters still being checked) |
 | Mystery P.I.: **The Vegas Heist** | **Alpha**: playable start to finish, with known bugs and details still to be confirmed against the original |
 
+**Verification scope and open issues by game:** [current project status](docs/STATUS_ACTUAL.md). “Playable” does not guarantee full fidelity on every PC edition.
+
 > ⚠️ **If you find a bug** (something that does not work, or looks or sounds different from the original game), **write to us** by opening a [GitHub issue](https://github.com/Dr3amyBerry/Case-Recomp/issues): say which game, what you were doing and what happened; do not attach original game assets, proprietary screenshots or private information. **Provided as is, without warranty of any kind.**
 
 ### Legal and privacy notices
@@ -110,7 +114,7 @@ The converter processes game content in the browser, but Pyodide is fetched from
 
 ### How to get the .zip file from your game
 
-You need the game **installed on your PC** (Windows). It is the folder holding `MysteryCaseFiles.exe` and a `data` folder full of `.cct` files. It is usually at a path like:
+You need the game **installed on your PC** (Windows). **Huntsville example:** its folder holds `MysteryCaseFiles.exe` and a `data` folder full of `.cct` files. It is usually at a path like:
 
 - `C:\Program Files (x86)\Big Fish Games\Mystery Case Files Huntsville\`
 - or the folder you chose when installing it.
@@ -183,4 +187,4 @@ outputs. Historical local manifests and capture logs retain their recorded paths
 
 [Architecture and incremental plan](docs/MULTIGAME_ARCHITECTURE.md) · [Huntsville audit](docs/HUNTSVILLE_COMPATIBILITY_AUDIT.md) · [Versioned compatibility profiles](docs/GAME_COMPATIBILITY_PROFILE.md) · [Mystery P.I. technical audit](docs/MYSTERY_PI_VEGAS_AUDIT.md) · [Regression and acceptance plan](docs/MULTIGAME_REGRESSION_PLAN.md).
 
-These documents specify future work; they do not add a Mystery P.I. runtime or declare new game compatibility.
+These documents include historical proposals and audits. The implemented SDA runtime and current four-game catalogue are described in [project status](docs/STATUS_ACTUAL.md).
