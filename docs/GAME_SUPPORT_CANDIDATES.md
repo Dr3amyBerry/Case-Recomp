@@ -1,30 +1,30 @@
 # Case-Recomp — Catálogo de juegos candidatos a compatibilidad
 
-> **Estado:** propuesta de investigación y planificación, **no** declaración de compatibilidad.  
-> **Actualización:** 2026-10-08.  
+> **Estado:** catálogo mixto; **cuatro juegos integrados** y otros títulos como candidatos, sin promesa de compatibilidad.  
+> **Actualización:** 2026-10-13 · [Estado actual](STATUS_ACTUAL.md).  
 > **Cobertura:** títulos de PopCap/SpinTop y Big Fish (incluidos estudios asociados o juegos distribuidos por estas empresas), ordenados desde los más antiguos hasta 2025.  
 > **Regla:** cada versión/edición requiere análisis de sus archivos originales, identificación del motor, pruebas y aprobación antes de marcarla como compatible.
 
 ## Objetivo
 
-Registrar juegos de interés para extender **Case-Recomp** sin reconstruir el HUB ni duplicar motores. El proyecto conserva el motor **Director/Lingo** para títulos compatibles y estudia un futuro módulo para **SDA Game Framework**. Los perfiles por juego deben configurar diferencias comprobadas, no sustituir las reglas originales.
+Registrar juegos de interés para extender **Case-Recomp** sin reconstruir el HUB ni duplicar motores. El proyecto integra **Director/Lingo/Flash** y ya dispone de un motor **SDA** para Vegas Alpha. Los perfiles por juego deben configurar diferencias comprobadas, no sustituir las reglas originales.
 
 **No todos los juegos listados son de crímenes.** Se incluyen también puzles, objetos ocultos, aventuras y arcades clásicos como candidatos exploratorios para futuras tecnologías.
 
-## Prioridad de investigación y posibles próximos soportados
+## Estado actual y candidatos
 
-| Juego | Estado de planificación | Evidencia / situación | Próximo paso |
-|---|---|---|---|
-| Mystery Case Files: Huntsville | Referencia existente | Director 8.5/Lingo comprobado en la copia usada; versión Android revisada visualmente por el usuario. | Mantener como prueba de regresión; no rehacer el motor. |
-| Mystery P.I.: The Vegas Heist | **Prioridad actual** — investigación activa | SDA Game Framework, SDL/BASS y recursos PE/XUI identificados en la copia investigada. | Continuar análisis Ghidra/Frida, callbacks y lógica de escenas; construir primer slice jugable verificable. |
-| Mystery Case Files: Prime Suspects | Candidato próximo | Se ha documentado uso de Director/Flash en el juego, pero su compatibilidad con el runtime actual no se ha probado. | Auditar instalación y diferencias frente a Huntsville sin heredar sus ajustes visuales. |
-| Mystery Case Files: Ravenhearst | Candidato próximo | Relacionado con la primera generación de Mystery Case Files; motor y edición concreta aún requieren inspección. | Identificar formatos, VM y necesidades de escena/puzles. |
-| Mystery P.I.: The Lottery Ticket | Candidato siguiente para SDA | Misma saga y estudio asociado que The Vegas Heist; la reutilización real del runtime no está verificada. | Comparar binarios/recursos y contratos SDA una vez exista el primer slice. |
-| Amazing Adventures: The Lost Tomb | Candidato para validar SDA | Juego de SpinTop; tecnología concreta y compatibilidad no verificadas. | Inspeccionar ejecutable y formatos para comprobar que el módulo SDA no dependa de Mystery P.I. |
-| Mystery P.I.: Lost in Los Angeles | Candidato de expansión SDA | Misma saga; arquitectura concreta por verificar. | Auditar sus binarios después del primer juego SDA funcional. |
-| Mystery Case Files: Madame Fate | Candidato de expansión Director | Saga Mystery Case Files; subsistemas y formato de la edición por verificar. | Probar capacidades más avanzadas después de Prime Suspects/Ravenhearst. |
+| Título | Estado al 13-10-2026 | Próximo control |
+|---|---|---|
+| Mystery Case Files: Huntsville | **Jugable**, referencia aprobada | Regresión Director por edición |
+| Mystery Case Files: Prime Suspects | **Jugable**: 22 casos JVM, 9 Android documentados | Android 10–22 y QA audiovisual |
+| Mystery Case Files: Ravenhearst | **Jugable, en revisión**: Director/Flash/bot | Candados y campaña completa Android |
+| Mystery P.I.: The Vegas Heist | **Alpha jugable**: SDA, 25 niveles en WSA | Fidelidad Windows, ranking y memoria |
+| Mystery P.I.: The Lottery Ticket | **Candidato** | Auditar edición, motor y recursos |
+| Amazing Adventures: The Lost Tomb | **Candidato** | Identificación técnica |
+| Mystery P.I.: Lost in Los Angeles | **Investigación futura** | No hay soporte Android anunciado |
+| Mystery Case Files: Madame Fate | **Candidato** | Inspeccionar ediciones Director |
 
-**Prioridad de ejecución acordada:** continuar **Mystery P.I.: The Vegas Heist** antes de iniciar un port de Prime Suspects. Huntsville queda como referencia aprobada y debe conservar su comportamiento. Las otras posiciones son propuestas, no promesas de soporte.
+El orden histórico «investigar Vegas antes de Prime» ya se ejecutó; no bloquea el trabajo actual. Ver [Roadmap](ROADMAP.md).
 
 ## Catálogo cronológico: 2001–2012
 
@@ -108,8 +108,8 @@ Registrar juegos de interés para extender **Case-Recomp** sin reconstruir el HU
 - Esta lista conserva **años y nombres de referencia de la recopilación inicial**. En los títulos con fechas en rango (`2008–2009`, `2010–2011`), y para ediciones/regiones particulares, la fecha exacta sigue pendiente de corroboración documental.
 - "PopCap", "Big Fish" y los estudios indicados reflejan vínculos de desarrollo o distribución según cada título, **no necesariamente propiedad del código ni derechos de redistribución**.
 - **Huntsville** tiene la base Director/Lingo integrada y un perfil de presentación revisado. Esto no acredita automáticamente otras ediciones de Huntsville.
-- **The Vegas Heist** tiene análisis SDA y decompilación estática Ghidra documentados, **pero ningún prototipo SDA jugable en Android confirmado**.
-- **Prime Suspects** es un candidato prometedor para reutilizar Director/Flash, pero aún se necesita contrastar el motor y formatos de su copia original.
+- **The Vegas Heist** tiene runtime SDA y 25 niveles Android/WSA documentados; quedan por verificar fidelidad final y rendimiento.
+- **Prime Suspects** ya está integrado sobre Director; completar la verificación Android 10–22 y de audio/visual.
 - Los demás títulos tienen **compatibilidad y motor pendiente de verificar** hasta que haya auditorías por versión.
 - No almacenar ejecutables comerciales, recursos, partidas privadas ni dumps de código del juego en el repositorio público.
 
