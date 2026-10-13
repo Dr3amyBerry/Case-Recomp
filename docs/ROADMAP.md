@@ -1,4 +1,24 @@
-# AUTOPILOT_V1 — Case-Recomp roadmap
+# Roadmap vigente — 13 de octubre de 2026
+
+> **Versión actual: v0.8.1** con cuatro juegos y tres variantes de APK. La antigua hoja `AUTOPILOT_V1`, conservada a continuación, documenta **una fase histórica de Huntsville**, no los pendientes de todo el proyecto. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice](INDICE.md).
+
+## Prioridades vigentes
+
+| Área | Ya disponible / registrado | Pendiente |
+|---|---|---|
+| Huntsville | Motor Director y referencia aprobada | Regresión contra modificaciones compartidas y QA de edición/dispositivo |
+| Prime Suspects | 22 casos en JVM, 9 completos en Android documentados | Casos Android 10–22 y validación audiovisual prolongada |
+| Ravenhearst | Director/Flash, diario, bot Android y guardado de sala/puzzle | Candados naturales, capítulos y final Android, sonido |
+| Vegas Heist | SDA Alpha; 25 niveles WSA, final encadenado, 11 force-stop/reopen | Comparación con Windows, rankings, desbloqueos, RAM/FPS/estados |
+| Plataforma | Cuatro tarjetas, importación privada, release v0.8.1 Normal/Lite/Super Lite, CI público | QA de equipos físicos, ediciones, protección de guardados y regresión multijuego |
+
+**Secuencia de trabajo:** fallos reproducibles Prime/Ravenhearst, después fidelidad/performance Vegas y pruebas de regresión Huntsville y dispositivos. Evitar afirmar compatibilidad total sin pruebas de todos los recorridos relevantes. El CI público usa datos sintéticos y no valida contenido comercial.
+
+**Ramas:** al revisar se encontró solo `main`. No crear ramas salvo petición. Las cifras de la cronología siguiente pertenecen a su fecha y no se deben promover a resultados nuevos.
+
+---
+
+## Registro histórico: AUTOPILOT_V1
 
 Work is committed directly to `main`; no branches created unless explicitly requested. Never commit copyrighted game media/executables. All existing repository source is retained.
 
