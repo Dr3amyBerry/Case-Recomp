@@ -43,7 +43,7 @@ Las [especificaciones declarativas futuras](GAME_COMPATIBILITY_PROFILE.md) **no 
 | Evidencia | Demuestra | No demuestra |
 |---|---|---|
 | Python/Kotlin/JVM | Parsing, estados y recorridos ejecutados en el motor | UI Android o fidelidad audiovisual |
-| GitHub Actions público en `main` | Compilación, pruebas y emuladores **sintéticos**; HEAD revisado verde | Pruebas con juegos comerciales privados |
+| GitHub Actions público en `main` | Compilación, pruebas y emuladores **sintéticos**; la ejecución previa al cambio documental estaba verde, y cada commit nuevo tiene su propio CI | Pruebas con juegos comerciales privados |
 | WSA/emulador privado | Touch, capturas y rutas ejecutadas en Android | Todos los móviles y ediciones |
 | ADB con force-stop | Continuidad en **los estados explícitamente ensayados** | Todos los cortes o saves posibles |
 | Comparación con Windows original | Escenas/estados concretos alineados | Fidelidad visual y sonora del juego completo |
