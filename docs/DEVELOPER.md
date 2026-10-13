@@ -1,8 +1,17 @@
-# Case-Recomp — Director-to-Android static reconstruction research
+# Case-Recomp — desarrollo e investigación
 
-A read-only/explicit-local-extraction toolkit for an independently obtained game installation, with the long-term goal of a playable Android port. **A synthetic Android shell is now buildable, but no original-game playable APK exists.** The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
+Herramientas de conversión/inspección local y motor Android multijuego. **En v0.8.1 ya se publican APK con catálogo de cuatro juegos y motores Director/Lingo/Flash y SDA.** El shell sintético permanece como infraestructura de QA. The repository contains **no commercial executables, movie/cast containers, extracted game media or recovered proprietary Lingo**.
 
-## Phases
+## Actualización 13-10-2026
+
+Consultar [Estado actual](STATUS_ACTUAL.md), [Índice](INDICE.md), [Android](../android/README.md) y [Roadmap](ROADMAP.md). La cronología de etapas siguiente documenta **resultados históricos de Huntsville y del shell**, no el estado global actual.
+
+- Regresión base: `python -m unittest discover -s tests -v` y `gradle -p android --no-daemon :engine:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug`.
+- Distinguir compilación/CI sintético, JVM con contenidos privados, WSA, dispositivos físicos y comparaciones con Windows.
+- Preservar separaciones Director/Lingo/Flash (Huntsville, Prime, Ravenhearst) y SDA (Vegas Alpha), sin introducir reglas exclusivas en el motor compartido.
+- Los releases v0.8.1 ofrecen Normal, Lite y Super Lite. La firma release y archivos comerciales deben permanecer privados.
+
+## Phases (historical)
 
 - [x] **1 —** inspect PE32/projector, classify Director/XFIR containers, create reproducible source-only CI.
 - [x] **2 —** parse 39 Afterburner movie/cast archives, map and verify raw/zlib resources and initial load segment (ILS), expose create-only raw extraction.
