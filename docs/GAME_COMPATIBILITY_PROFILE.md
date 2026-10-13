@@ -1,5 +1,7 @@
 # Game Compatibility Profile — especificación propuesta v1
 
+> **Nota de vigencia (2026-10-13):** Este archivo es una **propuesta de esquema declarativo**, no el inventario de adaptadores ya implementados ni un resolver universal certificado. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 Estado: contrato de diseño, no resolver implementado. Un perfil describe una edición identificada y sus necesidades comprobadas; no contiene juego, código nativo, scripts, escenas reconstruidas ni una VM. Corregir errores generales en el módulo correspondiente y referenciarlos mediante su versión mínima.
 
 ## Tres versiones independientes

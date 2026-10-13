@@ -1,5 +1,7 @@
 # Regresión y aceptación multijuego
 
+> **Nota de vigencia (2026-10-13):** Los números de tests y ramas mencionados aquí son **baseline de la sesión antigua**; hay tres motores/capas relevantes en cuatro juegos del release v0.8.1. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 Fecha: 2026-10-08. Complementa [arquitectura](MULTIGAME_ARCHITECTURE.md). El objetivo es comparar el comportamiento antes y después de cada modificación propuesta, sin confundir compilación verde con compatibilidad de un juego.
 
 ## Línea base ejecutada

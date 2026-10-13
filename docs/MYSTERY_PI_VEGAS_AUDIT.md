@@ -1,5 +1,7 @@
 # Mystery P.I.: The Vegas Heist — auditoría técnica inicial
 
+> **Nota de vigencia (2026-10-13):** Esta auditoría estática inicial era correcta en su fecha, pero el diagnóstico «sin módulo Android/jugabilidad» fue superado por la implementación SDA posterior. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 Fecha: 2026-10-08. Inspección local estática; no se ejecutaron ejecutables, instaladores, desinstaladores ni DLL originales. Estado de catálogo propuesto: **investigación, módulo no disponible, jugabilidad no verificada**.
 
 ## Identificación fundada en contenido

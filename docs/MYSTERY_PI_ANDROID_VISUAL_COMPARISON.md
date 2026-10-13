@@ -1,5 +1,7 @@
 # Vegas: primera integración visual Android (2026-10-09)
 
+> **Nota de vigencia (2026-10-13):** Los resultados visuales de cada sección corresponden a la fecha y a la pantalla especificada. Los 25 niveles Android documentados no prueban que todas las pantallas coincidan con Windows. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 APK experimental privada: `local-output/vegas-visual-debug.apk`.
 SHA-256: `8d5d648970f6328b19d249481badaf914d6977686c9de037897605e3a40468bf`.
 Aplicación WSA: `org.rigorcore.caserecomp.synthetic.debug`, Android 13/API 33.

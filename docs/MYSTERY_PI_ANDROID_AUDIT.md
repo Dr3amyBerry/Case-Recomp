@@ -1,5 +1,7 @@
 # Auditoría SDA Android: relevo de implementación
 
+> **Nota de vigencia (2026-10-13):** **Vegas ya dispone de un recorrido funcional 25/25 en Android/WSA, final encadenado y 11 verificaciones de parada/restauración**; sigue siendo Alpha y no tiene paridad audiovisual certificada. Las tablas de defectos y frases «NO IMPLEMENTADO» de 2026-10-09 son hallazgos **de entonces**, a menudo corregidos en bloques posteriores del propio documento. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 Fecha: 2026-10-09. Referencia: `e38b8f9`, rama `intento-geminis`, sincronizada con origin al comenzar. Alcance vinculante: `GUION ACTUAL.MD`, conservado localmente. **Vegas no está acreditado como campaña completa ni como reproducción fiel en Android.**
 
 ## Hallazgos del estado recibido

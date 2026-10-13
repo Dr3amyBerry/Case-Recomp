@@ -1,5 +1,7 @@
 # Case-Recomp: audited source, private evidence, current architecture and playability
 
+> **Nota de vigencia (2026-10-13):** Registro de auditoría fechado: preservar sus métricas, diferencias y límites sin convertirlos en pendientes actuales. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 > **Documentation-only audit** of `main` at `9e2c37115d14009b25e473197407da4d37abcdd0`. Reviewed the connected original-game Drive folder, the separately uploaded five-folder private workspace, selected manifests and runtime logs, and the public GitHub code. No private game executable, ZIP, .ls script, screenshot or audio was executed or committed. We did not independently rerun the Windows projector, inspect every image, unpack all archives or compute raw-file SHA-256 for every original object. Distinguish *manifest consistency* from *fresh behavioural proof*.
 
 ## Decision and current state

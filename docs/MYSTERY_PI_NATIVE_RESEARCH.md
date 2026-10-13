@@ -1,5 +1,7 @@
 # Mystery P.I. Vegas: investigación de código nativo
 
+> **Nota de vigencia (2026-10-13):** El análisis nativo es evidencia de ingeniería inversa acotada. La implementación posterior se registra en la auditoría Android; no confundir resultados de Ghidra con comportamiento final validado. Ver [Estado actual](STATUS_ACTUAL.md) e [Índice documental](INDICE.md). Este cambio no vuelve a ejecutar pruebas.
+
 Fecha: 2026-10-08. Etapa 2 autorizada después del
 [cierre humano de Huntsville](HUNTSVILLE_APPROVED_REFERENCE.md).
 Estado: **INVESTIGACIÓN NATIVA; JUGABILIDAD TODAVÍA NO VERIFICADA**.
