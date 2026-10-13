@@ -1,5 +1,8 @@
 # Prime Suspects: integración Director
 
+> **Estado vigente (13-10-2026):** v0.8.1 incluye Prime como **jugable**. El recorrido **22/22 casos** está documentado en **JVM**; en Android constan **9/22 casos completos**, además de pruebas parciales de sonido, escenas y persistencia. No declarar campaña Android totalmente verificada. Este documento conserva la cronología de ensayos; [Estado actual](STATUS_ACTUAL.md).
+
+
 Objetivo: ejecutar la copia local del usuario en el motor Director compartido,
 reutilizando bytecode, score, casts, renderizado, audio y persistencia. Los recursos
 comerciales y scripts recuperados permanecen privados. La rama es `intento-geminis`.
