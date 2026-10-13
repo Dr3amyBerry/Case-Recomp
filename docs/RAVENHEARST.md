@@ -1,5 +1,14 @@
 # Ravenhearst: integración Director
 
+> **Actualizado 13-10-2026:** título **jugable, en revisión** en v0.8.1. El bloque de más abajo que declara Android «NO VERIFICADO» refleja su fecha inicial; hay nuevos commits y tests. [Estado actual](STATUS_ACTUAL.md).
+
+## Cambios posteriores al primer bloque
+
+- Motor Director/Flash integrado, menús, candados, puzle del diario y adaptaciones Android de teclado, rotación y textos.
+- Los commits de octubre 11–12 incorporan reanudación a mitad de habitación, candado y diario (`10c6cd3`), así como el bot de pruebas `tools/ravenhearst_android_qa.py` y mejoras de navegación.
+- Falta confirmar los quince candados por vías naturales, todos los capítulos y final en Android, los efectos y sonido Flash, la comparación con Windows y sesiones de estabilidad. Una prueba que forzó desbloqueos no representa una campaña completa.
+
+
 Objetivo: ejecutar la copia local del usuario de *Mystery Case Files: Ravenhearst*
 en el motor Director compartido, igual que Huntsville y Prime Suspects. Los recursos
 comerciales y los scripts descompilados permanecen privados y fuera de Git.
@@ -71,7 +80,7 @@ giros incluidos) hasta «Encontraste una anotación del diario».
 NO VERIFICADO: resolver los candados jugando, sonido de los Flash en dispositivo,
 morph shapes animados y textos dinámicos dentro de los Flash.
 
-## Estado
+## Estado inicial de la investigación (histórico)
 
 PROBADO en JVM con el bytecode original: splash, carta inicial, entrada de nombre,
 menú principal, selección de modo, diario, mapa, entrada al pórtico y recogida de
