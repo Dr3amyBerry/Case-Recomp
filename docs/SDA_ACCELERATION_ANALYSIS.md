@@ -1,5 +1,7 @@
 # SDA: análisis de aceleración y comparación con un segundo título (2026-10-09)
 
+> **Vigencia 2026-10-13:** Investigación de aceleración SDA realizada antes de varios avances posteriores; no implica soporte comercial de títulos usados como referencias estáticas. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 Análisis de solo lectura (Claude) para la continuación del Goal V3 (`GUION ACTUAL.MD`). No se publica código, pseudocódigo ni recursos comerciales.
 
 ## Vegas: datos del ejecutable

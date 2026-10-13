@@ -1,5 +1,7 @@
 # SDA Android audit and completion plan
 
+> **Vigencia 2026-10-13:** Plan de trabajo original: las referencias a ramas antiguas, pendientes y operaciones autorizadas pertenecen a su fecha; el repositorio hoy solo expone `main`. Consultar [Estado actual](../../STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 > **For agentic workers:** Use superpowers:executing-plans inline. Execution is already authorized by the user; continue autonomously.
 
 **Goal:** Complete the authentic 25-level Vegas campaign and three-stage ending in the single Case-Recomp APK.

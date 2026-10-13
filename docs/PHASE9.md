@@ -1,5 +1,7 @@
 # Phase 9 — first playable hidden-object scene
 
+> **Vigencia 2026-10-13:** Resultados de una **fase histórica**; valores, límites y pruebas conservados como se registraron entonces. No confundir los pendientes de esa etapa con capacidades actuales de v0.8.1. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 Phase 6 verified navigation into the first scene (Score frames 128–132). Phase 9 makes that scene playable: tapping verified hidden objects, registering finds, persisting them, closing the scene and returning to the map, all backed by observation of the owned native Windows projector. Nothing original is committed: screenshots, save data, masks, the observation and the proof stay private.
 
 ## Original behaviour observed

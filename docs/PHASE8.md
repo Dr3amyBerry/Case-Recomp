@@ -1,5 +1,7 @@
 # Phase 8 — controlled synthetic debug packaging
 
+> **Vigencia 2026-10-13:** Resultados de una **fase histórica**; valores, límites y pruebas conservados como se registraron entonces. No confundir los pendientes de esa etapa con capacidades actuales de v0.8.1. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 Phase 8 produces only a synthetic debug APK. The release variant is disabled in Gradle, the debug application ID is suffixed with `.debug`, OS backup remains disabled, and no production signing configuration exists.
 
 ## CI evidence bundle

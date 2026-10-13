@@ -1,5 +1,7 @@
 # Recompilación e interoperabilidad de juegos: evaluación jurídica para Venezuela
 
+> **Vigencia 2026-10-13:** La investigación jurídica describe el alcance y fecha de su evaluación; esta revisión de documentación **no actualiza asesoramiento legal ni concede nuevos permisos**. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 **Revisión:** 2026-10-08 · **Ámbito:** Case Recomp, un motor Android independiente que interpreta archivos originales proporcionados por el usuario. **No es un dictamen legal ni autoriza copiar o distribuir obras ajenas.**
 
 ## Qué se conoce del proyecto

@@ -1,5 +1,7 @@
 # Phase 10 — private decompilation and a Kotlin Lingo VM
 
+> **Vigencia 2026-10-13:** Resultados de una **fase histórica**; valores, límites y pruebas conservados como se registraron entonces. No confundir los pendientes de esa etapa con capacidades actuales de v0.8.1. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 Phases 6 and 9 reconstructed behaviour by observing the original projector one rule at a time. That is reliable but does not scale to a whole game. Phase 10 changes the source of truth:
 
 1. **Private decompilation.** The user's own movie is decompiled locally (ProjectorRays through the `external-export` adapter) to read the real game logic. The decompiled Lingo never enters the repository.

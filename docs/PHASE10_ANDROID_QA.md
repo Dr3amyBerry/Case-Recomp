@@ -1,5 +1,7 @@
 # Phase 10 — Android Director VM private acceptance checklist
 
+> **Vigencia 2026-10-13:** Resultados de una **fase histórica**; valores, límites y pruebas conservados como se registraron entonces. No confundir los pendientes de esa etapa con capacidades actuales de v0.8.1. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 > **Execution handoff, not a claim of passing original-game QA.** The public repository holds a **debug-only experimental Director launcher** plus synthetic tests. All original Huntsville ZIPs, screenshots, restored Windows states, bytecode/decompiled scripts and user save files stay outside GitHub.
 
 ## What was implemented

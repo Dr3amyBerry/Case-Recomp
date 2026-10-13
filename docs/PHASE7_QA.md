@@ -1,5 +1,7 @@
 # Phase 7 - Android QA matrix, lifecycle resilience and performance guardrails
 
+> **Vigencia 2026-10-13:** Resultados de una **fase histórica**; valores, límites y pruebas conservados como se registraron entonces. No confundir los pendientes de esa etapa con capacidades actuales de v0.8.1. Consultar [Estado actual](STATUS_ACTUAL.md) para el soporte y las pruebas reales de los cuatro juegos.
+
 Phase 7 expands verification without changing the fail-closed original-game rule policy. No native-projector capture trial is bundled in CI, therefore private Huntsville navigation remains blocked unless a user imports a separately verified `.crflow`.
 
 ## Verified emulator matrix
