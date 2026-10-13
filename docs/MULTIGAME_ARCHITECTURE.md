@@ -1,15 +1,18 @@
 # Arquitectura multijuego de Case-Recomp
 
+> **Revisión de vigencia 13-10-2026:** el catálogo y motores Director/Lingo/Flash y SDA **ya se implementaron** en v0.8.1. Este documento combina contratos arquitectónicos vigentes con propuestas e hitos de 2026-10-08 a 2026-10-10. [Estado actual](STATUS_ACTUAL.md) y [Android](../android/README.md).
+
+
 > **Auditoría 2026-10-09:** las afirmaciones previas de bonus/desenlace auténticos y campaña completa no están verificadas; existen mecanismos simulados en Kotlin y supuestos en Python. Véase [estado comprobado y pendientes](MYSTERY_PI_ANDROID_AUDIT.md).
 
-Fecha: 2026-10-08. Propuesta de evolución fundada en [auditoría Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditoría Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **Especificación, todavía no implementación.** La investigación previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar módulos.
+Fecha: 2026-10-08. Propuesta de evolución fundada en [auditoría Huntsville](HUNTSVILLE_COMPATIBILITY_AUDIT.md) y [auditoría Mystery P.I.](MYSTERY_PI_VEGAS_AUDIT.md). **La especificación inicial es histórica: varias capas están implementadas y otras continúan propuestas.** La investigación previa queda documentada; se conserva el runtime existente sin refactorizar ni borrar módulos.
 
 ## 1. Decisiones arquitectónicas obligatorias y aprobadas (Requisitos permanentes)
 
 Estas decisiones arquitectónicas son **vinculantes, definitivas e innegociables** para el presente y futuro de Case-Recomp:
 
 ### 1.1. Una sola APK multijuego
-Case-Recomp se distribuye **exclusivamente como una única aplicación Android (APK)** que reúne todos los motores compatibles que soporte la versión.
+Case-Recomp es **un producto Android multijuego**, publicado en **tres variantes de APK** en v0.8.1 (Normal, Lite y Super Lite). Cada variante incorpora los motores y usa su propio almacenamiento; no se crea una APK independiente para cada juego.
 - **Prohibición estricta:** No crear una APK para Director, una APK separada para SDA, una APK independiente para Vegas ni empaquetados individuales por juego.
 - Los módulos Gradle internos (`:engine`, `:app`) separan capas de compilación, pero se integran siempre en el mismo ejecutable de aplicación final.
 
