@@ -356,11 +356,11 @@ La casilla y su etiqueta ahora aparecen activas y admiten off/on/hover mediante 
 
 ### PDA: tres líneas más compactas (2026-10-10)
 
-Por petici?n humana, tiempo, etiqueta de puntuaci?n y cifra utilizan escala 0.45 en vez de 0.55 (18.2% menos), conservando el centrado y la cifra en su propia línea. Cambio exclusivo del perfil Vegas. APK experimental compilada e instalada en WSA; prueba Android de men?, reanudaci?n y salida: 1/1, 3.763 s. La revisión visual humana del nuevo tamaño sigue pendiente; no se certifica fidelidad al original por este ajuste.
+Por petición humana, tiempo, etiqueta de puntuación y cifra utilizan escala 0.45 en vez de 0.55 (18.2% menos), conservando el centrado y la cifra en su propia línea. Cambio exclusivo del perfil Vegas. APK experimental compilada e instalada en WSA; prueba Android de menú, reanudación y salida: 1/1, 3.763 s. La revisión visual humana del nuevo tamaño sigue pendiente; no se certifica fidelidad al original por este ajuste.
 
 ### Segunda fase jugable desde la primera (2026-10-10)
 
-PARCIAL: diálogos originales, ocho colocaciones Android, checkpoint de pieza sostenida y salida con guardado. Atlas de reloj de arena/palanca corregidos con fotogramas nativos; comparación alineada contra recurso extra?do verificada, referencia Windows pendiente. Informe y siete capturas PixelCopy reales en local-output/vegas-second-riddle/comparison.html; matriz coverage.json. V?ase el bloque correspondiente en MYSTERY_PI_ANDROID_AUDIT.md para pruebas, memoria, SHA de APK, fallos conservados y funciones de continuación. Tercera fase y validación integral pendientes.
+PARCIAL: diálogos originales, ocho colocaciones Android, checkpoint de pieza sostenida y salida con guardado. Atlas de reloj de arena/palanca corregidos con fotogramas nativos; comparación alineada contra recurso extraído verificada, referencia Windows pendiente. Informe y siete capturas PixelCopy reales en local-output/vegas-second-riddle/comparison.html; matriz coverage.json. Véase el bloque correspondiente en MYSTERY_PI_ANDROID_AUDIT.md para pruebas, memoria, SHA de APK, fallos conservados y funciones de continuación. Tercera fase y validación integral pendientes.
 
 
 ### Third phase original composition and earned reel code (2026-10-10)
