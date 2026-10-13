@@ -1,5 +1,7 @@
 # Phase 3B.3 — Director 8.5 handler metadata and decompiler cross-check
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 **Status: validated on the provided original movie, without executing it.** The reader is a bounded, read-only structural analyzer. No recovered proprietary handler text, bytecode or original game resource is checked into the public repository.
 
 ## Source-of-truth structure

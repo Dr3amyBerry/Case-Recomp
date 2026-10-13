@@ -1,5 +1,7 @@
 # Phase 3 — verifiable local Director media conversion and tool evaluation
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Status: independently developed Python pipeline complete for the **bounded formats listed below**, synthetically tested with positive and negative cases. Full cross-tool Lingo and SWA decoding on real input is **not** completed. No APK yet. Date: 2026-10-06 (America/Toronto).
 
 ## Input provenance (never committed)

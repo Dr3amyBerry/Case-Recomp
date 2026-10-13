@@ -1,5 +1,7 @@
 # Phase 3B.1 — KEY* cast-member relationships (structural, not rendered)
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Status: **implemented and validated on privately supplied game data**, 2026-10-06. This analysis does not redistribute original bytes, screenshots, Lingo or converted audio/images. The next Phase 3B tasks (alpha channel decoding, native BITD, SWA and executable Lingo semantics) remain open.
 
 ## What the KEY* table means

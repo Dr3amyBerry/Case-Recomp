@@ -1,5 +1,7 @@
 # Phase 4 — palette closure, Score model and scenario-v1
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Phase 4 moves Case-Recomp from media recovery toward a deterministic, content-neutral game engine. The public repository still contains no original art, audio, recovered Lingo source, cast names, marker text, or original scenario coordinates. Private verification uses the supplied installation and discards generated outputs.
 
 ## System Windows palette -102

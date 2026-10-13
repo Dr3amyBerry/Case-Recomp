@@ -1,5 +1,7 @@
 # Phase 4B — private behavior traces and Phase 5 Android shell
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Phase 4B adds a **fail-closed verification bridge** between the static Director model and observable runtime behavior, while starting an Android application shell that contains only synthetic content.
 
 No original art, audio, recovered Lingo source, frame-label text, original coordinates, game executables, CCT/DCR/DIR/CST files or private trace outputs belong in GitHub.

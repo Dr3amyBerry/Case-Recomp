@@ -1,5 +1,7 @@
 # Phase 6 — verified vertical slice gate
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Phase 6 narrows gameplay reconstruction to one private flow: boot, menu, map and entry into a single scene. The repository still does not contain original media, marker names, Lingo source or original coordinates.
 
 ## Private static plan

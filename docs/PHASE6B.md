@@ -1,5 +1,7 @@
 # Phase 6B — native runtime capture consensus
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Phase 6 is **closed**. Two independent native Windows projector sessions were accepted and a private Huntsville `.crflow` v2 promotes **2 navigation rules**. The earlier placeholder attempt was rejected; it is preserved below as historical audit evidence. Gameplay inside the first scene is the next phase.
 
 ## Capture pipeline

@@ -1,5 +1,7 @@
 # Phase 3B.2: alpha masks, BITD, SWA audio and Lingo comparison
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 **Status: implemented and privately tested as of 2026-10-06.** The supplied game files, private conversions, WAV samples, masks, scripts, and source-code reconstructions remain outside the public repository. All public test fixtures use synthetic samples. This document reports precisely what has and has not been verified.
 
 ## `CASt` ↔ `KEY*` ↔ `ediM` / `ALFA`

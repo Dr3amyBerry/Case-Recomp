@@ -1,5 +1,7 @@
 # Phase 5 — private local content import and Android runtime boundaries
 
+> **Archivo de fase histórica (revisión 2026-10-13):** los comandos, recuentos, pruebas y pendientes describen **esta etapa inicial**, no el estado global de Case Recomp v0.8.1. Conservar esta evidencia; consultar [Estado actual](STATUS_ACTUAL.md), [Roadmap vigente](ROADMAP.md) e [Índice](INDICE.md) para los cuatro títulos y los motores actuales.
+
 Phase 5 adds a **local-only licensed-content bridge**. The repository and APK remain free of Huntsville media. A user first converts an independently obtained installation on their own machine, then packages that local output into a deterministic `.crcontent` ZIP. Android imports the ZIP through the system document picker, verifies it, and copies it into app-private storage.
 
 ## Private content package
